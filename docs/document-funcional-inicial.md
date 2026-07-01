@@ -225,3 +225,7 @@ La prova d’èxit no és que els agents semblin intel·ligents. La prova d’è
 - Crear una arquitectura massa complexa abans de demostrar que el model ecològic funciona.
 - Interpretar una visualització atractiva com si fos evidència d’adaptació.
 - Executar experiments sense llavor, configuració i mètriques registrades.
+
+## 7. Documents relacionats
+
+- [Abast del prototip inicial](abast-prototip-inicial.md): especificació funcional detallada del sistema mínim necessari per validar selecció diferencial observable, incloent components inclosos, exclusions, mètriques, registre experimental i criteris d'acceptació.
