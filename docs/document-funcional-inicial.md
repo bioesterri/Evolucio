@@ -229,3 +229,4 @@ La prova d’èxit no és que els agents semblin intel·ligents. La prova d’è
 ## 7. Documents relacionats
 
 - [Abast del prototip inicial](abast-prototip-inicial.md): especificació funcional detallada del sistema mínim necessari per validar selecció diferencial observable, incloent components inclosos, exclusions, mètriques, registre experimental i criteris d'acceptació.
+- [Bucle principal de simulació](bucle-principal-simulacio.md): especificació funcional del pas temporal discret que coordina entorn, agents, accions, reproducció, mort, mètriques, validacions i repetibilitat.
