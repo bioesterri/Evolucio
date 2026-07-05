@@ -230,3 +230,6 @@ La prova d’èxit no és que els agents semblin intel·ligents. La prova d’è
 
 - [Abast del prototip inicial](abast-prototip-inicial.md): especificació funcional detallada del sistema mínim necessari per validar selecció diferencial observable, incloent components inclosos, exclusions, mètriques, registre experimental i criteris d'acceptació.
 - [Bucle principal de simulació](bucle-principal-simulacio.md): especificació funcional del pas temporal discret que coordina entorn, agents, accions, reproducció, mort, mètriques, validacions i repetibilitat.
+- [Mètriques evolutives](metriques-evolutives.md): especificació funcional del sistema d'indicadors per distingir evolució mesurable de soroll aleatori.
+- [Registre d'experiments](registre-experiments.md): especificació funcional del sistema de traçabilitat que vincula cada execució amb configuració, llavor, versió, mètriques i artefactes.
+- [Valoració del registre d'experiments](valoracio-registre-experiments.md): revisió d'adequació del registre amb la resta de documents funcionals i recomanacions d'implementació.
