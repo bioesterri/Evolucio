@@ -232,4 +232,7 @@ La prova d’èxit no és que els agents semblin intel·ligents. La prova d’è
 - [Bucle principal de simulació](bucle-principal-simulacio.md): especificació funcional del pas temporal discret que coordina entorn, agents, accions, reproducció, mort, mètriques, validacions i repetibilitat.
 - [Mètriques evolutives](metriques-evolutives.md): especificació funcional del sistema d'indicadors per distingir evolució mesurable de soroll aleatori.
 - [Registre d'experiments](registre-experiments.md): especificació funcional del sistema de traçabilitat que vincula cada execució amb configuració, llavor, versió, mètriques i artefactes.
+- [Executar experiments inicials](executar-experiments-inicials.md): especificació funcional per executar escenaris controlats, comparables i repetibles abans d'extreure conclusions evolutives.
+- [Analitzar resultats](analitzar-resultats.md): especificació funcional per interpretar mètriques, genealogies, diversitat i resposta ambiental distingint adaptació, deriva, error i atzar.
 - [Valoració del registre d'experiments](valoracio-registre-experiments.md): revisió d'adequació del registre amb la resta de documents funcionals i recomanacions d'implementació.
+- [Valoració d'analitzar resultats](valoracio-analitzar-resultats.md): revisió d'adequació de l'anàlisi de resultats amb la resta de documents funcionals i recomanacions d'implementació.
