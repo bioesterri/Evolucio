@@ -234,5 +234,9 @@ La prova d’èxit no és que els agents semblin intel·ligents. La prova d’è
 - [Registre d'experiments](registre-experiments.md): especificació funcional del sistema de traçabilitat que vincula cada execució amb configuració, llavor, versió, mètriques i artefactes.
 - [Executar experiments inicials](executar-experiments-inicials.md): especificació funcional per executar escenaris controlats, comparables i repetibles abans d'extreure conclusions evolutives.
 - [Analitzar resultats](analitzar-resultats.md): especificació funcional per interpretar mètriques, genealogies, diversitat i resposta ambiental distingint adaptació, deriva, error i atzar.
+- [Ajustar paràmetres del model](ajustar-parametres-model.md): especificació funcional per calibrar recursos, energia, reproducció, mutació, demografia i entorn a partir d'experiments registrats.
+- [Preparar la base per a versions més complexes](preparar-base-versions-complexes.md): especificació funcional per tancar la primera versió com a línia base extensible, versionada i preparada per a millores futures.
 - [Valoració del registre d'experiments](valoracio-registre-experiments.md): revisió d'adequació del registre amb la resta de documents funcionals i recomanacions d'implementació.
 - [Valoració d'analitzar resultats](valoracio-analitzar-resultats.md): revisió d'adequació de l'anàlisi de resultats amb la resta de documents funcionals i recomanacions d'implementació.
+- [Valoració d'ajustar paràmetres del model](valoracio-ajustar-parametres-model.md): revisió d'adequació del calibratge amb la resta de documents funcionals i recomanacions d'implementació.
+- [Valoració de preparar la base per a versions més complexes](valoracio-preparar-base-versions-complexes.md): revisió d'adequació del tancament extensible amb la resta de documents funcionals i recomanacions d'implementació.
