@@ -13,7 +13,14 @@
 
 ## Dependències, proves i traçabilitat
 
-- No afegeixis dependències sense justificació.
+- Inicialitza l'entorn de desenvolupament amb `uv sync --group dev`.
+- Executa localment `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`,
+  `uv run lint-imports`, `uv lock --check` i `uv build` abans de completar un PR.
+- Gestiona les dependències amb `uv`, o modifica coherentment `pyproject.toml` i executa després
+  `uv lock`.
+- Versiona sempre `uv.lock` i no l'editis manualment.
+- No afegeixis dependències sense justificar al PR si són obligatòries, opcionals o de
+  desenvolupament.
 - No actualitzis JAX o Equinox sense proves de regressió i benchmark quan aquests ja existeixin.
 - No basis conclusions científiques en una sola execució.
 - Revisa que configuració, seed i versions siguin traçables.

@@ -51,14 +51,26 @@ Abans de començar una implementació, Codex ha de llegir l'arquitectura tècnic
 
 ## Qualitat i proves
 
+- `uv` és l'eina obligatòria per modificar i sincronitzar dependències.
+- `uv.lock` s'ha de versionar sempre i no s'ha d'editar manualment.
+- No s'han d'usar instal·lacions globals com a prova de funcionament del projecte.
+- Cada dependència nova s'ha de justificar com a base, opcional o de desenvolupament.
 - El codi haurà d'estar tipat.
 - Les llavors aleatòries seran explícites.
 - Les funcions crítiques tindran proves.
-- Caldrà executar les comprovacions definides pel repositori abans de donar una tasca per acabada.
+- Cal executar les comprovacions disponibles abans de donar un PR per acabat:
+
+  ```console
+  uv sync --group dev
+  uv run ruff check .
+  uv run ruff format --check .
+  uv run pyright
+  uv run lint-imports
+  uv lock --check
+  uv build
+  ```
 - Els errors no s'han de corregir amb fallbacks silenciosos.
 - Els resultats numèrics no s'han d'interpretar com a evolució si fallen invariants.
-
-Nota: el PR-01 haurà d'actualitzar aquesta secció amb les ordres reals del projecte quan existeixin eines de qualitat configurades.
 
 ## Protocol de finalització
 
