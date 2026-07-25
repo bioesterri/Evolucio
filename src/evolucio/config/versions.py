@@ -1,0 +1,5 @@
+"""Public schema versions."""
+
+CONFIG_SCHEMA_VERSION = "1.0"
+OBSERVATION_SCHEMA_VERSION = "1.0"
+ACTION_SCHEMA_VERSION = "1.0"
