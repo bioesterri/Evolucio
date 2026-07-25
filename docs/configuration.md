@@ -35,3 +35,32 @@ persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024,
 ```
 
 Errors habituals: versions desconegudes, nombres expressats com strings, claus duplicades, fases solapades, capacitat espacial insuficient o reproducció energèticament inviable. `CoreConfig` i la transformació cap al nucli corresponen al PR-04.
+
+## Frontera host-core
+
+`ExperimentConfig` és el contracte host complet i `config_hash` n'identifica tots els valors
+canònics. `compile_config` en crea una projecció `CoreConfig` PyTree: els paràmetres numèrics
+variables són arrays JAX amb dtype explícit, mentre que les formes i els selectors de control són
+primitives Python. Les dades operatives exclusives del host no entren al PyTree.
+
+`CompileSignature` és una allowlist immutable dels camps estàtics. El seu digest SHA-256 canònic
+identifica de manera persistent una classe d'executable; a diferència de `config_hash`, no canvia
+per costos, taxes, llavor, passos totals o persistència. Per tant, dos runs amb la mateixa
+signatura poden reutilitzar en el futur un executable, encara que els seus valors dinàmics siguin
+diferents.
+
+| Camps reals | Categoria | Representació compilada | Motiu |
+|---|---|---|---|
+| `schema_version` | estàtic | `str` a `CompileSignature` | Versiona el contracte interpretat. |
+| `world.width`, `world.height`, `boundary_mode`, `resource_distribution` | estàtic | primitives Python | Defineixen formes o selecció de l'algoritme del món. |
+| `world.environment_schedule` (longitud) | estàtic | `int` a `CompileSignature` | Determina la forma dels vectors ambientals. |
+| `world.resource_capacity`, `initial_resource_fraction`, `regeneration_rate` | dinàmic | escalars `float32` | Canvien valors, no formes. |
+| valors de `environment_schedule` | dinàmic | vectors `int32`/`float32` | La longitud és fixa, però els valors poden variar. |
+| `population.max_agents`, `max_births_per_step`, `placement`, `allow_multiple_agents_per_cell` | estàtic | primitives Python | Defineixen capacitat, buffers o control compilat. |
+| `population.initial_agents` | dinàmic | escalar `int32` | Ocupació inicial dins una capacitat fixa. |
+| versions, topologia, activació i radi de `policy` | estàtic | primitives Python | Defineixen esquema, topologia o observació. |
+| tots els camps d'`energy` | dinàmic | escalars `float32` | Són costos i llindars sense efecte sobre formes. |
+| edats d'`evolution` | dinàmic | escalars `int32` | Són comptadors i llindars. |
+| mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
+| `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
+| `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | RNG, orquestració i I/O són responsabilitats externes al nucli. |
