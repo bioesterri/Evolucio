@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAX_PLATFORMS: cpu
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked --group dev
+      - run: uv lock --check
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pyright
+      - run: uv run lint-imports
+      - name: Check pull request whitespace
+        if: github.event_name == 'pull_request'
+        run: git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
+      - name: Check push whitespace
+        if: github.event_name == 'push'
+        run: git diff --check "${{ github.event.before }}" "${{ github.sha }}"
+
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --locked --group dev
+      - run: uv run coverage erase
+      - run: uv run coverage run -m pytest
+      - run: uv run coverage report
+      - run: uv run coverage xml
+      - run: uv run python -c "import evolucio"
+      - run: uv run python -c "import jax; import equinox"
+      - run: uv pip check
+      - run: uv build
+      - name: Verify distributions and installed wheel
+        run: |
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 1
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 1
+          uv venv --python 3.12 /tmp/evolucio-wheel-venv
+          uv pip install --python /tmp/evolucio-wheel-venv/bin/python dist/*.whl
+          expected_version="$(uv run python -c 'from importlib.metadata import version; print(version("projecte-evolucio"))')"
+          cd /tmp
+          /tmp/evolucio-wheel-venv/bin/python -c 'import evolucio'
+          /tmp/evolucio-wheel-venv/bin/python -c "from importlib.metadata import version; assert version('projecte-evolucio') == '$expected_version'"
+          /tmp/evolucio-wheel-venv/bin/python -c "from importlib.metadata import files; assert any(str(path).endswith('evolucio/py.typed') for path in files('projecte-evolucio'))"
