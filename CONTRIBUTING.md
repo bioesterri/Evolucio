@@ -51,3 +51,9 @@
 - Tipus i scopes tècnics en anglès.
 - Descripció breu i concreta.
 - No cal reescriure l'historial si el repositori o la plataforma no ho permeten.
+
+## Regles permanents de configuració
+
+- Tot canvi d’esquema ha d’actualitzar la versió quan correspongui i mai no pot reinterpretar versions antigues.
+- Els hashes es calculen sobre configuració canònica validada; no s’admeten variables d’entorn ni fallbacks silenciosos.
+- Una configuració congelada no es modifica i la configuració host no pot importar JAX.
