@@ -1,0 +1,20 @@
+# Virtual environments
+.venv/
+
+# Python bytecode and package metadata
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Quality-tool caches and reports
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# Build artifacts
+dist/
+build/
