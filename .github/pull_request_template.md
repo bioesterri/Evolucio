@@ -37,6 +37,10 @@ Descriu riscos, limitacions o decisions pendents.
 - [ ] S'han respectat els límits arquitectònics.
 - [ ] S'han afegit o actualitzat les proves necessàries.
 - [ ] S'han executat les verificacions disponibles.
+- [ ] La CI s'ha executat i se n'ha documentat l'estat.
+- [ ] S'ha mantingut el llindar de cobertura.
+- [ ] Les proves afegides o modificades són deterministes.
+- [ ] No s'ha desactivat cap porta de qualitat.
 - [ ] No s'afirma haver executat comprovacions que no s'han executat.
 - [ ] La documentació afectada està actualitzada.
 - [ ] No s'han introduït dependències sense justificació.
