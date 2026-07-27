@@ -10,6 +10,7 @@ from .dtypes import (
     REAL_DTYPE,
     STEP_DTYPE,
 )
+from .state import PopulationState, SimulationState, WorldState
 from .types import AgentId, Array, GenomeId, LineageId, Shape, StepIndex
 
 __all__ = [
@@ -28,6 +29,9 @@ __all__ = [
     "DeathCauseCode",
     "GenomeId",
     "LineageId",
+    "PopulationState",
     "Shape",
+    "SimulationState",
     "StepIndex",
+    "WorldState",
 ]
