@@ -14,7 +14,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 2
+COMPILE_SIGNATURE_SCHEMA_VERSION = 3
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -34,6 +34,7 @@ class CompileSignature:
     world_height: int
     boundary_mode: str
     resource_distribution: str
+    resource_patch_count: int
     environment_schedule_length: int
     max_agents: int
     max_births_per_step: int
@@ -59,7 +60,11 @@ class WorldCoreConfig(eqx.Module):
     boundary_mode: str
     resource_distribution: str
     resource_capacity: jax.Array
-    initial_resource_fraction: jax.Array
+    initial_resource_mean: jax.Array
+    resource_patch_count: int
+    resource_patch_radius: jax.Array
+    resource_patch_contrast: jax.Array
+    environment_initial_value: jax.Array
     regeneration_rate: jax.Array
     environment_start_steps: jax.Array
     environment_end_steps: jax.Array
@@ -195,6 +200,7 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         world_height=_static_int(world.height, "world.height"),
         boundary_mode=world.boundary_mode,
         resource_distribution=world.resource_distribution,
+        resource_patch_count=_static_int(world.resource_patch_count, "world.resource_patch_count"),
         environment_schedule_length=_static_int(
             len(world.environment_schedule), "world.environment_schedule"
         ),
@@ -238,8 +244,20 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             boundary_mode=world.boundary_mode,
             resource_distribution=world.resource_distribution,
             resource_capacity=_float_scalar(world.resource_capacity, "world.resource_capacity"),
-            initial_resource_fraction=_float_scalar(
-                world.initial_resource_fraction, "world.initial_resource_fraction"
+            initial_resource_mean=_float_scalar(
+                world.initial_resource_mean, "world.initial_resource_mean"
+            ),
+            resource_patch_count=_static_int(
+                world.resource_patch_count, "world.resource_patch_count"
+            ),
+            resource_patch_radius=_float_scalar(
+                world.resource_patch_radius, "world.resource_patch_radius"
+            ),
+            resource_patch_contrast=_float_scalar(
+                world.resource_patch_contrast, "world.resource_patch_contrast"
+            ),
+            environment_initial_value=_float_scalar(
+                world.environment_initial_value, "world.environment_initial_value"
             ),
             regeneration_rate=_float_scalar(world.regeneration_rate, "world.regeneration_rate"),
             environment_start_steps=_int_vector(
