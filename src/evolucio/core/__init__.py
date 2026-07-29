@@ -2,10 +2,14 @@
 
 from .codes import (
     ACTION_COUNT,
+    BOUNDARY_MODE_COUNT,
     DEATH_CAUSE_COUNT,
+    RESOURCE_DISTRIBUTION_COUNT,
     RNG_STREAM_COUNT,
     ActionCode,
+    BoundaryModeCode,
     DeathCauseCode,
+    ResourceDistributionCode,
     RngStreamCode,
 )
 from .dtypes import (
@@ -43,6 +47,7 @@ from .types import AgentId, Array, GenomeId, LineageId, Shape, StepIndex
 
 __all__ = [
     "ACTION_COUNT",
+    "BOUNDARY_MODE_COUNT",
     "CODE_DTYPE",
     "COUNT_DTYPE",
     "DEATH_CAUSE_COUNT",
@@ -54,17 +59,20 @@ __all__ = [
     "NULL_ID",
     "PRNG_IMPLEMENTATION",
     "REAL_DTYPE",
+    "RESOURCE_DISTRIBUTION_COUNT",
     "RNG_STREAM_COUNT",
     "STEP_DTYPE",
     "ActionCode",
     "AgentId",
     "Array",
+    "BoundaryModeCode",
     "DeathCauseCode",
     "GenomeId",
     "IdAllocation",
     "IdCounters",
     "LineageId",
     "PopulationState",
+    "ResourceDistributionCode",
     "RngState",
     "RngStreamCode",
     "Shape",
