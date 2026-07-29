@@ -11,9 +11,15 @@ from evolucio.core import (
     MASK_DTYPE,
     REAL_DTYPE,
     STEP_DTYPE,
+    IdCounters,
     PopulationState,
+    RngState,
     SimulationState,
     WorldState,
+    advance_rng,
+    allocate_agent_ids,
+    create_id_counters,
+    create_rng_state,
 )
 
 CAPACITY = 8
@@ -55,6 +61,8 @@ def _population(active_slots: int = 0) -> PopulationState:
 def _state(active_slots: int = 0) -> SimulationState:
     return SimulationState(
         step=jnp.asarray(2, dtype=STEP_DTYPE),
+        rng=create_rng_state(42),
+        ids=create_id_counters(),
         world=_world(),
         population=_population(active_slots),
     )
@@ -135,7 +143,10 @@ def test_simulation_state_is_an_array_only_stable_pytree() -> None:
     assert state.step.dtype == jnp.dtype(STEP_DTYPE)
     assert isinstance(state.world, WorldState)
     assert isinstance(state.population, PopulationState)
-    _assert_array_leaves(state, 14)
+    assert isinstance(state.rng, RngState)
+    assert isinstance(state.ids, IdCounters)
+    _assert_array_leaves(state, 18)
+    assert jax.dtypes.issubdtype(state.rng.key.dtype, jax.dtypes.prng_key)
     assert jax.tree.structure(state) == jax.tree.structure(other)
     zeroed = jax.tree.map(jnp.zeros_like, state)
     assert isinstance(zeroed, SimulationState)
@@ -171,3 +182,32 @@ def test_filter_jit_consumes_and_returns_state() -> None:
     returned = return_state(second)
     assert isinstance(returned, SimulationState)
     assert jax.tree.structure(returned) == jax.tree.structure(second)
+
+
+def test_rng_and_id_updates_do_not_modify_ecological_state() -> None:
+    state = _state(active_slots=3)
+    next_rng, _ = advance_rng(state.rng)
+    next_ids, _ = allocate_agent_ids(state.ids, jnp.asarray([True, False, True], dtype=MASK_DTYPE))
+    rng_updated = eqx.tree_at(lambda value: value.rng, state, next_rng)
+    ids_updated = eqx.tree_at(lambda value: value.ids, state, next_ids)
+
+    for updated in (rng_updated, ids_updated):
+        assert jax.tree.all(jax.tree.map(jnp.array_equal, state.world, updated.world))
+        assert jax.tree.all(jax.tree.map(jnp.array_equal, state.population, updated.population))
+
+
+def test_in_memory_state_is_sufficient_for_deterministic_continuation() -> None:
+    state = _state(active_slots=2)
+    rng, _ = advance_rng(state.rng)
+    intermediate = eqx.tree_at(lambda value: value.rng, state, rng)
+
+    def continue_branch(value: SimulationState) -> tuple[jax.Array, jax.Array, jax.Array]:
+        next_rng, step_key = advance_rng(value.rng)
+        next_ids, allocation = allocate_agent_ids(
+            value.ids, jnp.asarray([False, True, True], dtype=MASK_DTYPE)
+        )
+        return next_rng.key, step_key, next_ids.next_agent_id + allocation.count
+
+    first = continue_branch(intermediate)
+    second = continue_branch(intermediate)
+    assert all(jnp.array_equal(left, right) for left, right in zip(first, second, strict=True))

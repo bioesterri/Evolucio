@@ -30,3 +30,22 @@ class DeathCauseCode(IntEnum):
 
 
 DEATH_CAUSE_COUNT = len(DeathCauseCode)
+
+
+class RngStreamCode(IntEnum):
+    """Stable domains for deterministic random-key derivation."""
+
+    WORLD_INITIALIZATION = 0
+    RESOURCE_INITIALIZATION = 1
+    AGENT_INITIALIZATION = 2
+    GENOME_INITIALIZATION = 3
+    ENVIRONMENT_UPDATE = 4
+    ACTION_TIE_BREAK = 5
+    MOVEMENT_CONFLICT = 6
+    RESOURCE_CONFLICT = 7
+    REPRODUCTION_CONFLICT = 8
+    BIRTH_PLACEMENT = 9
+    GENOME_MUTATION = 10
+
+
+RNG_STREAM_COUNT = len(RngStreamCode)
