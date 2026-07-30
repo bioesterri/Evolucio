@@ -81,6 +81,24 @@ def test_cross_block_capacity(config: ExperimentConfig) -> None:
         ExperimentConfig.model_validate(raw)
 
 
+def test_zero_founders_and_overlapping_population_are_valid(config: ExperimentConfig) -> None:
+    raw = data(config)
+    raw["world"]["width"] = 1  # type: ignore[index]
+    raw["world"]["height"] = 1  # type: ignore[index]
+    raw["population"]["initial_agents"] = 0  # type: ignore[index]
+    raw["population"]["max_agents"] = 4  # type: ignore[index]
+    raw["population"]["max_births_per_step"] = 1  # type: ignore[index]
+    assert ExperimentConfig.model_validate(raw).population.initial_agents == 0
+
+
+def test_world_area_must_fit_linear_int32_index(config: ExperimentConfig) -> None:
+    raw = data(config)
+    raw["world"]["width"] = 46341  # type: ignore[index]
+    raw["world"]["height"] = 46341  # type: ignore[index]
+    with pytest.raises(ValidationError, match="representable as int32"):
+        ExperimentConfig.model_validate(raw)
+
+
 @given(st.integers(min_value=0, max_value=2**32 - 1))
 @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_valid_seeds(config: ExperimentConfig, seed: int) -> None:

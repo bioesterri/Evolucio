@@ -28,3 +28,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [RNG determinista i identificadors interns](reference/rng_and_identifiers.md)
 - [Inicialització del món 2D](reference/world_initialization.md)
 - [Regeneració de recursos i calendari ambiental](reference/resource_regeneration_and_environment_calendar.md)
+- [Inicialització de la població fundadora](reference/population_initialization.md)

@@ -258,7 +258,7 @@
           "type": "boolean"
         },
         "initial_agents": {
-          "exclusiveMinimum": 0,
+          "minimum": 0,
           "title": "Initial Agents",
           "type": "integer"
         },
