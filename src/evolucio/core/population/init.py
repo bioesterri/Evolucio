@@ -21,6 +21,7 @@ from evolucio.core.dtypes import (
 )
 from evolucio.core.ids import NULL_ID, IdCounters, allocate_ids
 from evolucio.core.rng import derive_indexed_key, derive_stream_key
+from evolucio.core.spatial import rebuild_world_occupancy
 from evolucio.core.state import PopulationState, WorldState
 from evolucio.core.types import Array
 
@@ -109,17 +110,6 @@ def _sample_initial_positions(
     return jnp.where(alive[:, None], sampled, inactive)
 
 
-def _build_initial_occupancy(positions: Array, alive: Array, *, width: int, height: int) -> Array:
-    safe_positions = jnp.where(alive[:, None], positions, jnp.zeros_like(positions))
-    flat_index = safe_positions[:, 1] * width + safe_positions[:, 0]
-    weights = alive.astype(COUNT_DTYPE)
-    return (
-        jnp.bincount(flat_index, weights=weights, length=height * width)
-        .reshape((height, width))
-        .astype(COUNT_DTYPE)
-    )
-
-
 def initialize_population(
     world: WorldState,
     population_config: PopulationCoreConfig,
@@ -156,12 +146,9 @@ def initialize_population(
         birth_step=jnp.full((max_agents,), INITIAL_BIRTH_STEP, dtype=STEP_DTYPE),
         age=jnp.full((max_agents,), INITIAL_AGE, dtype=COUNT_DTYPE),
     )
-    occupancy = _build_initial_occupancy(positions, alive, width=width, height=height)
-    successful_world = WorldState(
-        resources=world.resources,
-        environment=world.environment,
-        occupancy=occupancy,
-    )
+    successful_world = rebuild_world_occupancy(
+        world, successful_population, width=width, height=height
+    ).world
     empty = create_empty_population(max_agents)
 
     def select_success(success: Array, failure: Array) -> Array:

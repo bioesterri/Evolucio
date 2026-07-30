@@ -55,7 +55,8 @@ són fixes i no es desen duplicades a l'estat.
 
 En accedir en el futur a un mapa `[H, W]`, una posició `[x, y]` s'indexarà com `[y, x]`.
 `occupancy` és un recompte derivat de `population.position` i `population.alive`. El PR-10 el
-calcula per a la població fundadora; el recàlcul general correspon al PR-11.
+construeix mitjançant el component espacial general del PR-11. És l'únic mapa poblacional
+persistent: les densitats global i local es deriven sota demanda i no formen part de l'estat.
 
 ## Capacitat fixa i slots
 
