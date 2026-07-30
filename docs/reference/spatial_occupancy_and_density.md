@@ -65,3 +65,7 @@ operacions no fan I/O ni usen RNG i són compatibles amb eager, `eqx.filter_jit`
 
 El PR-12 extraurà els mapes per agent, construirà direccions i restarà l'agent focal quan la
 variable signifiqui «altres agents». Els mapes generals del PR-11 no anticipen aquesta semàntica.
+
+## Consum perceptiu
+
+L'extracció per slot, els raigs cardinals i l'exclusió exacta del focal es documenten a [Esquema d'observacions locals v1](local_observation_schema_v1.md).

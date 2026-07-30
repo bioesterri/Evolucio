@@ -49,7 +49,7 @@ Recursos i ambient es conserven exactament.
 | `max_energy`, `death_threshold` | finits i coherents | dinàmics `float32` | sí | no |
 
 `width * height` ha de ser representable com `int32`. `placement` i `max_agents` ja eren a la
-signatura v3; no s'ha canviat la versió. Ni claus, IDs, posicions ni ocupació són propietats d'un
+signatura; la versió actual és v4 pel contracte d'observacions del PR-12. Ni claus, IDs, posicions ni ocupació són propietats d'un
 executable compilat.
 
 ## Límit de responsabilitats

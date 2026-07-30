@@ -73,6 +73,23 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
 @pytest.mark.parametrize(
     ("block", "change"),
     [
+        ("energy", {"max_energy": 110.0}),
+        ("energy", {"reproduction_threshold": 45.0}),
+        ("evolution", {"max_age": 1200}),
+        ("world", {"resource_capacity": 12.0}),
+    ],
+)
+def test_observation_scales_are_dynamic(
+    config: ExperimentConfig, block: str, change: dict[str, object]
+) -> None:
+    changed = replace(config, block, **change)
+    assert compile_config(config).config_hash != compile_config(changed).config_hash
+    assert build_compile_signature(config) == build_compile_signature(changed)
+
+
+@pytest.mark.parametrize(
+    ("block", "change"),
+    [
         ("world", {"width": 65}),
         ("world", {"height": 65}),
         ("world", {"resource_distribution": "uniform"}),
@@ -80,6 +97,7 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
         ("population", {"max_agents": 1025}),
         ("population", {"max_births_per_step": 65}),
         ("runtime", {"chunk_size": 64}),
+        ("observations", {"perception_radius": 3}),
     ],
 )
 def test_static_change_changes_signature(
@@ -93,7 +111,9 @@ def test_static_change_changes_signature(
 def test_policy_static_fields_are_in_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
     assert signature.hidden_size == config.policy.hidden_size
-    assert signature.observation_schema_version == config.policy.observation_schema_version
+    assert signature.observation_schema_version == config.observations.schema_version
+    assert signature.observation_schema_size == 15
+    assert len(signature.observation_schema_digest) == 64
     assert signature.action_schema_version == config.policy.action_schema_version
     assert signature.activation == config.policy.activation
 
@@ -128,7 +148,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 3
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 4
     assert signature.rng_implementation == "threefry2x32"
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
