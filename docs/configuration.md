@@ -112,3 +112,9 @@ root key són dades d'execució deliberadament excloses.
 La `CompileSignature` incorpora la versió 1 i el digest canònic del
 [contracte d'accions](reference/action_contract_and_validation_v1.md). Propostes, accions
 encaminades, causes concretes, posicions, recursos, `alive`, costos i RNG continuen exclosos.
+# Signatura de resolució espacial
+
+`CompileSignature` versió 9 incorpora la versió i el digest de l'esquema fix de
+[moviment cardinal i conflictes espacials v1](reference/cardinal_movement_and_spatial_conflicts_v1.md).
+No incorpora claus, prioritats, posicions, ocupació ni recomptes d'execució, i no afegeix cap opció
+de configuració espacial nova.
