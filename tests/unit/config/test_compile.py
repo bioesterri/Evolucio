@@ -110,12 +110,12 @@ def test_static_change_changes_signature(
 
 def test_policy_static_fields_are_in_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert signature.hidden_size == config.policy.hidden_size
+    assert signature.policy_hidden_size == config.policy.hidden_size
     assert signature.observation_schema_version == config.observations.schema_version
     assert signature.observation_schema_size == 15
     assert len(signature.observation_schema_digest) == 64
     assert signature.action_schema_version == config.policy.action_schema_version
-    assert signature.activation == config.policy.activation
+    assert signature.policy_activation == config.policy.activation
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 4
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 5
     assert signature.rng_implementation == "threefry2x32"
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
@@ -225,3 +225,27 @@ def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) ->
     too_large = replace(config, "world", resource_capacity=1e100)
     with pytest.raises(ConfigCompilationError, match=r"world\.resource_capacity"):
         compile_config(too_large)
+
+
+def test_policy_schema_is_static_and_complete(config: ExperimentConfig) -> None:
+    compiled = compile_config(config)
+    policy = compiled.core.policy
+    signature = compiled.compile_signature
+    assert (policy.schema_version, policy.input_size, policy.hidden_size, policy.output_size) == (
+        1,
+        15,
+        16,
+        7,
+    )
+    assert policy.activation == "tanh" and policy.use_bias is True
+    assert len(policy.schema_digest) == 64
+    assert signature.policy_schema_version == policy.schema_version
+    assert signature.policy_schema_digest == policy.schema_digest
+    assert (
+        signature.policy_input_size,
+        signature.policy_hidden_size,
+        signature.policy_output_size,
+    ) == (15, 16, 7)
+    assert signature.policy_activation == "tanh" and signature.policy_use_bias is True
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "weights", "initialization_distribution", "mutation_sigma"} & fields

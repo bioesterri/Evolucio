@@ -62,3 +62,7 @@ Un slot inactiu o un agent viu fora de límits rep quinze zeros, independentment
 | Viabilitat | PR-20 i PR-21 |
 | Integració temporal | PR-27 |
 | Persistència del digest amb genomes | PR-35, PR-39 o adaptador corresponent |
+
+## Política consumidora
+
+La [PolicyMLP v1](policy_mlp_schema_v1.md) consumeix aquest vector complet de 15 valors i incorpora el digest d'aquest esquema al seu propi contracte versionat.

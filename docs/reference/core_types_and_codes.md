@@ -71,3 +71,7 @@ toroidal ni cap distribució aleatòria blanca.
 `InitialPlacementCode.UNIFORM_WITH_REPLACEMENT = 0` identifica l'únic algoritme inicial. En
 l'esquema host 1.3 conserva l'spelling establert `placement: random`; no hi ha aliases ni modes
 alternatius. El recompte `INITIAL_PLACEMENT_COUNT` val 1.
+
+## Sortides de la política
+
+La [PolicyMLP v1](policy_mlp_schema_v1.md) produeix set scores lineals en l'ordre numèric estable d'`ActionCode`; no selecciona ni valida cap acció.

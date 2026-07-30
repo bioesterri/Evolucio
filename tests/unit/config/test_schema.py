@@ -7,7 +7,7 @@ from evolucio.config import CONFIG_SCHEMA_VERSION, experiment_config_json_schema
 
 def test_schema_snapshot() -> None:
     schema = experiment_config_json_schema()
-    assert CONFIG_SCHEMA_VERSION == "1.3"
+    assert CONFIG_SCHEMA_VERSION == "1.4"
     assert set(schema["required"]) >= {
         "world",
         "population",
@@ -17,7 +17,7 @@ def test_schema_snapshot() -> None:
         "runtime",
     }
     assert schema["additionalProperties"] is False
-    assert json.loads(Path("docs/schemas/experiment-config-v1.3.json").read_text()) == schema
+    assert json.loads(Path("docs/schemas/experiment-config-v1.4.json").read_text()) == schema
 
 
 def test_config_has_no_forbidden_imports() -> None:
