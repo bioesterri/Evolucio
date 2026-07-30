@@ -81,3 +81,9 @@ mètriques ni persistència.
 `GENOME_INITIALIZATION` selecciona el domini global. Cada genoma es deriva de `genome_id`, no
 del slot, i les dues matrius usen substreams explícits diferents. Vegeu
 [l'esquema genòmic v1](genome_batch_schema_v1.md).
+# Conflictes de moviment
+
+El domini `MOVEMENT_CONFLICT` rep una clau derivada per pas. La resolució espacial deriva tres
+substreams `uint32` per `agent_id`, no per índex de slot, segons el contracte de
+[moviment cardinal v1](cardinal_movement_and_spatial_conflicts_v1.md). Aquesta fase no avança la
+clau arrel persistent.

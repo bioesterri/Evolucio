@@ -74,3 +74,8 @@ variable signifiqui «altres agents». Els mapes generals del PR-11 no anticipen
 ## Consum perceptiu
 
 L'extracció per slot, els raigs cardinals i l'exclusió exacta del focal es documenten a [Esquema d'observacions locals v1](local_observation_schema_v1.md).
+# Ús durant el moviment
+
+La resolució de [moviment cardinal v1](cardinal_movement_and_spatial_conflicts_v1.md) tracta
+l'ocupació anterior com una instantània immutable i la reconstrueix, després de l'actualització
+simultània de posicions, mitjançant `rebuild_world_occupancy`.

@@ -109,3 +109,8 @@ PR-21 i PR-22. Cap validació aplica metabolisme o costos; aquesta economia corr
 | Reproducció atòmica | PR-22 |
 | Mètriques d'intents i fallades | PR-25 |
 | Integració temporal | PR-27 |
+# Continuació espacial
+
+Les intencions cardinals acceptades són resoltes pel contracte de
+[moviment cardinal i conflictes espacials v1](cardinal_movement_and_spatial_conflicts_v1.md), que
+pot convertir un intent fallit a `STAY` sense reinterpretar el resultat de la validació local.
