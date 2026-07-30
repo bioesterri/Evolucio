@@ -53,3 +53,5 @@ Els genomes són incompatibles entre versions de l'esquema. Persistència i reco
 
 PR-14 apila les quatre fulles d'aquest model dins `GenomeBatch`, sense donar al batch un
 `__call__`. El contracte complet és a [l'esquema genòmic v1](genome_batch_schema_v1.md).
+La seva avaluació poblacional i la conversió dels scores en propostes es defineixen a
+[inferència de política i selecció d'accions v1](policy_inference_and_action_selection_v1.md).

@@ -75,3 +75,5 @@ alternatius. El recompte `INITIAL_PLACEMENT_COUNT` val 1.
 ## Sortides de la política
 
 La [PolicyMLP v1](policy_mlp_schema_v1.md) produeix set scores lineals en l'ordre numèric estable d'`ActionCode`; no selecciona ni valida cap acció.
+La [selecció determinista v1](policy_inference_and_action_selection_v1.md) converteix aquests
+scores en propostes i reserva la validació de legalitat per al PR-16.

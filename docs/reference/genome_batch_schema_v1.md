@@ -63,5 +63,6 @@ nom. Aquest PR no implementa aquesta factoria.
 | Persistència de genomes | PR-39 |
 | Checkpoints | PR-37 i PR-41 |
 
-No hi ha inferència batched, selecció, mutació, reproducció, genealogia ni persistència en
-`GenomeBatch` v1.
+`GenomeBatch` continua sense `__call__`; la [inferència batched i selecció](policy_inference_and_action_selection_v1.md)
+la consumeixen sense construir una xarxa Python per agent. Mutació, reproducció, genealogia i
+persistència continuen fora del contracte.
