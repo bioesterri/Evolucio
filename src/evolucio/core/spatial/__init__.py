@@ -5,6 +5,7 @@ from .density import (
     compute_local_population_density,
     occupancy_to_density,
 )
+from .gather import gather_map_values
 from .occupancy import (
     OccupancyResult,
     WorldOccupancyUpdate,
@@ -18,6 +19,7 @@ __all__ = [
     "compute_local_population_count",
     "compute_local_population_density",
     "compute_occupancy",
+    "gather_map_values",
     "occupancy_to_density",
     "rebuild_world_occupancy",
 ]

@@ -75,7 +75,11 @@ diferents.
 | `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
-La versió 7 de `CompileSignature` afegeix la versió i el digest de selecció determinista i el recompte d'accions; la versió 6 afegeix el genoma i la versió 5 l’esquema complet de PolicyMLP (digest, 15 → 16 → 7, `tanh` i biaixos). Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
+La versió 8 de `CompileSignature` afegeix versió i digest del contracte de validació local; la
+versió 7 afegeix la selecció determinista i el recompte d'accions, la versió 6 el genoma i la
+versió 5 l'esquema complet de PolicyMLP. Aquest canvi versiona el contracte serialitzat de
+compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe
+d'executable.
 
 ## Calendari ambiental del PR-09
 
@@ -102,3 +106,9 @@ La selecció no és configurable. `PolicyCoreConfig` i `CompileSignature` incorp
 el digest canònic de [la selecció d'accions](reference/policy_inference_and_action_selection_v1.md),
 i la signatura registra set accions. Scores, propostes, `alive`, genomes, observacions, seed i
 root key són dades d'execució deliberadament excloses.
+
+## Validació local d'accions i signatura v8
+
+La `CompileSignature` incorpora la versió 1 i el digest canònic del
+[contracte d'accions](reference/action_contract_and_validation_v1.md). Propostes, accions
+encaminades, causes concretes, posicions, recursos, `alive`, costos i RNG continuen exclosos.
