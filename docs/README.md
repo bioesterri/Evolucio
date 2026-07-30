@@ -27,3 +27,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [Estat del nucli i model poblacional de capacitat fixa](reference/core_state.md)
 - [RNG determinista i identificadors interns](reference/rng_and_identifiers.md)
 - [Inicialització del món 2D](reference/world_initialization.md)
+- [Regeneració de recursos i calendari ambiental](reference/resource_regeneration_and_environment_calendar.md)

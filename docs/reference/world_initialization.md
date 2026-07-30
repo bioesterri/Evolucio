@@ -46,7 +46,7 @@ Les distàncies són euclidianes ordinàries i les taques de vora queden truncad
 | `environment_initial_value` | finit, `[0, 1]` | dinàmic `float32` | valor basal |
 
 Els camps estàtics formen part de `CompileSignature`; els dinàmics canvien `config_hash`, però no
-la signatura ni les formes. L'esquema de configuració és 1.1 i la signatura de compilació és 3.
+la signatura ni les formes. L'esquema de configuració és 1.2 i la signatura de compilació és 3.
 
 ## RNG, ambient i ocupació
 
@@ -73,3 +73,7 @@ global.
 | Observacions locals | PR-12 |
 | Moviment | PR-17 |
 | Alimentació | PR-18 |
+
+## Actualització temporal posterior
+
+La distribució inicial es conserva al pas zero. La regeneració posterior i l'actualització ambiental es defineixen a [Regeneració de recursos i calendari ambiental](resource_regeneration_and_environment_calendar.md).

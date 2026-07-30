@@ -48,17 +48,6 @@ def test_environment_schedule(config: ExperimentConfig) -> None:
             [
                 {
                     "start_step": 0,
-                    "end_step": 10001,
-                    "regeneration_multiplier": 1.0,
-                    "stress_level": 0.0,
-                }
-            ],
-            "runtime.steps",
-        ),
-        (
-            [
-                {
-                    "start_step": 0,
                     "end_step": 2,
                     "regeneration_multiplier": -1.0,
                     "stress_level": 0.0,
