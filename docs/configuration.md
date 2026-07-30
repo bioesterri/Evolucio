@@ -75,7 +75,7 @@ diferents.
 | `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
-La versió 5 de `CompileSignature` afegeix l’esquema complet de PolicyMLP (digest, 15 → 16 → 7, `tanh` i biaixos); la versió 4 afegeix el contracte d’observacions; la versió 3 afegeix `resource_patch_count` i la versió 2 afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
+La versió 7 de `CompileSignature` afegeix la versió i el digest de selecció determinista i el recompte d'accions; la versió 6 afegeix el genoma i la versió 5 l’esquema complet de PolicyMLP (digest, 15 → 16 → 7, `tanh` i biaixos). Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
 
 ## Calendari ambiental del PR-09
 
@@ -95,3 +95,10 @@ El bloc `policy` de l’esquema host 1.5 valida exclusivament la versió 1, 15 e
 glorot_uniform_zero_bias_v1`. `GenomeCoreConfig` conserva versió, digest, inicialitzador i
 recompte 375 com a primitives estàtiques. `CompileSignature` v6 inclou aquests camps; no inclou
 llavor, `initial_agents`, IDs ni valors dels pesos. El bloc sí forma part de `config_hash`.
+
+## Selecció determinista i signatura v7
+
+La selecció no és configurable. `PolicyCoreConfig` i `CompileSignature` incorporen la versió 1 i
+el digest canònic de [la selecció d'accions](reference/policy_inference_and_action_selection_v1.md),
+i la signatura registra set accions. Scores, propostes, `alive`, genomes, observacions, seed i
+root key són dades d'execució deliberadament excloses.

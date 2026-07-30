@@ -16,6 +16,7 @@ from .genome_schema import (
     genome_schema_digest,
     genome_schema_payload,
 )
+from .infer import infer_and_select_actions, infer_policy_scores
 from .init import (
     GenomeInitializationResult,
     GenomeInitializationStreamCode,
@@ -37,8 +38,26 @@ from .schema import (
     policy_schema_digest,
     policy_schema_payload,
 )
+from .selection import (
+    ACTION_SELECTION_INACTIVE_FALLBACK,
+    ACTION_SELECTION_INVALID_FALLBACK,
+    ACTION_SELECTION_SCHEMA_DIGEST,
+    ACTION_SELECTION_SCHEMA_NAME,
+    ACTION_SELECTION_SCHEMA_VERSION,
+    ACTION_SELECTION_TIE_BREAK,
+    PolicyDecisionResult,
+    action_selection_schema_digest,
+    action_selection_schema_payload,
+    select_actions_deterministically,
+)
 
 __all__ = [
+    "ACTION_SELECTION_INACTIVE_FALLBACK",
+    "ACTION_SELECTION_INVALID_FALLBACK",
+    "ACTION_SELECTION_SCHEMA_DIGEST",
+    "ACTION_SELECTION_SCHEMA_NAME",
+    "ACTION_SELECTION_SCHEMA_VERSION",
+    "ACTION_SELECTION_TIE_BREAK",
     "GENOME_INITIALIZATION_NAME",
     "GENOME_INITIALIZATION_VERSION",
     "GENOME_PARAMETER_COUNT",
@@ -58,17 +77,23 @@ __all__ = [
     "GenomeBatch",
     "GenomeInitializationResult",
     "GenomeInitializationStreamCode",
+    "PolicyDecisionResult",
     "PolicyLinear",
     "PolicyMLP",
     "PolicyParameterSpec",
+    "action_selection_schema_digest",
+    "action_selection_schema_payload",
     "create_empty_genome_batch",
     "genome_schema_digest",
     "genome_schema_payload",
+    "infer_and_select_actions",
+    "infer_policy_scores",
     "initialize_genome_batch",
     "policy_at",
     "policy_from_parameters",
     "policy_schema_digest",
     "policy_schema_payload",
+    "select_actions_deterministically",
     "validate_genome_batch_structure",
     "validate_policy_structure",
 ]

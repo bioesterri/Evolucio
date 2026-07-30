@@ -14,6 +14,8 @@ from evolucio.core.observations.schema import (
     OBSERVATION_SIZE,
 )
 from evolucio.core.policy import (
+    ACTION_SELECTION_SCHEMA_DIGEST,
+    ACTION_SELECTION_SCHEMA_VERSION,
     GENOME_INITIALIZATION_NAME,
     GENOME_INITIALIZATION_VERSION,
     GENOME_PARAMETER_COUNT,
@@ -25,7 +27,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 6
+COMPILE_SIGNATURE_SCHEMA_VERSION = 7
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -62,6 +64,9 @@ class CompileSignature:
     policy_output_size: int
     policy_activation: str
     policy_use_bias: bool
+    action_selection_schema_version: int
+    action_selection_schema_digest: str
+    action_count: int
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -123,6 +128,8 @@ class PolicyCoreConfig(eqx.Module):
     output_size: int = eqx.field(static=True)
     activation: str = eqx.field(static=True)
     use_bias: bool = eqx.field(static=True)
+    action_selection_schema_version: int = eqx.field(static=True)
+    action_selection_schema_digest: str = eqx.field(static=True)
 
 
 class ObservationsCoreConfig(eqx.Module):
@@ -275,6 +282,9 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         policy_output_size=_static_int(policy.output_size, "policy.output_size"),
         policy_activation=policy.activation,
         policy_use_bias=policy.use_bias,
+        action_selection_schema_version=ACTION_SELECTION_SCHEMA_VERSION,
+        action_selection_schema_digest=ACTION_SELECTION_SCHEMA_DIGEST,
+        action_count=_static_int(policy.output_size, "policy.output_size"),
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
@@ -359,7 +369,12 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             placement=config.population.placement,
             allow_multiple_agents_per_cell=config.population.allow_multiple_agents_per_cell,
         ),
-        policy=PolicyCoreConfig(**config.policy.model_dump(), schema_digest=POLICY_SCHEMA_DIGEST),
+        policy=PolicyCoreConfig(
+            **config.policy.model_dump(),
+            schema_digest=POLICY_SCHEMA_DIGEST,
+            action_selection_schema_version=ACTION_SELECTION_SCHEMA_VERSION,
+            action_selection_schema_digest=ACTION_SELECTION_SCHEMA_DIGEST,
+        ),
         observations=ObservationsCoreConfig(
             schema_version=config.observations.schema_version,
             schema_size=OBSERVATION_SIZE,

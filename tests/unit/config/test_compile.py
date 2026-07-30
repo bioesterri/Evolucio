@@ -148,7 +148,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 6
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 7
     assert signature.rng_implementation == "threefry2x32"
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
@@ -247,6 +247,9 @@ def test_policy_schema_is_static_and_complete(config: ExperimentConfig) -> None:
         signature.policy_output_size,
     ) == (15, 16, 7)
     assert signature.policy_activation == "tanh" and signature.policy_use_bias is True
+    assert policy.action_selection_schema_version == signature.action_selection_schema_version == 1
+    assert policy.action_selection_schema_digest == signature.action_selection_schema_digest
+    assert signature.action_count == 7
     fields = {field.name for field in dataclasses.fields(signature)}
     assert not {"seed", "weights", "initialization_distribution", "mutation_sigma"} & fields
 
