@@ -4,8 +4,9 @@
 
 El PR-15 avalua simultàniament tota la capacitat `C` de `GenomeBatch` sobre observacions locals
 `float32[C,15]` i produeix scores `float32[C,7]`. Després converteix les preferències neuronals
-en `proposed_actions`, no en accions executades. La legalitat i la possible substitució de la
-proposta corresponen al PR-16.
+en `proposed_actions`, no en accions executades. La
+[validació local v1](action_contract_and_validation_v1.md) conserva la proposta i produeix una
+acció encaminada; només substitueix rebutjos per `STAY`, no produeix accions executades.
 
 | Element | Forma | Dtype | Semàntica |
 |---|---:|---|---|

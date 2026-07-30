@@ -1,5 +1,10 @@
 # Ocupació i densitat espacials
 
+El helper neutral `evolucio.core.spatial.gather_map_values` extreu mapes `[H,W]` en posicions
+`[...,2]` interpretades com `[x,y]`. Les coordenades fora dels límits tancats reben el
+`fill_value` indicat sense indexació insegura; observacions i validació d'accions comparteixen
+aquesta única implementació.
+
 ## Objectiu i estat persistent
 
 El PR-11 converteix una `PopulationState` de capacitat fixa en mapes espacials generals,
