@@ -72,3 +72,9 @@ s'implementen regles vitals ni un inicialitzador integral de `SimulationState`.
 | Nous slots per descendència | PR-22 |
 | Genealogia i esdeveniments | PR-24 |
 | Inicialització integral del run | PR posterior de runtime |
+
+## Inicialització genòmica posterior
+
+La població no depèn de `policy`. Després d'obtenir els fundadors, l'orquestrador futur passarà
+`alive` i `genome_id` a `initialize_genome_batch`; els detalls són a
+[l'esquema genòmic](genome_batch_schema_v1.md).

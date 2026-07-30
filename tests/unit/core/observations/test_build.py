@@ -18,6 +18,7 @@ from evolucio.core import (
     create_rng_state,
 )
 from evolucio.core.observations import OBSERVATION_SIZE, ObservationIndex, build_observations
+from evolucio.core.policy import create_empty_genome_batch
 
 
 def _setup(config: ExperimentConfig) -> tuple[SimulationState, CoreConfig]:
@@ -68,6 +69,7 @@ def _setup(config: ExperimentConfig) -> tuple[SimulationState, CoreConfig]:
         ids=create_id_counters(),
         world=WorldState(resources=resources, environment=environment, occupancy=occupancy),
         population=population,
+        genomes=create_empty_genome_batch(population.alive.shape[0]),
     )
     return state, cfg
 

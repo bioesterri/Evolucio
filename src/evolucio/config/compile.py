@@ -13,13 +13,19 @@ from evolucio.core.observations.schema import (
     OBSERVATION_SCHEMA_DIGEST,
     OBSERVATION_SIZE,
 )
-from evolucio.core.policy import POLICY_SCHEMA_DIGEST
+from evolucio.core.policy import (
+    GENOME_INITIALIZATION_NAME,
+    GENOME_INITIALIZATION_VERSION,
+    GENOME_PARAMETER_COUNT,
+    GENOME_SCHEMA_DIGEST,
+    POLICY_SCHEMA_DIGEST,
+)
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 5
+COMPILE_SIGNATURE_SCHEMA_VERSION = 6
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -56,6 +62,11 @@ class CompileSignature:
     policy_output_size: int
     policy_activation: str
     policy_use_bias: bool
+    genome_schema_version: int
+    genome_schema_digest: str
+    genome_initialization_name: str
+    genome_initialization_version: int
+    genome_parameter_count: int
     perception_radius: int
     chunk_size: int
     record_stride: int
@@ -123,6 +134,16 @@ class ObservationsCoreConfig(eqx.Module):
     perception_radius: int = eqx.field(static=True)
 
 
+class GenomeCoreConfig(eqx.Module):
+    """Static, hashable neural-genome contract."""
+
+    schema_version: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    initialization_name: str = eqx.field(static=True)
+    initialization_version: int = eqx.field(static=True)
+    parameter_count: int = eqx.field(static=True)
+
+
 class EnergyCoreConfig(eqx.Module):
     """Dynamic energy economy parameters."""
 
@@ -164,6 +185,7 @@ class CoreConfig(eqx.Module):
     population: PopulationCoreConfig
     policy: PolicyCoreConfig
     observations: ObservationsCoreConfig
+    genome: GenomeCoreConfig
     energy: EnergyCoreConfig
     evolution: EvolutionCoreConfig
     runtime: RuntimeCoreConfig
@@ -253,6 +275,11 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         policy_output_size=_static_int(policy.output_size, "policy.output_size"),
         policy_activation=policy.activation,
         policy_use_bias=policy.use_bias,
+        genome_schema_version=config.genome.schema_version,
+        genome_schema_digest=GENOME_SCHEMA_DIGEST,
+        genome_initialization_name=config.genome.initialization,
+        genome_initialization_version=GENOME_INITIALIZATION_VERSION,
+        genome_parameter_count=GENOME_PARAMETER_COUNT,
         perception_radius=_static_int(
             config.observations.perception_radius, "observations.perception_radius"
         ),
@@ -338,6 +365,13 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             schema_size=OBSERVATION_SIZE,
             schema_digest=OBSERVATION_SCHEMA_DIGEST,
             perception_radius=config.observations.perception_radius,
+        ),
+        genome=GenomeCoreConfig(
+            schema_version=config.genome.schema_version,
+            schema_digest=GENOME_SCHEMA_DIGEST,
+            initialization_name=GENOME_INITIALIZATION_NAME,
+            initialization_version=GENOME_INITIALIZATION_VERSION,
+            parameter_count=GENOME_PARAMETER_COUNT,
         ),
         energy=EnergyCoreConfig(
             **{

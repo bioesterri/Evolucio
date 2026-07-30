@@ -48,3 +48,8 @@ Els genomes són incompatibles entre versions de l'esquema. Persistència i reco
 | Validació d'accions | PR-16 |
 | Mutació | PR-23 |
 | Persistència de genomes | PR-39 |
+
+## Representació poblacional
+
+PR-14 apila les quatre fulles d'aquest model dins `GenomeBatch`, sense donar al batch un
+`__call__`. El contracte complet és a [l'esquema genòmic v1](genome_batch_schema_v1.md).

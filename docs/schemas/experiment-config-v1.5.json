@@ -1,0 +1,538 @@
+{
+  "$defs": {
+    "EnergyConfig": {
+      "additionalProperties": false,
+      "description": "Energy economy parameters; no runtime balance is implemented here.",
+      "properties": {
+        "basal_cost": {
+          "minimum": 0,
+          "title": "Basal Cost",
+          "type": "number"
+        },
+        "death_threshold": {
+          "minimum": 0,
+          "title": "Death Threshold",
+          "type": "number"
+        },
+        "failed_action_cost": {
+          "minimum": 0,
+          "title": "Failed Action Cost",
+          "type": "number"
+        },
+        "feeding_conversion": {
+          "exclusiveMinimum": 0,
+          "title": "Feeding Conversion",
+          "type": "number"
+        },
+        "feeding_cost": {
+          "minimum": 0,
+          "title": "Feeding Cost",
+          "type": "number"
+        },
+        "initial_energy": {
+          "title": "Initial Energy",
+          "type": "number"
+        },
+        "max_energy": {
+          "title": "Max Energy",
+          "type": "number"
+        },
+        "movement_cost": {
+          "minimum": 0,
+          "title": "Movement Cost",
+          "type": "number"
+        },
+        "offspring_initial_energy": {
+          "title": "Offspring Initial Energy",
+          "type": "number"
+        },
+        "reproduction_cost": {
+          "minimum": 0,
+          "title": "Reproduction Cost",
+          "type": "number"
+        },
+        "reproduction_threshold": {
+          "title": "Reproduction Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "initial_energy",
+        "max_energy",
+        "death_threshold",
+        "basal_cost",
+        "movement_cost",
+        "feeding_cost",
+        "feeding_conversion",
+        "reproduction_threshold",
+        "reproduction_cost",
+        "offspring_initial_energy",
+        "failed_action_cost"
+      ],
+      "title": "EnergyConfig",
+      "type": "object"
+    },
+    "EnvironmentPhaseConfig": {
+      "additionalProperties": false,
+      "description": "A deterministic environmental interval, with an exclusive end.",
+      "properties": {
+        "end_step": {
+          "exclusiveMinimum": 0,
+          "maximum": 2147483647,
+          "title": "End Step",
+          "type": "integer"
+        },
+        "regeneration_multiplier": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Regeneration Multiplier",
+          "type": "number"
+        },
+        "start_step": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Start Step",
+          "type": "integer"
+        },
+        "stress_level": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Stress Level",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_step",
+        "end_step",
+        "regeneration_multiplier",
+        "stress_level"
+      ],
+      "title": "EnvironmentPhaseConfig",
+      "type": "object"
+    },
+    "EvolutionConfig": {
+      "additionalProperties": false,
+      "description": "Age and heritable mutation parameters.",
+      "properties": {
+        "max_age": {
+          "exclusiveMinimum": 0,
+          "title": "Max Age",
+          "type": "integer"
+        },
+        "min_reproduction_age": {
+          "minimum": 1,
+          "title": "Min Reproduction Age",
+          "type": "integer"
+        },
+        "mutation_clip_abs": {
+          "exclusiveMinimum": 0,
+          "title": "Mutation Clip Abs",
+          "type": "number"
+        },
+        "mutation_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Mutation Rate",
+          "type": "number"
+        },
+        "mutation_sigma": {
+          "minimum": 0,
+          "title": "Mutation Sigma",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_reproduction_age",
+        "max_age",
+        "mutation_rate",
+        "mutation_sigma",
+        "mutation_clip_abs"
+      ],
+      "title": "EvolutionConfig",
+      "type": "object"
+    },
+    "GenomeConfig": {
+      "additionalProperties": false,
+      "description": "Versioned founder-genome initialization selector.",
+      "properties": {
+        "initialization": {
+          "const": "glorot_uniform_zero_bias_v1",
+          "default": "glorot_uniform_zero_bias_v1",
+          "title": "Initialization",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "title": "GenomeConfig",
+      "type": "object"
+    },
+    "ObservationsConfig": {
+      "additionalProperties": false,
+      "description": "Fixed local observation schema and configurable static radius.",
+      "properties": {
+        "perception_radius": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Perception Radius",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "title": "ObservationsConfig",
+      "type": "object"
+    },
+    "PersistenceConfig": {
+      "additionalProperties": false,
+      "description": "Host-only persistence intent.",
+      "properties": {
+        "batch_size": {
+          "default": 1024,
+          "exclusiveMinimum": 0,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "checkpoint_stride": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint Stride"
+        },
+        "destinations": {
+          "default": [],
+          "items": {
+            "enum": [
+              "local",
+              "postgresql",
+              "mlflow"
+            ],
+            "type": "string"
+          },
+          "title": "Destinations",
+          "type": "array"
+        },
+        "level": {
+          "default": "none",
+          "enum": [
+            "none",
+            "minimal",
+            "standard",
+            "massive"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "output_dir": {
+          "default": "runs",
+          "minLength": 1,
+          "title": "Output Dir",
+          "type": "string"
+        }
+      },
+      "title": "PersistenceConfig",
+      "type": "object"
+    },
+    "PolicyConfig": {
+      "additionalProperties": false,
+      "description": "Versioned fixed-topology policy parameters.",
+      "properties": {
+        "action_schema_version": {
+          "const": "1.0",
+          "title": "Action Schema Version",
+          "type": "string"
+        },
+        "activation": {
+          "const": "tanh",
+          "default": "tanh",
+          "title": "Activation",
+          "type": "string"
+        },
+        "hidden_size": {
+          "const": 16,
+          "default": 16,
+          "title": "Hidden Size",
+          "type": "integer"
+        },
+        "input_size": {
+          "const": 15,
+          "default": 15,
+          "title": "Input Size",
+          "type": "integer"
+        },
+        "output_size": {
+          "const": 7,
+          "default": 7,
+          "title": "Output Size",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "use_bias": {
+          "const": true,
+          "default": true,
+          "title": "Use Bias",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action_schema_version"
+      ],
+      "title": "PolicyConfig",
+      "type": "object"
+    },
+    "PopulationConfig": {
+      "additionalProperties": false,
+      "description": "Fixed-capacity population parameters.",
+      "properties": {
+        "allow_multiple_agents_per_cell": {
+          "title": "Allow Multiple Agents Per Cell",
+          "type": "boolean"
+        },
+        "initial_agents": {
+          "minimum": 0,
+          "title": "Initial Agents",
+          "type": "integer"
+        },
+        "max_agents": {
+          "exclusiveMinimum": 0,
+          "title": "Max Agents",
+          "type": "integer"
+        },
+        "max_births_per_step": {
+          "exclusiveMinimum": 0,
+          "title": "Max Births Per Step",
+          "type": "integer"
+        },
+        "placement": {
+          "const": "random",
+          "title": "Placement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "initial_agents",
+        "max_agents",
+        "max_births_per_step",
+        "placement",
+        "allow_multiple_agents_per_cell"
+      ],
+      "title": "PopulationConfig",
+      "type": "object"
+    },
+    "RuntimeConfig": {
+      "additionalProperties": false,
+      "description": "Host execution parameters.",
+      "properties": {
+        "backend": {
+          "enum": [
+            "cpu",
+            "auto"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "chunk_size": {
+          "exclusiveMinimum": 0,
+          "title": "Chunk Size",
+          "type": "integer"
+        },
+        "record_stride": {
+          "exclusiveMinimum": 0,
+          "title": "Record Stride",
+          "type": "integer"
+        },
+        "snapshot_stride": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Snapshot Stride"
+        },
+        "steps": {
+          "exclusiveMinimum": 0,
+          "title": "Steps",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "steps",
+        "chunk_size",
+        "record_stride",
+        "snapshot_stride",
+        "backend"
+      ],
+      "title": "RuntimeConfig",
+      "type": "object"
+    },
+    "WorldConfig": {
+      "additionalProperties": false,
+      "description": "Declarative two-dimensional world parameters.",
+      "properties": {
+        "boundary_mode": {
+          "const": "closed",
+          "title": "Boundary Mode",
+          "type": "string"
+        },
+        "environment_initial_value": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Environment Initial Value",
+          "type": "number"
+        },
+        "environment_schedule": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EnvironmentPhaseConfig"
+          },
+          "title": "Environment Schedule",
+          "type": "array"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "initial_resource_mean": {
+          "minimum": 0,
+          "title": "Initial Resource Mean",
+          "type": "number"
+        },
+        "regeneration_rate": {
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Regeneration Rate",
+          "type": "number"
+        },
+        "resource_capacity": {
+          "minimum": 0,
+          "title": "Resource Capacity",
+          "type": "number"
+        },
+        "resource_distribution": {
+          "enum": [
+            "uniform",
+            "patches"
+          ],
+          "title": "Resource Distribution",
+          "type": "string"
+        },
+        "resource_patch_contrast": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Resource Patch Contrast",
+          "type": "number"
+        },
+        "resource_patch_count": {
+          "exclusiveMinimum": 0,
+          "title": "Resource Patch Count",
+          "type": "integer"
+        },
+        "resource_patch_radius": {
+          "exclusiveMinimum": 0,
+          "title": "Resource Patch Radius",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "boundary_mode",
+        "resource_capacity",
+        "initial_resource_mean",
+        "resource_distribution",
+        "resource_patch_count",
+        "resource_patch_radius",
+        "resource_patch_contrast",
+        "environment_initial_value",
+        "regeneration_rate"
+      ],
+      "title": "WorldConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Complete validated scientific configuration for schema 1.5.",
+  "properties": {
+    "energy": {
+      "$ref": "#/$defs/EnergyConfig"
+    },
+    "evolution": {
+      "$ref": "#/$defs/EvolutionConfig"
+    },
+    "genome": {
+      "$ref": "#/$defs/GenomeConfig"
+    },
+    "observations": {
+      "$ref": "#/$defs/ObservationsConfig"
+    },
+    "persistence": {
+      "$ref": "#/$defs/PersistenceConfig"
+    },
+    "policy": {
+      "$ref": "#/$defs/PolicyConfig"
+    },
+    "population": {
+      "$ref": "#/$defs/PopulationConfig"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeConfig"
+    },
+    "schema_version": {
+      "const": "1.5",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seed": {
+      "maximum": 4294967295,
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "world": {
+      "$ref": "#/$defs/WorldConfig"
+    }
+  },
+  "required": [
+    "schema_version",
+    "seed",
+    "world",
+    "population",
+    "policy",
+    "energy",
+    "evolution",
+    "runtime"
+  ],
+  "title": "ExperimentConfig",
+  "type": "object"
+}

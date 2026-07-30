@@ -32,3 +32,6 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [Ocupació i densitat espacials](reference/spatial_occupancy_and_density.md)
 - [Esquema d'observacions locals v1](reference/local_observation_schema_v1.md)
 - [Esquema PolicyMLP v1](reference/policy_mlp_schema_v1.md): topologia neuronal fixa, fulles del genoma i ordre dels scores.
+
+- [Esquema batched de genomes v1](reference/genome_batch_schema_v1.md): representació,
+  inicialització fundadora i vinculació entre slot i `genome_id`.

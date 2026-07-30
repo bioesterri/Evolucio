@@ -1,6 +1,6 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.4** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.5** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence` i `genome`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -18,14 +18,14 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 - `energy`: reserves, costos i viabilitat reproductiva. `reproduction_cost` és el cost addicional i `offspring_initial_energy` es transfereix al descendent; ambdós es resten al progenitor. El PR-21 revalidarà la viabilitat efectiva.
 - `evolution`: edats i paràmetres explícits de mutació.
 - `runtime`: passos, chunk, mostreig i backend host.
-- `persistence`: nivell, destins i lots host-only, sense comprovar connexions.
+- `persistence` i `genome`: nivell, destins i lots host-only, sense comprovar connexions.
 
 ## Formats i exemple
 
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.4"
+schema_version: "1.5"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
@@ -72,7 +72,7 @@ diferents.
 | mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
 | `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
 | implementació PRNG `threefry2x32` | estàtic | `str` a `CompileSignature` | Afecta el dtype de clau i potencialment l’executable. |
-| `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
+| `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
 La versió 5 de `CompileSignature` afegeix l’esquema complet de PolicyMLP (digest, 15 → 16 → 7, `tanh` i biaixos); la versió 4 afegeix el contracte d’observacions; la versió 3 afegeix `resource_patch_count` i la versió 2 afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
@@ -87,4 +87,11 @@ El bloc `observations` fixa `schema_version: 1` i valida `perception_radius` com
 
 ## Política neuronal fixa
 
-El bloc `policy` de l’esquema host 1.4 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.
+El bloc `policy` de l’esquema host 1.5 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.
+
+## Genoma i signatura v6
+
+`genome` accepta només `schema_version: 1` i `initialization:
+glorot_uniform_zero_bias_v1`. `GenomeCoreConfig` conserva versió, digest, inicialitzador i
+recompte 375 com a primitives estàtiques. `CompileSignature` v6 inclou aquests camps; no inclou
+llavor, `initial_agents`, IDs ni valors dels pesos. El bloc sí forma part de `config_hash`.

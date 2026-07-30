@@ -45,7 +45,7 @@
     "snapshot_stride": 1000,
     "steps": 10000
   },
-  "schema_version": "1.4",
+  "schema_version": "1.5",
   "seed": 42,
   "world": {
     "boundary_mode": "closed",

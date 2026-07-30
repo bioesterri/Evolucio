@@ -112,6 +112,13 @@ class PolicyConfig(_ConfigModel):
     use_bias: Literal[True] = True
 
 
+class GenomeConfig(_ConfigModel):
+    """Versioned founder-genome initialization selector."""
+
+    schema_version: Literal[1] = 1
+    initialization: Literal["glorot_uniform_zero_bias_v1"] = "glorot_uniform_zero_bias_v1"
+
+
 class ObservationsConfig(_ConfigModel):
     """Fixed local observation schema and configurable static radius."""
 
@@ -202,13 +209,14 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.4."""
+    """Complete validated scientific configuration for schema 1.5."""
 
-    schema_version: Literal["1.4"]
+    schema_version: Literal["1.5"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
     policy: PolicyConfig
+    genome: GenomeConfig = Field(default_factory=GenomeConfig)
     observations: ObservationsConfig = Field(default_factory=ObservationsConfig)
     energy: EnergyConfig
     evolution: EvolutionConfig

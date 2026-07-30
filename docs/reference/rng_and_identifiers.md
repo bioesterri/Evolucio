@@ -75,3 +75,9 @@ comptadors, `WorldState` i `PopulationState`, juntament amb versions i configura
 Aquest PR no serialitza claus ni escriu checkpoints. Tampoc inicialitza món, recursos, agents o
 genomes; no resol accions o conflictes; i no implementa reproducció, mutació, mortalitat,
 mètriques ni persistència.
+
+## Genomes fundadors
+
+`GENOME_INITIALIZATION` selecciona el domini global. Cada genoma es deriva de `genome_id`, no
+del slot, i les dues matrius usen substreams explícits diferents. Vegeu
+[l'esquema genòmic v1](genome_batch_schema_v1.md).
