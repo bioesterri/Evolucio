@@ -9,7 +9,7 @@ def test_canonical_hash(config: ExperimentConfig) -> None:
     assert re.fullmatch(r"[0-9a-f]{64}", frozen.config_hash)
     assert '"checkpoint_stride":null' in frozen.canonical_json
     assert freeze_config(config) == frozen
-    assert frozen.config_hash == "10c9787f6cb7556535911a3cb7188cbfa3c97314eca938397895dfe2f4f0cb66"
+    assert frozen.config_hash == "e0e590b23959b224b7438bc99f2e83f7affd7697de970e44e80613bd0e6fa896"
     with __import__("pytest").raises(dataclasses.FrozenInstanceError):
         frozen.config_hash = "x"
 

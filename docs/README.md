@@ -30,3 +30,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [Regeneració de recursos i calendari ambiental](reference/resource_regeneration_and_environment_calendar.md)
 - [Inicialització de la població fundadora](reference/population_initialization.md)
 - [Ocupació i densitat espacials](reference/spatial_occupancy_and_density.md)
+- [Esquema d'observacions locals v1](reference/local_observation_schema_v1.md)

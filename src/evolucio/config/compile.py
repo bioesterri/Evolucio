@@ -9,12 +9,16 @@ import jax
 import jax.numpy as jnp
 
 from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
+from evolucio.core.observations.schema import (
+    OBSERVATION_SCHEMA_DIGEST,
+    OBSERVATION_SIZE,
+)
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 3
+COMPILE_SIGNATURE_SCHEMA_VERSION = 4
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -40,7 +44,9 @@ class CompileSignature:
     max_births_per_step: int
     placement: str
     allow_multiple_agents_per_cell: bool
-    observation_schema_version: str
+    observation_schema_version: int
+    observation_schema_size: int
+    observation_schema_digest: str
     action_schema_version: str
     hidden_size: int
     activation: str
@@ -92,11 +98,18 @@ class PopulationCoreConfig(eqx.Module):
 class PolicyCoreConfig(eqx.Module):
     """Fixed policy topology and schema selectors."""
 
-    observation_schema_version: str
     action_schema_version: str
     hidden_size: int
     activation: str
-    perception_radius: int
+
+
+class ObservationsCoreConfig(eqx.Module):
+    """Static, hashable local observation contract."""
+
+    schema_version: int = eqx.field(static=True)
+    schema_size: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    perception_radius: int = eqx.field(static=True)
 
 
 class EnergyCoreConfig(eqx.Module):
@@ -139,6 +152,7 @@ class CoreConfig(eqx.Module):
     world: WorldCoreConfig
     population: PopulationCoreConfig
     policy: PolicyCoreConfig
+    observations: ObservationsCoreConfig
     energy: EnergyCoreConfig
     evolution: EvolutionCoreConfig
     runtime: RuntimeCoreConfig
@@ -217,11 +231,15 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         ),
         placement=population.placement,
         allow_multiple_agents_per_cell=population.allow_multiple_agents_per_cell,
-        observation_schema_version=policy.observation_schema_version,
+        observation_schema_version=config.observations.schema_version,
+        observation_schema_size=OBSERVATION_SIZE,
+        observation_schema_digest=OBSERVATION_SCHEMA_DIGEST,
         action_schema_version=policy.action_schema_version,
         hidden_size=_static_int(policy.hidden_size, "policy.hidden_size"),
         activation=policy.activation,
-        perception_radius=_static_int(policy.perception_radius, "policy.perception_radius"),
+        perception_radius=_static_int(
+            config.observations.perception_radius, "observations.perception_radius"
+        ),
         chunk_size=_static_int(runtime.chunk_size, "runtime.chunk_size"),
         record_stride=_static_int(runtime.record_stride, "runtime.record_stride"),
         snapshot_stride=(
@@ -299,6 +317,12 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             allow_multiple_agents_per_cell=config.population.allow_multiple_agents_per_cell,
         ),
         policy=PolicyCoreConfig(**config.policy.model_dump()),
+        observations=ObservationsCoreConfig(
+            schema_version=config.observations.schema_version,
+            schema_size=OBSERVATION_SIZE,
+            schema_digest=OBSERVATION_SCHEMA_DIGEST,
+            perception_radius=config.observations.perception_radius,
+        ),
         energy=EnergyCoreConfig(
             **{
                 field: _float_scalar(value, f"energy.{field}")

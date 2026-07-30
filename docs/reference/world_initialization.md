@@ -46,7 +46,7 @@ Les distàncies són euclidianes ordinàries i les taques de vora queden truncad
 | `environment_initial_value` | finit, `[0, 1]` | dinàmic `float32` | valor basal |
 
 Els camps estàtics formen part de `CompileSignature`; els dinàmics canvien `config_hash`, però no
-la signatura ni les formes. L'esquema de configuració és 1.2 i la signatura de compilació és 3.
+la signatura ni les formes. L'esquema de configuració és 1.3 i la signatura de compilació és 4.
 
 ## RNG, ambient i ocupació
 

@@ -103,11 +103,16 @@ class PopulationConfig(_ConfigModel):
 class PolicyConfig(_ConfigModel):
     """Versioned fixed-topology policy parameters."""
 
-    observation_schema_version: Literal["1.0"]
     action_schema_version: Literal["1.0"]
     hidden_size: Literal[16]
     activation: Literal["tanh"]
-    perception_radius: Annotated[int, Field(ge=1, le=3)]
+
+
+class ObservationsConfig(_ConfigModel):
+    """Fixed local observation schema and configurable static radius."""
+
+    schema_version: Literal[1] = 1
+    perception_radius: Annotated[int, Field(ge=1, le=3)] = 1
 
 
 class EnergyConfig(_ConfigModel):
@@ -193,13 +198,14 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.2."""
+    """Complete validated scientific configuration for schema 1.3."""
 
-    schema_version: Literal["1.2"]
+    schema_version: Literal["1.3"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
     policy: PolicyConfig
+    observations: ObservationsConfig = Field(default_factory=ObservationsConfig)
     energy: EnergyConfig
     evolution: EvolutionConfig
     runtime: RuntimeConfig

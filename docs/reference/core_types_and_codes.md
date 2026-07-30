@@ -69,5 +69,5 @@ toroidal ni cap distribució aleatòria blanca.
 ## Codi de col·locació fundadora
 
 `InitialPlacementCode.UNIFORM_WITH_REPLACEMENT = 0` identifica l'únic algoritme inicial. En
-l'esquema host 1.2 conserva l'spelling establert `placement: random`; no hi ha aliases ni modes
+l'esquema host 1.3 conserva l'spelling establert `placement: random`; no hi ha aliases ni modes
 alternatius. El recompte `INITIAL_PLACEMENT_COUNT` val 1.
