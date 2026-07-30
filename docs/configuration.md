@@ -38,6 +38,11 @@ persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024,
 
 Errors habituals: versions desconegudes, nombres expressats com strings, claus duplicades, fases solapades, capacitat espacial insuficient o reproducció energèticament inviable. `CoreConfig` i la transformació cap al nucli corresponen al PR-04.
 
+Des del PR-10, `population.initial_agents` admet zero i no s'exigeix que càpiga en el nombre de
+cel·les quan `allow_multiple_agents_per_cell` és cert. `placement: random` significa col·locació
+uniforme amb reemplaçament. El producte `world.width * world.height` no pot superar el màxim
+`int32`, necessari per a l'índex lineal d'ocupació.
+
 ## Frontera host-core
 
 `ExperimentConfig` és el contracte host complet i `config_hash` n'identifica tots els valors
