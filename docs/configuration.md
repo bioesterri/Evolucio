@@ -1,6 +1,6 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.1** conté els blocs `world`, `population`, `policy`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.2** conté els blocs `world`, `population`, `policy`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -25,7 +25,7 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.1"
+schema_version: "1.2"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
@@ -70,3 +70,7 @@ diferents.
 
 
 La versió 3 de `CompileSignature` afegeix `resource_patch_count`; la versió 2 afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
+
+## Calendari ambiental del PR-09
+
+La longitud d'`environment_schedule` ja forma part de `CompileSignature`. Les dates, els multiplicadors, `stress_level` i `regeneration_rate` són dinàmics: canvien `config_hash`, però amb la mateixa longitud no canvien la signatura. El calendari compilat usa intervals semioberts `[start_step, end_step)` i vectors `int32`/`float32`.
