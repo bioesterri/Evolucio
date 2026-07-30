@@ -148,7 +148,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 5
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 6
     assert signature.rng_implementation == "threefry2x32"
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
@@ -249,3 +249,18 @@ def test_policy_schema_is_static_and_complete(config: ExperimentConfig) -> None:
     assert signature.policy_activation == "tanh" and signature.policy_use_bias is True
     fields = {field.name for field in dataclasses.fields(signature)}
     assert not {"seed", "weights", "initialization_distribution", "mutation_sigma"} & fields
+
+
+def test_genome_schema_is_static_complete_and_excludes_run_values(
+    config: ExperimentConfig,
+) -> None:
+    compiled = compile_config(config)
+    genome = compiled.core.genome
+    signature = compiled.compile_signature
+    assert genome.schema_version == signature.genome_schema_version == 1
+    assert genome.schema_digest == signature.genome_schema_digest
+    assert genome.initialization_name == signature.genome_initialization_name
+    assert genome.initialization_version == signature.genome_initialization_version == 1
+    assert genome.parameter_count == signature.genome_parameter_count == 375
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "initial_agents", "genome_id", "weights", "biases"} & fields

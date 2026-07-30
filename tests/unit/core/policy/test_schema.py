@@ -57,3 +57,30 @@ def test_v1_digest_regression() -> None:
         == "b1c8336c8c0be45f3bacbbf384ccb5d8cbf352651c084da3ac98fcab6bbc7e90"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", POLICY_SCHEMA_DIGEST)
+
+
+def test_genome_schema_digest_is_frozen_and_complete() -> None:
+    import json
+    import re
+
+    from evolucio.core.policy import (
+        GENOME_INITIALIZATION_NAME,
+        GENOME_PARAMETER_COUNT,
+        GENOME_SCHEMA_DIGEST,
+        genome_schema_payload,
+    )
+
+    payload = genome_schema_payload()
+    assert json.dumps(payload, allow_nan=False)
+    assert re.fullmatch(r"[0-9a-f]{64}", GENOME_SCHEMA_DIGEST)
+    assert GENOME_PARAMETER_COUNT == 375
+    assert payload["initialization"]["name"] == GENOME_INITIALIZATION_NAME
+    assert [item["path"] for item in payload["parameters"]] == [
+        "layer1.weight",
+        "layer1.bias",
+        "layer2.weight",
+        "layer2.bias",
+    ]
+    assert (
+        GENOME_SCHEMA_DIGEST == "b80abe3d615a50b7f7cf533918a175b9be69e19e0e235343e976ef98b1069d0b"
+    )

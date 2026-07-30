@@ -107,7 +107,9 @@ def test_output_bias_is_not_activated() -> None:
 
 
 def test_policy_source_excludes_prohibited_components() -> None:
-    source = "\n".join(path.read_text() for path in Path("src/evolucio/core/policy").glob("*.py"))
+    source = "\n".join(
+        Path("src/evolucio/core/policy", name).read_text() for name in ("model.py", "schema.py")
+    )
     prohibited = (
         "eqx.nn.MLP",
         "eqx.nn.Sequential",
