@@ -104,8 +104,12 @@ class PolicyConfig(_ConfigModel):
     """Versioned fixed-topology policy parameters."""
 
     action_schema_version: Literal["1.0"]
-    hidden_size: Literal[16]
-    activation: Literal["tanh"]
+    schema_version: Literal[1] = 1
+    input_size: Literal[15] = 15
+    hidden_size: Literal[16] = 16
+    output_size: Literal[7] = 7
+    activation: Literal["tanh"] = "tanh"
+    use_bias: Literal[True] = True
 
 
 class ObservationsConfig(_ConfigModel):
@@ -198,9 +202,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.3."""
+    """Complete validated scientific configuration for schema 1.4."""
 
-    schema_version: Literal["1.3"]
+    schema_version: Literal["1.4"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

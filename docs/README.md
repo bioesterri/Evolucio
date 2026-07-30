@@ -31,3 +31,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [Inicialització de la població fundadora](reference/population_initialization.md)
 - [Ocupació i densitat espacials](reference/spatial_occupancy_and_density.md)
 - [Esquema d'observacions locals v1](reference/local_observation_schema_v1.md)
+- [Esquema PolicyMLP v1](reference/policy_mlp_schema_v1.md): topologia neuronal fixa, fulles del genoma i ordre dels scores.

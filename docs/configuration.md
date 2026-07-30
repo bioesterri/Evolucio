@@ -1,6 +1,6 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.3** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.4** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -25,11 +25,11 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.3"
+schema_version: "1.4"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
-policy: {action_schema_version: "1.0", hidden_size: 16, activation: tanh}
+policy: {action_schema_version: "1.0", schema_version: 1, input_size: 15, hidden_size: 16, output_size: 7, activation: tanh, use_bias: true}
 observations: {schema_version: 1, perception_radius: 2}
 energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, reproduction_threshold: 40.0, reproduction_cost: 5.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
 evolution: {min_reproduction_age: 5, max_age: 1000, mutation_rate: 0.05, mutation_sigma: 0.02, mutation_clip_abs: 5.0}
@@ -75,12 +75,16 @@ diferents.
 | `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
-La versió 4 de `CompileSignature` afegeix el contracte d’observacions; la versió 3 afegeix `resource_patch_count` i la versió 2 afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
+La versió 5 de `CompileSignature` afegeix l’esquema complet de PolicyMLP (digest, 15 → 16 → 7, `tanh` i biaixos); la versió 4 afegeix el contracte d’observacions; la versió 3 afegeix `resource_patch_count` i la versió 2 afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.
 
 ## Calendari ambiental del PR-09
 
 La longitud d'`environment_schedule` ja forma part de `CompileSignature`. Les dates, els multiplicadors, `stress_level` i `regeneration_rate` són dinàmics: canvien `config_hash`, però amb la mateixa longitud no canvien la signatura. El calendari compilat usa intervals semioberts `[start_step, end_step)` i vectors `int32`/`float32`.
 
-## Observacions locals i signatura v4
+## Observacions locals i política a la signatura v5
 
 El bloc `observations` fixa `schema_version: 1` i valida `perception_radius` com enter estricte entre 1 i 3. La `CompileSignature` v4 incorpora versió, mida 15, digest canònic i radi. Les escales d’energia, edat i recursos són dinàmiques i no alteren la signatura. Vegeu [Esquema d’observacions locals v1](reference/local_observation_schema_v1.md).
+
+## Política neuronal fixa
+
+El bloc `policy` de l’esquema host 1.4 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.

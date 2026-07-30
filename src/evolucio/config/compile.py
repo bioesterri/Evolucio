@@ -13,12 +13,13 @@ from evolucio.core.observations.schema import (
     OBSERVATION_SCHEMA_DIGEST,
     OBSERVATION_SIZE,
 )
+from evolucio.core.policy import POLICY_SCHEMA_DIGEST
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 4
+COMPILE_SIGNATURE_SCHEMA_VERSION = 5
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -48,8 +49,13 @@ class CompileSignature:
     observation_schema_size: int
     observation_schema_digest: str
     action_schema_version: str
-    hidden_size: int
-    activation: str
+    policy_schema_version: int
+    policy_schema_digest: str
+    policy_input_size: int
+    policy_hidden_size: int
+    policy_output_size: int
+    policy_activation: str
+    policy_use_bias: bool
     perception_radius: int
     chunk_size: int
     record_stride: int
@@ -98,9 +104,14 @@ class PopulationCoreConfig(eqx.Module):
 class PolicyCoreConfig(eqx.Module):
     """Fixed policy topology and schema selectors."""
 
-    action_schema_version: str
-    hidden_size: int
-    activation: str
+    action_schema_version: str = eqx.field(static=True)
+    schema_version: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    input_size: int = eqx.field(static=True)
+    hidden_size: int = eqx.field(static=True)
+    output_size: int = eqx.field(static=True)
+    activation: str = eqx.field(static=True)
+    use_bias: bool = eqx.field(static=True)
 
 
 class ObservationsCoreConfig(eqx.Module):
@@ -235,8 +246,13 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         observation_schema_size=OBSERVATION_SIZE,
         observation_schema_digest=OBSERVATION_SCHEMA_DIGEST,
         action_schema_version=policy.action_schema_version,
-        hidden_size=_static_int(policy.hidden_size, "policy.hidden_size"),
-        activation=policy.activation,
+        policy_schema_version=policy.schema_version,
+        policy_schema_digest=POLICY_SCHEMA_DIGEST,
+        policy_input_size=_static_int(policy.input_size, "policy.input_size"),
+        policy_hidden_size=_static_int(policy.hidden_size, "policy.hidden_size"),
+        policy_output_size=_static_int(policy.output_size, "policy.output_size"),
+        policy_activation=policy.activation,
+        policy_use_bias=policy.use_bias,
         perception_radius=_static_int(
             config.observations.perception_radius, "observations.perception_radius"
         ),
@@ -316,7 +332,7 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             placement=config.population.placement,
             allow_multiple_agents_per_cell=config.population.allow_multiple_agents_per_cell,
         ),
-        policy=PolicyCoreConfig(**config.policy.model_dump()),
+        policy=PolicyCoreConfig(**config.policy.model_dump(), schema_digest=POLICY_SCHEMA_DIGEST),
         observations=ObservationsCoreConfig(
             schema_version=config.observations.schema_version,
             schema_size=OBSERVATION_SIZE,
