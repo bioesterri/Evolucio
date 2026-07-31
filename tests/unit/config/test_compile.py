@@ -74,6 +74,8 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
     ("block", "change"),
     [
         ("energy", {"max_energy": 110.0}),
+        ("energy", {"feeding_conversion": 1.5}),
+        ("energy", {"feeding_max_resource_intake": 3.0}),
         ("energy", {"reproduction_threshold": 45.0}),
         ("evolution", {"max_age": 1200}),
         ("world", {"resource_capacity": 12.0}),
@@ -148,7 +150,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 9
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
     assert signature.action_contract_schema_version == 1
     assert signature.action_contract_schema_digest == (
         "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"

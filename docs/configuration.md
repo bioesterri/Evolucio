@@ -1,6 +1,6 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.5** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence` i `genome`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.6** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence` i `genome`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -25,13 +25,13 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.5"
+schema_version: "1.6"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
 policy: {action_schema_version: "1.0", schema_version: 1, input_size: 15, hidden_size: 16, output_size: 7, activation: tanh, use_bias: true}
 observations: {schema_version: 1, perception_radius: 2}
-energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, reproduction_threshold: 40.0, reproduction_cost: 5.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
+energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, feeding_max_resource_intake: 2.0, reproduction_threshold: 40.0, reproduction_cost: 5.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
 evolution: {min_reproduction_age: 5, max_age: 1000, mutation_rate: 0.05, mutation_sigma: 0.02, mutation_clip_abs: 5.0}
 runtime: {steps: 10000, chunk_size: 128, record_stride: 10, snapshot_stride: 1000, backend: cpu}
 persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024, checkpoint_stride: null}
@@ -91,7 +91,7 @@ El bloc `observations` fixa `schema_version: 1` i valida `perception_radius` com
 
 ## Política neuronal fixa
 
-El bloc `policy` de l’esquema host 1.5 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.
+El bloc `policy` de l’esquema host 1.6 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.
 
 ## Genoma i signatura v6
 
@@ -118,3 +118,11 @@ encaminades, causes concretes, posicions, recursos, `alive`, costos i RNG contin
 [moviment cardinal i conflictes espacials v1](reference/cardinal_movement_and_spatial_conflicts_v1.md).
 No incorpora claus, prioritats, posicions, ocupació ni recomptes d'execució, i no afegeix cap opció
 de configuració espacial nova.
+
+## Alimentació i signatura v10
+
+`max_energy` correspon a `maximum_energy` i `feeding_conversion` a
+`energy_gain_per_resource` al contracte del nucli. `feeding_max_resource_intake` és finit i
+estrictament positiu. Tots tres són dinàmics: modifiquen `config_hash`, no les formes, i no
+formen part de `CompileSignature`. La signatura v10 incorpora només la versió i el digest de
+l'[esquema d'alimentació](reference/feeding_resource_competition_and_energy_transfer_v1.md).

@@ -7,6 +7,8 @@ El PR-16 transforma les decisions neuronals `proposed_actions` del PR-15 en
 especialitzats. Una futura `executed_actions` indicarà efectes realment aplicats; no existeix en
 aquest PR. Per tant, `ACCEPTED` significa «encaminada», mai «executada amb èxit».
 
+Les accions `EAT` encaminades es resolen segons el contracte d'[alimentació](feeding_resource_competition_and_energy_transfer_v1.md).
+
 La validació és pura, determinista i preliminar. Comprova slot actiu, codi conegut, posició
 `[x,y]` dins dels límits tancats, destinació cardinal dins del món i recurs estrictament positiu
 per `EAT`. Tot rebuig s'encamina exclusivament a `STAY`, sense cercar una segona acció útil.

@@ -7,6 +7,8 @@ encaminat. La validació comprova l'actor, el codi, els límits i els recursos l
 espacial decideix si una intenció de moviment s'aplica. No executa alimentació o reproducció ni
 aplica costos energètics.
 
+La fase posterior resol l'[alimentació i competència pels recursos](feeding_resource_competition_and_energy_transfer_v1.md).
+
 ## Instantània i regla espacial
 
 La resolució consulta exclusivament `WorldState.occupancy` anterior al moviment. Una destinació

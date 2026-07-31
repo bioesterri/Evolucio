@@ -11,6 +11,8 @@ import jax.numpy as jnp
 from evolucio.core.actions import (
     ACTION_CONTRACT_SCHEMA_DIGEST,
     ACTION_CONTRACT_SCHEMA_VERSION,
+    FEEDING_RESOLUTION_SCHEMA_DIGEST,
+    FEEDING_RESOLUTION_SCHEMA_VERSION,
     MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
     MOVEMENT_RESOLUTION_SCHEMA_VERSION,
 )
@@ -33,7 +35,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 9
+COMPILE_SIGNATURE_SCHEMA_VERSION = 10
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -77,6 +79,8 @@ class CompileSignature:
     action_contract_schema_digest: str
     movement_resolution_schema_version: int
     movement_resolution_schema_digest: str
+    feeding_resolution_schema_version: int
+    feeding_resolution_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -171,6 +175,7 @@ class EnergyCoreConfig(eqx.Module):
     movement_cost: jax.Array
     feeding_cost: jax.Array
     feeding_conversion: jax.Array
+    feeding_max_resource_intake: jax.Array
     reproduction_threshold: jax.Array
     reproduction_cost: jax.Array
     offspring_initial_energy: jax.Array
@@ -299,6 +304,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         action_contract_schema_digest=ACTION_CONTRACT_SCHEMA_DIGEST,
         movement_resolution_schema_version=MOVEMENT_RESOLUTION_SCHEMA_VERSION,
         movement_resolution_schema_digest=MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
+        feeding_resolution_schema_version=FEEDING_RESOLUTION_SCHEMA_VERSION,
+        feeding_resolution_schema_digest=FEEDING_RESOLUTION_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,

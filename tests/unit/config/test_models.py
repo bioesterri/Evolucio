@@ -55,6 +55,8 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("observations", "perception_radius"), 0, "perception_radius"),
         (("observations", "perception_radius"), 4, "perception_radius"),
         (("energy", "initial_energy"), 101.0, "energy"),
+        (("energy", "feeding_max_resource_intake"), 0.0, "feeding_max_resource_intake"),
+        (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
         (("energy", "reproduction_threshold"), 15.0, "energy"),
         (("evolution", "max_age"), 5, "evolution"),
         (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
