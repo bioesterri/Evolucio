@@ -247,6 +247,14 @@ def _float_scalar(value: float, field: str) -> jax.Array:
     return result
 
 
+def _positive_float_scalar(value: float, field: str) -> jax.Array:
+    """Compile a positive scalar without allowing float32 underflow to zero."""
+    result = _float_scalar(value, field)
+    if not float(result) > 0:
+        raise ConfigCompilationError(f"{field} must remain positive in float32")
+    return result
+
+
 def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
     for value in values:
         _static_int(value, field)
@@ -411,7 +419,11 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
         ),
         energy=EnergyCoreConfig(
             **{
-                field: _float_scalar(value, f"energy.{field}")
+                field: (
+                    _positive_float_scalar(value, f"energy.{field}")
+                    if field in {"max_energy", "feeding_conversion", "feeding_max_resource_intake"}
+                    else _float_scalar(value, f"energy.{field}")
+                )
                 for field, value in config.energy.model_dump().items()
             }
         ),

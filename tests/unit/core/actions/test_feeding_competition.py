@@ -1,7 +1,8 @@
 import jax
 import jax.numpy as jnp
+import pytest
 
-from evolucio.core.actions import FeedingResolutionCode
+from evolucio.core.actions import FeedingResolutionCode, resolve_feeding
 from evolucio.core.codes import ActionCode
 
 from .test_feeding import feed, states
@@ -40,3 +41,27 @@ def test_slot_permutation_is_equivariant() -> None:
     permuted = jax.tree.map(lambda value: value[swapped], population)
     second = feed(permuted, world, [ActionCode.EAT] * 2)
     assert jnp.allclose(first.resource_consumed[swapped], second.resource_consumed)
+
+
+def test_float32_rounding_never_leaves_negative_resource() -> None:
+    population, world = states([1.452536, 9.91370277], [[1.5276768]], [[0, 0], [0, 0]])
+    result = resolve_feeding(
+        population=population,
+        world=world,
+        actions_after_movement=jnp.asarray([ActionCode.EAT, ActionCode.EAT]),
+        maximum_energy=jnp.asarray(10.0, dtype=jnp.float32),
+        energy_gain_per_resource=jnp.asarray(1.0, dtype=jnp.float32),
+        feeding_max_resource_intake=jnp.asarray(10.0, dtype=jnp.float32),
+        width=1,
+        height=1,
+    )
+
+    assert result.resource_demand.tolist() == pytest.approx([8.547464, 0.08629723], abs=5e-7)
+    naive_consumed = result.resource_demand * (
+        world.resources.item() / result.resource_demand.sum()
+    )
+    assert naive_consumed.sum() > world.resources.item()
+    assert result.world.resources.item() >= 0
+    assert world.resources.sum() == pytest.approx(
+        float(result.world.resources.sum() + result.resource_consumed.sum()), abs=2e-7
+    )

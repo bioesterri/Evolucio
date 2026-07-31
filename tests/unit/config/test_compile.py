@@ -57,6 +57,28 @@ def test_dynamic_arrays_have_explicit_core_dtypes(config: ExperimentConfig) -> N
     )
 
 
+@pytest.mark.parametrize(
+    "field", ["max_energy", "feeding_conversion", "feeding_max_resource_intake"]
+)
+def test_positive_energy_values_must_remain_positive_in_float32(
+    config: ExperimentConfig, field: str
+) -> None:
+    data = config.model_dump(mode="python")
+    energy = data["energy"]
+    assert isinstance(energy, dict)
+    energy[field] = 1e-50
+    if field == "max_energy":
+        energy["initial_energy"] = 5e-51
+        energy["death_threshold"] = 0.0
+        energy["reproduction_threshold"] = 5e-51
+        energy["reproduction_cost"] = 0.0
+        energy["offspring_initial_energy"] = 1e-51
+    underflowing = ExperimentConfig.model_validate(data)
+
+    with pytest.raises(ConfigCompilationError, match="must remain positive in float32"):
+        compile_config(underflowing)
+
+
 def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -> None:
     changed = replace(config, "energy", basal_cost=0.25, movement_cost=0.15)
     first = compile_config(config)

@@ -93,7 +93,19 @@ def resolve_feeding(
     )
     consumed = jnp.where(consumers, demand * ratio[flat_cell], 0).astype(REAL_DTYPE)
     consumed_by_cell = jnp.zeros((cell_count,), dtype=REAL_DTYPE).at[flat_cell].add(consumed)
-    resources_after = (available - consumed_by_cell).reshape(world.resources.shape)
+    # Correct any aggregate float32 overshoot with one common per-cell factor. Moving the
+    # factor one representable value toward zero keeps the correction conservative while
+    # preserving proportional neutrality between consumers.
+    correction = jnp.where(
+        consumed_by_cell > available,
+        jnp.nextafter(available / consumed_by_cell, jnp.zeros_like(available)),
+        1,
+    )
+    consumed = jnp.where(consumers, consumed * correction[flat_cell], 0).astype(REAL_DTYPE)
+    consumed_by_cell = jnp.zeros((cell_count,), dtype=REAL_DTYPE).at[flat_cell].add(consumed)
+    # Float32 scatter accumulation can round a proportional allocation a few ulps above
+    # ``available``. Clamp the debit defensively so a valid cell never becomes negative.
+    resources_after = jnp.maximum(available - consumed_by_cell, 0).reshape(world.resources.shape)
 
     theoretical_gain = consumed * energy_gain_per_resource
     energy_after = jnp.where(
