@@ -62,6 +62,7 @@ els PR posteriors implementin aquestes capes.
 - [Roadmap de PR](docs/roadmap/projecte_evolucio_llista_pr_prototip_v1_0.md)
 - [Guia de contribució](CONTRIBUTING.md)
 - [Instruccions per a Codex](AGENTS.md)
+- [Configuració d’experiments](docs/configuration.md)
 
 ## Estat d'implementació
 
