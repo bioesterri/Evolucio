@@ -31,6 +31,17 @@ def test_freeze_revalidates_unchecked_model_copy(config: ExperimentConfig) -> No
         freeze_config(invalid)
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_freeze_rejects_unchecked_extra_fields(config: ExperimentConfig, *, nested: bool) -> None:
+    if nested:
+        invalid = config.model_copy(update={"world": config.world.model_copy(update={"widht": 5})})
+    else:
+        invalid = config.model_copy(update={"sead": 43})
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        freeze_config(invalid)
+
+
 def test_freeze_preserves_revalidated_config(config: ExperimentConfig) -> None:
     copied = config.model_copy(update={"seed": 43})
 
