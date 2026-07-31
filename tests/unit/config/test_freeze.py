@@ -1,6 +1,9 @@
 import dataclasses
 import re
 
+import pytest
+from pydantic import ValidationError
+
 from evolucio.config import ExperimentConfig, freeze_config, load_config
 
 
@@ -19,3 +22,19 @@ def test_equivalent_fixtures_and_change(config: ExperimentConfig) -> None:
     assert freeze_config(other).config_hash == freeze_config(config).config_hash
     changed = config.model_copy(update={"seed": 43})
     assert freeze_config(changed).config_hash != freeze_config(config).config_hash
+
+
+def test_freeze_revalidates_unchecked_model_copy(config: ExperimentConfig) -> None:
+    invalid = config.model_copy(update={"seed": -1})
+
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        freeze_config(invalid)
+
+
+def test_freeze_preserves_revalidated_config(config: ExperimentConfig) -> None:
+    copied = config.model_copy(update={"seed": 43})
+
+    frozen = freeze_config(copied)
+
+    assert frozen.config == copied
+    assert frozen.config is not copied
