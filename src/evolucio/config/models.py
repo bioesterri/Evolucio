@@ -16,6 +16,7 @@ class _ConfigModel(BaseModel):
         extra="forbid",
         frozen=True,
         strict=True,
+        revalidate_instances="always",
         validate_default=True,
         str_strip_whitespace=True,
         allow_inf_nan=False,
