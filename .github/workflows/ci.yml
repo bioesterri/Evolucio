@@ -39,14 +39,10 @@ jobs:
       - run: uv run lint-imports
       - name: Check pull request whitespace
         if: github.event_name == 'pull_request'
-        run: >-
-          git diff --check
-          "${{ github.event.pull_request.base.sha }}"
-          "${{ github.event.pull_request.head.sha }}"
-          --
+        run: git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
       - name: Check push whitespace
         if: github.event_name == 'push'
-        run: git diff --check "${{ github.event.before }}" "${{ github.sha }}" --
+        run: git diff --check "${{ github.event.before }}" "${{ github.sha }}"
 
   test-build:
     runs-on: ubuntu-latest
