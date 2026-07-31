@@ -136,6 +136,7 @@ class EnergyConfig(_ConfigModel):
     movement_cost: NonNegativeFloat
     feeding_cost: NonNegativeFloat
     feeding_conversion: PositiveFloat
+    feeding_max_resource_intake: PositiveFloat
     reproduction_threshold: float
     reproduction_cost: NonNegativeFloat
     offspring_initial_energy: float
@@ -209,9 +210,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.5."""
+    """Complete validated scientific configuration for schema 1.6."""
 
-    schema_version: Literal["1.5"]
+    schema_version: Literal["1.6"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

@@ -57,6 +57,28 @@ def test_dynamic_arrays_have_explicit_core_dtypes(config: ExperimentConfig) -> N
     )
 
 
+@pytest.mark.parametrize(
+    "field", ["max_energy", "feeding_conversion", "feeding_max_resource_intake"]
+)
+def test_positive_energy_values_must_remain_positive_in_float32(
+    config: ExperimentConfig, field: str
+) -> None:
+    data = config.model_dump(mode="python")
+    energy = data["energy"]
+    assert isinstance(energy, dict)
+    energy[field] = 1e-50
+    if field == "max_energy":
+        energy["initial_energy"] = 5e-51
+        energy["death_threshold"] = 0.0
+        energy["reproduction_threshold"] = 5e-51
+        energy["reproduction_cost"] = 0.0
+        energy["offspring_initial_energy"] = 1e-51
+    underflowing = ExperimentConfig.model_validate(data)
+
+    with pytest.raises(ConfigCompilationError, match="must remain positive in float32"):
+        compile_config(underflowing)
+
+
 def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -> None:
     changed = replace(config, "energy", basal_cost=0.25, movement_cost=0.15)
     first = compile_config(config)
@@ -74,6 +96,8 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
     ("block", "change"),
     [
         ("energy", {"max_energy": 110.0}),
+        ("energy", {"feeding_conversion": 1.5}),
+        ("energy", {"feeding_max_resource_intake": 3.0}),
         ("energy", {"reproduction_threshold": 45.0}),
         ("evolution", {"max_age": 1200}),
         ("world", {"resource_capacity": 12.0}),
@@ -148,7 +172,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 9
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
     assert signature.action_contract_schema_version == 1
     assert signature.action_contract_schema_digest == (
         "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"

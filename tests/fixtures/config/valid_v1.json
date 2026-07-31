@@ -4,6 +4,7 @@
     "death_threshold": 0.0,
     "failed_action_cost": 0.0,
     "feeding_conversion": 1.0,
+    "feeding_max_resource_intake": 2.0,
     "feeding_cost": 0.0,
     "initial_energy": 20.0,
     "max_energy": 100.0,
@@ -45,7 +46,7 @@
     "snapshot_stride": 1000,
     "steps": 10000
   },
-  "schema_version": "1.5",
+  "schema_version": "1.6",
   "seed": 42,
   "world": {
     "boundary_mode": "closed",
