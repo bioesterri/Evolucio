@@ -1,24 +1,25 @@
 """Stable host configuration API."""
 
-from .compile import (
-    COMPILE_SIGNATURE_SCHEMA_VERSION,
-    CompiledConfig,
-    CompileSignature,
-    ConfigCompilationError,
-    CoreConfig,
-    EnergyCoreConfig,
-    EnvironmentCalendarCoreConfig,
-    EvolutionCoreConfig,
-    GenomeCoreConfig,
-    ObservationsCoreConfig,
-    PolicyCoreConfig,
-    PopulationCoreConfig,
-    RuntimeCoreConfig,
-    WorldCoreConfig,
-    build_compile_signature,
-    compile_config,
-    compile_signature_digest,
-)
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .compile import (
+        COMPILE_SIGNATURE_SCHEMA_VERSION,
+        CompiledConfig,
+        CompileSignature,
+        ConfigCompilationError,
+        CoreConfig,
+        EnergyCoreConfig,
+        EvolutionCoreConfig,
+        PolicyCoreConfig,
+        PopulationCoreConfig,
+        RuntimeCoreConfig,
+        WorldCoreConfig,
+        build_compile_signature,
+        compile_config,
+        compile_signature_digest,
+    )
 from .freeze import FrozenConfig, freeze_config
 from .io import ConfigFormat, dump_config, load_config, parse_config, serialize_config
 from .models import (
@@ -37,6 +38,34 @@ from .models import (
 from .schema import experiment_config_json_schema
 from .versions import CONFIG_SCHEMA_VERSION
 
+_COMPILE_EXPORTS = frozenset(
+    {
+        "COMPILE_SIGNATURE_SCHEMA_VERSION",
+        "CompiledConfig",
+        "CompileSignature",
+        "ConfigCompilationError",
+        "CoreConfig",
+        "EnergyCoreConfig",
+        "EvolutionCoreConfig",
+        "PolicyCoreConfig",
+        "PopulationCoreConfig",
+        "RuntimeCoreConfig",
+        "WorldCoreConfig",
+        "build_compile_signature",
+        "compile_config",
+        "compile_signature_digest",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Load the JAX-facing compilation API only when explicitly requested."""
+    if name in _COMPILE_EXPORTS:
+        module = import_module(".compile", __name__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "COMPILE_SIGNATURE_SCHEMA_VERSION",
     "CONFIG_SCHEMA_VERSION",
@@ -47,7 +76,6 @@ __all__ = [
     "CoreConfig",
     "EnergyConfig",
     "EnergyCoreConfig",
-    "EnvironmentCalendarCoreConfig",
     "EnvironmentPhaseConfig",
     "EvolutionConfig",
     "EvolutionCoreConfig",
