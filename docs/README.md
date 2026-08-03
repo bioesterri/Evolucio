@@ -15,3 +15,8 @@ La carpeta `docs/` agrupa la documentació de referència del Projecte Evolució
 4. La guia de contribució i `AGENTS.md` defineixen les convencions de treball.
 
 Aquesta pàgina és només un índex. No resumeix ni substitueix els documents de referència.
+
+## Configuració
+
+- [Guia de configuració](configuration.md)
+- [JSON Schema de configuració 1.0](schemas/experiment-config-v1.0.json)
