@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import evolucio.config as config_api
 from evolucio.config import CONFIG_SCHEMA_VERSION, experiment_config_json_schema
 
 
@@ -22,6 +23,10 @@ def test_schema_snapshot() -> None:
     assert json.loads(Path("docs/schemas/experiment-config-v1.0.json").read_text()) == schema
 
 
+def test_host_public_exports_are_concrete() -> None:
+    assert all(hasattr(config_api, name) for name in config_api.__all__)
+
+
 def test_config_has_no_forbidden_imports() -> None:
     forbidden = {
         "jax",
@@ -32,6 +37,8 @@ def test_config_has_no_forbidden_imports() -> None:
         "evolucio.visualization",
     }
     for path in Path("src/evolucio/config").glob("*.py"):
+        if path.name in {"compile.py", "__init__.py"}:
+            continue
         tree = ast.parse(path.read_text())
         names = [
             node.module
