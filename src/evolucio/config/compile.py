@@ -244,6 +244,8 @@ def _float_scalar(value: float, field: str) -> jax.Array:
     result = jnp.asarray(value, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != () or not math.isfinite(float(result)):
         raise ConfigCompilationError(f"{field} must compile to a finite scalar")
+    if value != 0.0 and float(result) == 0.0:
+        raise ConfigCompilationError(f"{field} underflows to zero in float32")
     return result
 
 
@@ -262,13 +264,41 @@ def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
 
 
 def _float_vector(values: tuple[float, ...], field: str) -> jax.Array:
-    for value in values:
-        if not math.isfinite(value) or abs(value) > _FLOAT32_MAX:
-            raise ConfigCompilationError(f"{field} contains a value outside the float32 range")
+    for index, value in enumerate(values):
+        _float_scalar(value, f"{field}[{index}]")
     result = jnp.asarray(values, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if not bool(jnp.all(jnp.isfinite(result))):
         raise ConfigCompilationError(f"{field} must contain only finite values")
     return result
+
+
+def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
+    """Recheck relational energy invariants after float32 conversion."""
+    death_threshold = float(energy.death_threshold)
+    initial_energy = float(energy.initial_energy)
+    max_energy = float(energy.max_energy)
+    reproduction_threshold = float(energy.reproduction_threshold)
+    reproduction_cost = float(energy.reproduction_cost)
+    offspring_initial_energy = float(energy.offspring_initial_energy)
+
+    if not death_threshold < initial_energy <= max_energy:
+        raise ConfigCompilationError(
+            "energy.initial_energy violates viability bounds after float32 conversion"
+        )
+    if reproduction_threshold > max_energy:
+        raise ConfigCompilationError(
+            "energy.reproduction_threshold exceeds max_energy after float32 conversion"
+        )
+    if offspring_initial_energy <= death_threshold:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy is not viable after float32 conversion"
+        )
+    minimum = death_threshold + reproduction_cost + offspring_initial_energy
+    if reproduction_threshold <= minimum:
+        raise ConfigCompilationError(
+            "energy.reproduction_threshold does not leave the parent viable after float32 "
+            "conversion"
+        )
 
 
 def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
@@ -344,6 +374,17 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
     """Compile an already validated host model without I/O or side effects."""
     world = config.world
     phases = world.environment_schedule
+    energy = EnergyCoreConfig(
+        **{
+            field: (
+                _positive_float_scalar(value, f"energy.{field}")
+                if field in {"max_energy", "feeding_conversion", "feeding_max_resource_intake"}
+                else _float_scalar(value, f"energy.{field}")
+            )
+            for field, value in config.energy.model_dump().items()
+        }
+    )
+    _validate_compiled_energy(energy)
     core = CoreConfig(
         world=WorldCoreConfig(
             width=_static_int(world.width, "world.width"),
@@ -417,16 +458,7 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             initialization_version=GENOME_INITIALIZATION_VERSION,
             parameter_count=GENOME_PARAMETER_COUNT,
         ),
-        energy=EnergyCoreConfig(
-            **{
-                field: (
-                    _positive_float_scalar(value, f"energy.{field}")
-                    if field in {"max_energy", "feeding_conversion", "feeding_max_resource_intake"}
-                    else _float_scalar(value, f"energy.{field}")
-                )
-                for field, value in config.energy.model_dump().items()
-            }
-        ),
+        energy=energy,
         evolution=EvolutionCoreConfig(
             min_reproduction_age=_int_scalar(
                 config.evolution.min_reproduction_age, "evolution.min_reproduction_age"

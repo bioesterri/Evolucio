@@ -75,8 +75,35 @@ def test_positive_energy_values_must_remain_positive_in_float32(
         energy["offspring_initial_energy"] = 1e-51
     underflowing = ExperimentConfig.model_validate(data)
 
-    with pytest.raises(ConfigCompilationError, match="must remain positive in float32"):
+    with pytest.raises(ConfigCompilationError, match="float32"):
         compile_config(underflowing)
+
+
+@pytest.mark.parametrize(
+    ("block", "field"),
+    [("world", "regeneration_rate"), ("evolution", "mutation_rate")],
+)
+def test_nonzero_dynamic_values_must_not_underflow_to_zero(
+    config: ExperimentConfig, block: str, field: str
+) -> None:
+    changed = replace(config, block, **{field: 1e-100})
+    with pytest.raises(ConfigCompilationError, match=field):
+        compile_config(changed)
+
+
+def test_energy_invariants_are_rechecked_after_float32_conversion(
+    config: ExperimentConfig,
+) -> None:
+    changed = replace(
+        config,
+        "energy",
+        reproduction_threshold=40.000001,
+        reproduction_cost=30.0,
+        offspring_initial_energy=10.0,
+        death_threshold=0.0,
+    )
+    with pytest.raises(ConfigCompilationError, match=r"energy\.reproduction_threshold"):
+        compile_config(changed)
 
 
 def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -> None:
