@@ -103,3 +103,9 @@ Una revisió ha de detectar especialment:
 - formes dinàmiques incompatibles amb JAX;
 - absència de proves quan la funcionalitat les requereixi;
 - canvis arquitectònics no documentats.
+
+## Regles permanents de configuració
+
+- Tot canvi d’esquema ha d’actualitzar la versió quan correspongui i mai no pot reinterpretar versions antigues.
+- Els hashes es calculen sobre configuració canònica validada; no s’admeten variables d’entorn ni fallbacks silenciosos.
+- Una configuració congelada no es modifica i la configuració host no pot importar JAX.
