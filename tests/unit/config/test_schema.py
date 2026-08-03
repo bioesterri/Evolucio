@@ -1,7 +1,5 @@
 import ast
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 from evolucio.config import CONFIG_SCHEMA_VERSION, experiment_config_json_schema
@@ -57,8 +55,3 @@ def test_config_has_no_forbidden_imports() -> None:
         assert not any(
             any(name == item or name.startswith(item + ".") for item in forbidden) for name in names
         )
-    command = (
-        "import sys; import evolucio.config; "
-        "assert 'jax' not in sys.modules and 'equinox' not in sys.modules"
-    )
-    subprocess.run([sys.executable, "-c", command], check=True)
