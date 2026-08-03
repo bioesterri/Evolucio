@@ -37,29 +37,14 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("seed",), True, "seed"),
         (("world", "width"), 0, "width"),
         (("world", "resource_capacity"), math.inf, "resource_capacity"),
-        (("world", "initial_resource_mean"), 10.1, "initial_resource_mean"),
-        (("world", "resource_patch_count"), 0, "resource_patch_count"),
-        (("world", "resource_patch_count"), True, "resource_patch_count"),
-        (("world", "resource_patch_radius"), 0.0, "resource_patch_radius"),
-        (("world", "resource_patch_radius"), math.nan, "resource_patch_radius"),
-        (("world", "resource_patch_contrast"), -0.1, "resource_patch_contrast"),
-        (("world", "resource_patch_contrast"), 1.2, "resource_patch_contrast"),
-        (("world", "environment_initial_value"), -0.1, "environment_initial_value"),
-        (("world", "environment_initial_value"), math.inf, "environment_initial_value"),
-        (("world", "boundary_mode"), "toroidal", "boundary_mode"),
-        (("world", "resource_distribution"), "random", "resource_distribution"),
+        (("world", "initial_resource_fraction"), 1.1, "initial_resource_fraction"),
         (("population", "initial_agents"), 2000, "population"),
         (("policy", "hidden_size"), 8, "hidden_size"),
-        (("observations", "schema_version"), 2, "schema_version"),
-        (("observations", "perception_radius"), True, "perception_radius"),
-        (("observations", "perception_radius"), 0, "perception_radius"),
-        (("observations", "perception_radius"), 4, "perception_radius"),
+        (("policy", "observation_schema_version"), "2.0", "observation_schema_version"),
         (("energy", "initial_energy"), 101.0, "energy"),
-        (("energy", "feeding_max_resource_intake"), 0.0, "feeding_max_resource_intake"),
-        (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
         (("energy", "reproduction_threshold"), 15.0, "energy"),
         (("evolution", "max_age"), 5, "evolution"),
-        (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
+        (("evolution", "mutation_rate"), 1.1, "mutation_rate"),
         (("runtime", "record_stride"), 0, "record_stride"),
     ],
 )
@@ -86,45 +71,9 @@ def test_cross_block_capacity(config: ExperimentConfig) -> None:
         ExperimentConfig.model_validate(raw)
 
 
-def test_zero_founders_and_overlapping_population_are_valid(config: ExperimentConfig) -> None:
-    raw = data(config)
-    raw["world"]["width"] = 1  # type: ignore[index]
-    raw["world"]["height"] = 1  # type: ignore[index]
-    raw["population"]["initial_agents"] = 0  # type: ignore[index]
-    raw["population"]["max_agents"] = 4  # type: ignore[index]
-    raw["population"]["max_births_per_step"] = 1  # type: ignore[index]
-    assert ExperimentConfig.model_validate(raw).population.initial_agents == 0
-
-
-def test_world_area_must_fit_linear_int32_index(config: ExperimentConfig) -> None:
-    raw = data(config)
-    raw["world"]["width"] = 46341  # type: ignore[index]
-    raw["world"]["height"] = 46341  # type: ignore[index]
-    with pytest.raises(ValidationError, match="representable as int32"):
-        ExperimentConfig.model_validate(raw)
-
-
 @given(st.integers(min_value=0, max_value=2**32 - 1))
 @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_valid_seeds(config: ExperimentConfig, seed: int) -> None:
     raw = data(config)
     raw["seed"] = seed
     assert ExperimentConfig.model_validate(raw).seed == seed
-
-
-@pytest.mark.parametrize(
-    ("field", "value"),
-    [
-        ("schema_version", 2),
-        ("input_size", 14),
-        ("input_size", True),
-        ("hidden_size", 15),
-        ("output_size", 8),
-        ("activation", "relu"),
-        ("use_bias", False),
-    ],
-)
-def test_policy_contract_rejects_alternatives(
-    config: ExperimentConfig, field: str, value: object
-) -> None:
-    assert field in str(error(config, ("policy", field), value))

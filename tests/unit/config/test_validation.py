@@ -48,6 +48,17 @@ def test_environment_schedule(config: ExperimentConfig) -> None:
             [
                 {
                     "start_step": 0,
+                    "end_step": 10001,
+                    "regeneration_multiplier": 1.0,
+                    "stress_level": 0.0,
+                }
+            ],
+            "runtime.steps",
+        ),
+        (
+            [
+                {
+                    "start_step": 0,
                     "end_step": 2,
                     "regeneration_multiplier": -1.0,
                     "stress_level": 0.0,
@@ -87,20 +98,3 @@ def test_persistence_rules(config: ExperimentConfig) -> None:
     value["persistence"]["destinations"] = ("local", "local")  # type: ignore[index]
     with pytest.raises(ValidationError, match="duplicates"):
         ExperimentConfig.model_validate(value)
-
-
-@pytest.mark.parametrize(
-    "genome",
-    [
-        {"schema_version": 2},
-        {"initialization": "unknown"},
-        {"initialization": ""},
-    ],
-)
-def test_invalid_genome_contract_is_rejected(
-    config: ExperimentConfig, genome: dict[str, object]
-) -> None:
-    candidate = config.model_dump(mode="python")
-    candidate["genome"] = genome
-    with pytest.raises(ValidationError):
-        ExperimentConfig.model_validate(candidate)

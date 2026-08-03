@@ -9,8 +9,6 @@ NonNegativeInt = Annotated[int, Field(ge=0)]
 PositiveFloat = Annotated[float, Field(gt=0)]
 NonNegativeFloat = Annotated[float, Field(ge=0)]
 Fraction = Annotated[float, Field(ge=0, le=1)]
-Rate = Annotated[float, Field(ge=0, lt=1)]
-_STEP_MAX = 2**31 - 1
 
 
 class _ConfigModel(BaseModel):
@@ -27,9 +25,9 @@ class _ConfigModel(BaseModel):
 class EnvironmentPhaseConfig(_ConfigModel):
     """A deterministic environmental interval, with an exclusive end."""
 
-    start_step: Annotated[int, Field(ge=0, le=_STEP_MAX)]
-    end_step: Annotated[int, Field(gt=0, le=_STEP_MAX)]
-    regeneration_multiplier: Fraction
+    start_step: NonNegativeInt
+    end_step: PositiveInt
+    regeneration_multiplier: NonNegativeFloat
     stress_level: Fraction
 
     @model_validator(mode="after")
@@ -45,23 +43,11 @@ class WorldConfig(_ConfigModel):
     width: PositiveInt
     height: PositiveInt
     boundary_mode: Literal["closed"]
-    resource_capacity: NonNegativeFloat
-    initial_resource_mean: NonNegativeFloat
-    resource_distribution: Literal["uniform", "patches"]
-    resource_patch_count: PositiveInt
-    resource_patch_radius: PositiveFloat
-    resource_patch_contrast: Fraction
-    environment_initial_value: Fraction
-    regeneration_rate: Rate
-    environment_schedule: tuple[EnvironmentPhaseConfig, ...] = ()
-
-    @model_validator(mode="after")
-    def validate_initial_resource(self) -> Self:
-        if self.initial_resource_mean > self.resource_capacity:
-            raise ValueError("initial_resource_mean must not exceed resource_capacity")
-        if self.width * self.height > _STEP_MAX:
-            raise ValueError("world area must be representable as int32")
-        return self
+    resource_capacity: PositiveFloat
+    initial_resource_fraction: Fraction
+    resource_distribution: Literal["uniform", "random", "patches"]
+    regeneration_rate: NonNegativeFloat
+    environment_schedule: tuple[EnvironmentPhaseConfig, ...]
 
     @field_validator("environment_schedule", mode="before")
     @classmethod
@@ -71,13 +57,11 @@ class WorldConfig(_ConfigModel):
     @model_validator(mode="after")
     def validate_schedule(self) -> Self:
         previous: EnvironmentPhaseConfig | None = None
-        for index, phase in enumerate(self.environment_schedule):
+        for phase in self.environment_schedule:
             if previous is not None and phase.start_step < previous.start_step:
-                raise ValueError(
-                    f"environment_schedule[{index}].start_step must be strictly ordered"
-                )
+                raise ValueError("environment phases must be ordered by start_step")
             if previous is not None and phase.start_step < previous.end_step:
-                raise ValueError(f"environment_schedule[{index}].start_step must not overlap")
+                raise ValueError("environment phases must not overlap")
             previous = phase
         return self
 
@@ -85,7 +69,7 @@ class WorldConfig(_ConfigModel):
 class PopulationConfig(_ConfigModel):
     """Fixed-capacity population parameters."""
 
-    initial_agents: NonNegativeInt
+    initial_agents: PositiveInt
     max_agents: PositiveInt
     max_births_per_step: PositiveInt
     placement: Literal["random"]
@@ -103,27 +87,11 @@ class PopulationConfig(_ConfigModel):
 class PolicyConfig(_ConfigModel):
     """Versioned fixed-topology policy parameters."""
 
+    observation_schema_version: Literal["1.0"]
     action_schema_version: Literal["1.0"]
-    schema_version: Literal[1] = 1
-    input_size: Literal[15] = 15
-    hidden_size: Literal[16] = 16
-    output_size: Literal[7] = 7
-    activation: Literal["tanh"] = "tanh"
-    use_bias: Literal[True] = True
-
-
-class GenomeConfig(_ConfigModel):
-    """Versioned founder-genome initialization selector."""
-
-    schema_version: Literal[1] = 1
-    initialization: Literal["glorot_uniform_zero_bias_v1"] = "glorot_uniform_zero_bias_v1"
-
-
-class ObservationsConfig(_ConfigModel):
-    """Fixed local observation schema and configurable static radius."""
-
-    schema_version: Literal[1] = 1
-    perception_radius: Annotated[int, Field(ge=1, le=3)] = 1
+    hidden_size: Literal[16]
+    activation: Literal["tanh"]
+    perception_radius: Annotated[int, Field(ge=1, le=3)]
 
 
 class EnergyConfig(_ConfigModel):
@@ -136,7 +104,6 @@ class EnergyConfig(_ConfigModel):
     movement_cost: NonNegativeFloat
     feeding_cost: NonNegativeFloat
     feeding_conversion: PositiveFloat
-    feeding_max_resource_intake: PositiveFloat
     reproduction_threshold: float
     reproduction_cost: NonNegativeFloat
     offspring_initial_energy: float
@@ -210,15 +177,13 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.6."""
+    """Complete validated scientific configuration for schema 1.0."""
 
-    schema_version: Literal["1.6"]
+    schema_version: Literal["1.0"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
     policy: PolicyConfig
-    genome: GenomeConfig = Field(default_factory=GenomeConfig)
-    observations: ObservationsConfig = Field(default_factory=ObservationsConfig)
     energy: EnergyConfig
     evolution: EvolutionConfig
     runtime: RuntimeConfig
@@ -230,4 +195,6 @@ class ExperimentConfig(_ConfigModel):
             area = self.world.width * self.world.height
             if self.population.max_agents > area or self.population.initial_agents > area:
                 raise ValueError("population capacity exceeds world area without cell sharing")
+        if any(phase.end_step > self.runtime.steps for phase in self.world.environment_schedule):
+            raise ValueError("environment phase ends after runtime.steps")
         return self
