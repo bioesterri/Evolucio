@@ -61,8 +61,6 @@ _UniqueSafeLoader.add_constructor(
 
 def parse_config(text: str, *, format: ConfigFormat) -> ExperimentConfig:
     """Parse and validate one YAML or JSON document."""
-    if format not in ("yaml", "json"):
-        raise ConfigFormatError(f"unsupported configuration format: {format!r}")
     if not text.strip():
         raise ConfigFormatError(f"empty {format} configuration")
     try:
@@ -105,10 +103,7 @@ def load_config(path: str | Path) -> ExperimentConfig:
 
 def serialize_config(config: ExperimentConfig, *, format: ConfigFormat, pretty: bool = True) -> str:
     """Serialize a validated configuration, including defaults and nulls."""
-    if format not in ("yaml", "json"):
-        raise ConfigFormatError(f"unsupported configuration format: {format!r}")
-    validated_config = ExperimentConfig.model_validate(config.model_dump(mode="python"))
-    data = validated_config.model_dump(mode="json", exclude_none=False, exclude_defaults=False)
+    data = config.model_dump(mode="json", exclude_none=False, exclude_defaults=False)
     if format == "json":
         return (
             json.dumps(
@@ -130,9 +125,8 @@ def dump_config(config: ExperimentConfig, path: str | Path, *, overwrite: bool =
     formats: dict[str, ConfigFormat] = {".yaml": "yaml", ".yml": "yaml", ".json": "json"}
     if target.suffix.lower() not in formats:
         raise ConfigFormatError(f"unsupported configuration extension: {target.suffix or '<none>'}")
-    serialized = serialize_config(config, format=formats[target.suffix.lower()])
     try:
         with target.open("w" if overwrite else "x", encoding="utf-8") as stream:
-            stream.write(serialized)
+            stream.write(serialize_config(config, format=formats[target.suffix.lower()]))
     except OSError as exc:
         raise ConfigIOError(f"cannot write configuration {target}: {exc}") from exc

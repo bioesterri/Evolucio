@@ -3,13 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from evolucio.config import (
-    ExperimentConfig,
-    dump_config,
-    load_config,
-    parse_config,
-    serialize_config,
-)
+from evolucio.config import ExperimentConfig, dump_config, load_config, parse_config
 from evolucio.config.errors import (
     ConfigFormatError,
     ConfigIOError,
@@ -39,13 +33,6 @@ def test_bad_documents(text: str, fmt: str, error: type[Exception]) -> None:
         parse_config(text, format=fmt)  # type: ignore[arg-type]
 
 
-def test_public_apis_reject_unknown_format(config: ExperimentConfig) -> None:
-    with pytest.raises(ConfigFormatError, match="toml"):
-        parse_config("schema_version = '1.0'", format="toml")  # type: ignore[arg-type]
-    with pytest.raises(ConfigFormatError, match="toml"):
-        serialize_config(config, format="toml")  # type: ignore[arg-type]
-
-
 def test_version_errors(config: ExperimentConfig) -> None:
     text = '{"schema_version":"2.0"}'
     with pytest.raises(UnsupportedConfigVersionError):
@@ -68,18 +55,3 @@ def test_paths_and_roundtrip(config: ExperimentConfig, tmp_path: Path) -> None:
         load_config(tmp_path / "missing.yaml")
     with pytest.raises(ConfigIOError):
         dump_config(config, tmp_path / "missing" / "x.yaml")
-
-
-@pytest.mark.parametrize("suffix", [".yaml", ".json"])
-def test_serialization_revalidates_unchecked_model_copy(
-    config: ExperimentConfig, tmp_path: Path, suffix: str
-) -> None:
-    unchecked = config.model_copy(update={"seed": -1})
-    target = tmp_path / f"invalid{suffix}"
-
-    with pytest.raises(ValidationError, match="seed"):
-        serialize_config(unchecked, format="yaml" if suffix == ".yaml" else "json")
-    with pytest.raises(ValidationError, match="seed"):
-        dump_config(unchecked, target)
-
-    assert not target.exists()
