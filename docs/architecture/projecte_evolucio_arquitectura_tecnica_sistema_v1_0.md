@@ -696,3 +696,7 @@ def run_chunk(
 - [Equinox — Tricks: ensembles amb vmap](https://docs.kidger.site/equinox/tricks/)
 
 **FI DEL DOCUMENT**
+
+### Referència implementada d'observacions
+
+El contracte versionat concret del PR-12 es documenta a [Esquema d'observacions locals v1](../reference/local_observation_schema_v1.md).
