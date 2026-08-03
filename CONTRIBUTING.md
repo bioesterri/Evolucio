@@ -13,9 +13,27 @@
 
 ## Dependències, proves i traçabilitat
 
-- Inicialitza l'entorn de desenvolupament amb `uv sync --group dev`.
-- Executa localment `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`,
-  `uv run lint-imports`, `uv lock --check` i `uv build` abans de completar un PR.
+- Inicialitza l'entorn de desenvolupament amb `uv sync --locked --group dev`.
+- Executa localment les portes equivalents a la CI abans de completar un PR:
+
+  ```console
+  uv lock --check
+  uv sync --locked --group dev
+  uv run ruff check .
+  uv run ruff format --check .
+  uv run pyright
+  uv run lint-imports
+  uv run coverage erase
+  uv run coverage run -m pytest
+  uv run coverage report
+  uv build
+  ```
+- Els jobs de CI tenen els noms estables `quality` i `test-build`. Quan la configuració del
+  repositori ho permeti, es recomana establir-los com a comprovacions obligatòries de branca;
+  aquesta protecció s'ha de configurar externament.
+- Els canvis de comportament han d'incloure proves deterministes. La cobertura global mínima és
+  del 90 % i no es pot reduir, ignorar ni desactivar cap comprovació sense justificació explícita.
+- Una CI verda valida una coherència tècnica mínima, però no demostra correcció científica.
 - Gestiona les dependències amb `uv`, o modifica coherentment `pyproject.toml` i executa després
   `uv lock`.
 - Versiona sempre `uv.lock` i no l'editis manualment.
@@ -33,3 +51,9 @@
 - Tipus i scopes tècnics en anglès.
 - Descripció breu i concreta.
 - No cal reescriure l'historial si el repositori o la plataforma no ho permeten.
+
+## Regles permanents de configuració
+
+- Tot canvi d’esquema ha d’actualitzar la versió quan correspongui i mai no pot reinterpretar versions antigues.
+- Els hashes es calculen sobre configuració canònica validada; no s’admeten variables d’entorn ni fallbacks silenciosos.
+- Una configuració congelada no es modifica i la configuració host no pot importar JAX.

@@ -23,14 +23,22 @@ uv sync --group dev
 uv run python -c "import evolucio"
 ```
 
-## Qualitat local
+## Qualitat i integració contínua
+
+GitHub Actions executa les mateixes portes de qualitat sobre Linux, Python 3.12 i el backend
+CPU de JAX. La cobertura global mínima és del 90 %. La CI no valida acceleració GPU o TPU i el
+projecte encara no disposa de motor de simulació.
 
 ```console
+uv sync --locked --group dev
+uv lock --check
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright
 uv run lint-imports
-uv lock --check
+uv run coverage erase
+uv run coverage run -m pytest
+uv run coverage report
 uv build
 ```
 
@@ -54,6 +62,7 @@ els PR posteriors implementin aquestes capes.
 - [Roadmap de PR](docs/roadmap/projecte_evolucio_llista_pr_prototip_v1_0.md)
 - [Guia de contribució](CONTRIBUTING.md)
 - [Instruccions per a Codex](AGENTS.md)
+- [Configuració d’experiments](docs/configuration.md)
 
 ## Estat d'implementació
 

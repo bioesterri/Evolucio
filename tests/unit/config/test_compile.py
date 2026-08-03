@@ -1,0 +1,301 @@
+import dataclasses
+import re
+from pathlib import Path
+
+import equinox as eqx
+import jax
+import jax.numpy as jnp
+import pytest
+from pydantic import BaseModel
+
+from evolucio.config import (
+    COMPILE_SIGNATURE_SCHEMA_VERSION,
+    CompiledConfig,
+    CompileSignature,
+    ConfigCompilationError,
+    CoreConfig,
+    ExperimentConfig,
+    build_compile_signature,
+    compile_config,
+    compile_signature_digest,
+    freeze_config,
+)
+
+
+def replace(config: ExperimentConfig, block: str, **changes: object) -> ExperimentConfig:
+    """Validate a copy with changes restricted to one configuration block."""
+    data = config.model_dump(mode="python")
+    value = data[block]
+    assert isinstance(value, dict)
+    value.update(changes)
+    return ExperimentConfig.model_validate(data)
+
+
+def test_basic_compilation_preserves_full_config_identity(config: ExperimentConfig) -> None:
+    before = config.model_dump(mode="python")
+    compiled = compile_config(config)
+
+    assert isinstance(compiled, CompiledConfig)
+    assert isinstance(compiled.core, CoreConfig)
+    assert isinstance(compiled.compile_signature, CompileSignature)
+    assert compiled.config_hash == freeze_config(config).config_hash
+    assert config.model_dump(mode="python") == before
+
+
+def test_dynamic_arrays_have_explicit_core_dtypes(config: ExperimentConfig) -> None:
+    core = compile_config(config).core
+    arrays = [leaf for leaf in jax.tree.leaves(core) if eqx.is_array(leaf)]
+
+    assert arrays
+    assert core.population.initial_agents.dtype == jnp.int32
+    assert core.energy.basal_cost.dtype == jnp.float32
+    assert all(array.dtype not in {jnp.dtype("float64"), jnp.dtype("int64")} for array in arrays)
+    assert all(array.shape == () for array in arrays if array.size == 1)
+    assert all(
+        array.dtype in {jnp.dtype("float32"), jnp.dtype("int32"), jnp.dtype("bool")}
+        for array in arrays
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["max_energy", "feeding_conversion", "feeding_max_resource_intake"]
+)
+def test_positive_energy_values_must_remain_positive_in_float32(
+    config: ExperimentConfig, field: str
+) -> None:
+    data = config.model_dump(mode="python")
+    energy = data["energy"]
+    assert isinstance(energy, dict)
+    energy[field] = 1e-50
+    if field == "max_energy":
+        energy["initial_energy"] = 5e-51
+        energy["death_threshold"] = 0.0
+        energy["reproduction_threshold"] = 5e-51
+        energy["reproduction_cost"] = 0.0
+        energy["offspring_initial_energy"] = 1e-51
+    underflowing = ExperimentConfig.model_validate(data)
+
+    with pytest.raises(ConfigCompilationError, match="must remain positive in float32"):
+        compile_config(underflowing)
+
+
+def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -> None:
+    changed = replace(config, "energy", basal_cost=0.25, movement_cost=0.15)
+    first = compile_config(config)
+    second = compile_config(changed)
+
+    assert first.config_hash != second.config_hash
+    assert first.compile_signature == second.compile_signature
+    assert compile_signature_digest(first.compile_signature) == compile_signature_digest(
+        second.compile_signature
+    )
+    assert jax.tree.structure(first.core) == jax.tree.structure(second.core)
+
+
+@pytest.mark.parametrize(
+    ("block", "change"),
+    [
+        ("energy", {"max_energy": 110.0}),
+        ("energy", {"feeding_conversion": 1.5}),
+        ("energy", {"feeding_max_resource_intake": 3.0}),
+        ("energy", {"reproduction_threshold": 45.0}),
+        ("evolution", {"max_age": 1200}),
+        ("world", {"resource_capacity": 12.0}),
+    ],
+)
+def test_observation_scales_are_dynamic(
+    config: ExperimentConfig, block: str, change: dict[str, object]
+) -> None:
+    changed = replace(config, block, **change)
+    assert compile_config(config).config_hash != compile_config(changed).config_hash
+    assert build_compile_signature(config) == build_compile_signature(changed)
+
+
+@pytest.mark.parametrize(
+    ("block", "change"),
+    [
+        ("world", {"width": 65}),
+        ("world", {"height": 65}),
+        ("world", {"resource_distribution": "uniform"}),
+        ("world", {"resource_patch_count": 9}),
+        ("population", {"max_agents": 1025}),
+        ("population", {"max_births_per_step": 65}),
+        ("runtime", {"chunk_size": 64}),
+        ("observations", {"perception_radius": 3}),
+    ],
+)
+def test_static_change_changes_signature(
+    config: ExperimentConfig, block: str, change: dict[str, object]
+) -> None:
+    assert build_compile_signature(config) != build_compile_signature(
+        replace(config, block, **change)
+    )
+
+
+def test_policy_static_fields_are_in_signature(config: ExperimentConfig) -> None:
+    signature = build_compile_signature(config)
+    assert signature.policy_hidden_size == config.policy.hidden_size
+    assert signature.observation_schema_version == config.observations.schema_version
+    assert signature.observation_schema_size == 15
+    assert len(signature.observation_schema_digest) == 64
+    assert signature.action_schema_version == config.policy.action_schema_version
+    assert signature.policy_activation == config.policy.activation
+
+
+@pytest.mark.parametrize(
+    ("block", "change"),
+    [
+        ("runtime", {"steps": 20_000}),
+        ("persistence", {"output_dir": "other-runs"}),
+        ("persistence", {"batch_size": 2048}),
+    ],
+)
+def test_host_only_change_is_excluded(
+    config: ExperimentConfig, block: str, change: dict[str, object]
+) -> None:
+    changed = replace(config, block, **change)
+    first = compile_config(config)
+    second = compile_config(changed)
+
+    assert first.config_hash != second.config_hash
+    assert first.compile_signature == second.compile_signature
+    leaves = jax.tree.leaves(second.core)
+    non_array_leaves = [leaf for leaf in leaves if not eqx.is_array(leaf)]
+    assert change[next(iter(change))] not in non_array_leaves
+    assert not any(isinstance(leaf, (Path, BaseModel, dict, list)) for leaf in leaves)
+
+
+def test_seed_is_host_only(config: ExperimentConfig) -> None:
+    changed = config.model_copy(update={"seed": 99})
+    assert compile_config(config).compile_signature == compile_config(changed).compile_signature
+
+
+def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
+    signature = build_compile_signature(config)
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
+    assert signature.action_contract_schema_version == 1
+    assert signature.action_contract_schema_digest == (
+        "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
+    )
+    assert signature.rng_implementation == "threefry2x32"
+    assert signature.movement_resolution_schema_version == 1
+    assert signature.movement_resolution_schema_digest == (
+        "9209b617b2ed80ae1f1fa90206f13d05a1c69c763ece24ef92be6f64959a2e03"
+    )
+    assert "seed" not in {field.name for field in dataclasses.fields(signature)}
+
+
+def test_signature_is_hashable_and_digest_is_stable(config: ExperimentConfig) -> None:
+    signature = build_compile_signature(config)
+    cache: dict[CompileSignature, object] = {}
+    cache[signature] = object()
+    reconstructed = CompileSignature(
+        **{
+            field.name: getattr(signature, field.name)
+            for field in reversed(dataclasses.fields(signature))
+        }
+    )
+    digest = compile_signature_digest(signature)
+
+    assert cache[reconstructed] is cache[signature]
+    assert digest == compile_signature_digest(reconstructed)
+    assert re.fullmatch(r"[0-9a-f]{64}", digest)
+    changed = replace(config, "world", width=65)
+    assert digest != compile_signature_digest(build_compile_signature(changed))
+
+
+def test_environment_schedule_arrays_and_shape_signature(config: ExperimentConfig) -> None:
+    phase = {
+        "start_step": 0,
+        "end_step": 10,
+        "regeneration_multiplier": 0.75,
+        "stress_level": 0.25,
+    }
+    changed = replace(config, "world", environment_schedule=(phase,))
+    compiled = compile_config(changed)
+
+    assert compiled.compile_signature.environment_schedule_length == 1
+    calendar = compiled.core.world.environment_calendar
+    assert calendar.phase_count == 1
+    assert calendar.start_steps.shape == (1,)
+    assert calendar.start_steps.dtype == jnp.int32
+    assert calendar.environment_values.dtype == jnp.float32
+    assert compiled.compile_signature != compile_config(config).compile_signature
+
+
+def test_core_is_valid_pytree_without_host_objects(config: ExperimentConfig) -> None:
+    core = compile_config(config).core
+    leaves, structure = jax.tree.flatten(core)
+    rebuilt = jax.tree.unflatten(structure, leaves)
+
+    assert isinstance(rebuilt, CoreConfig)
+    assert not any(isinstance(leaf, (BaseModel, Path, dict, list)) for leaf in leaves)
+
+
+def test_filter_jit_consumes_static_and_dynamic_fields(config: ExperimentConfig) -> None:
+    @eqx.filter_jit
+    def consume_config(core: CoreConfig) -> jax.Array:
+        return core.energy.basal_cost + jnp.asarray(core.world.width, dtype=jnp.float32)
+
+    changed = replace(config, "energy", basal_cost=0.25)
+    first = consume_config(compile_config(config).core)
+    second = consume_config(compile_config(changed).core)
+
+    assert first.shape == second.shape == ()
+    assert float(second - first) == pytest.approx(0.15, abs=2e-6)
+
+
+def test_compiled_contract_is_immutable(config: ExperimentConfig) -> None:
+    compiled = compile_config(config)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        compiled.config_hash = "changed"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        compiled.compile_signature.backend = "auto"
+
+
+def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) -> None:
+    too_large = replace(config, "world", resource_capacity=1e100)
+    with pytest.raises(ConfigCompilationError, match=r"world\.resource_capacity"):
+        compile_config(too_large)
+
+
+def test_policy_schema_is_static_and_complete(config: ExperimentConfig) -> None:
+    compiled = compile_config(config)
+    policy = compiled.core.policy
+    signature = compiled.compile_signature
+    assert (policy.schema_version, policy.input_size, policy.hidden_size, policy.output_size) == (
+        1,
+        15,
+        16,
+        7,
+    )
+    assert policy.activation == "tanh" and policy.use_bias is True
+    assert len(policy.schema_digest) == 64
+    assert signature.policy_schema_version == policy.schema_version
+    assert signature.policy_schema_digest == policy.schema_digest
+    assert (
+        signature.policy_input_size,
+        signature.policy_hidden_size,
+        signature.policy_output_size,
+    ) == (15, 16, 7)
+    assert signature.policy_activation == "tanh" and signature.policy_use_bias is True
+    assert policy.action_selection_schema_version == signature.action_selection_schema_version == 1
+    assert policy.action_selection_schema_digest == signature.action_selection_schema_digest
+    assert signature.action_count == 7
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "weights", "initialization_distribution", "mutation_sigma"} & fields
+
+
+def test_genome_schema_is_static_complete_and_excludes_run_values(
+    config: ExperimentConfig,
+) -> None:
+    compiled = compile_config(config)
+    genome = compiled.core.genome
+    signature = compiled.compile_signature
+    assert genome.schema_version == signature.genome_schema_version == 1
+    assert genome.schema_digest == signature.genome_schema_digest
+    assert genome.initialization_name == signature.genome_initialization_name
+    assert genome.initialization_version == signature.genome_initialization_version == 1
+    assert genome.parameter_count == signature.genome_parameter_count == 375
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "initial_agents", "genome_id", "weights", "biases"} & fields

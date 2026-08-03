@@ -69,6 +69,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+python_files = ["test_*.py"]
 addopts = "-ra --strict-config --strict-markers"
 
 [tool.coverage.run]
@@ -83,7 +84,14 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
+fail_under = 90
 
 [tool.importlinter]
 root_package = "evolucio"
 exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on host configuration"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.config"]

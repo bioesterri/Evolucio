@@ -58,17 +58,26 @@ Abans de començar una implementació, Codex ha de llegir l'arquitectura tècnic
 - El codi haurà d'estar tipat.
 - Les llavors aleatòries seran explícites.
 - Les funcions crítiques tindran proves.
+- Qualsevol codi funcional nou ha d'incloure proves.
+- Les proves han de ser deterministes i les proves unitàries no poden usar la xarxa ni serveis
+  externs.
+- La cobertura global no pot baixar del llindar configurat sense una decisió explícita.
+- No es poden desactivar portes de CI per fer passar un PR.
 - Cal executar les comprovacions disponibles abans de donar un PR per acabat:
 
   ```console
-  uv sync --group dev
+  uv lock --check
+  uv sync --locked --group dev
   uv run ruff check .
   uv run ruff format --check .
   uv run pyright
   uv run lint-imports
-  uv lock --check
+  uv run coverage erase
+  uv run coverage run -m pytest
+  uv run coverage report
   uv build
   ```
+- Cal informar de qualsevol comprovació que no s'hagi pogut executar.
 - Els errors no s'han de corregir amb fallbacks silenciosos.
 - Els resultats numèrics no s'han d'interpretar com a evolució si fallen invariants.
 
@@ -94,3 +103,9 @@ Una revisió ha de detectar especialment:
 - formes dinàmiques incompatibles amb JAX;
 - absència de proves quan la funcionalitat les requereixi;
 - canvis arquitectònics no documentats.
+
+## Regles permanents de configuració
+
+- Tot canvi d’esquema ha d’actualitzar la versió quan correspongui i mai no pot reinterpretar versions antigues.
+- Els hashes es calculen sobre configuració canònica validada; no s’admeten variables d’entorn ni fallbacks silenciosos.
+- Una configuració congelada no es modifica i la configuració host no pot importar JAX.
