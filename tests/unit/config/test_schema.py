@@ -2,6 +2,7 @@ import ast
 import json
 from pathlib import Path
 
+import evolucio.config as config_api
 from evolucio.config import CONFIG_SCHEMA_VERSION, experiment_config_json_schema
 
 
@@ -26,6 +27,10 @@ def test_previous_schema_snapshot_remains_published() -> None:
 
     assert previous["properties"]["schema_version"]["const"] == "1.5"
     assert "feeding_max_resource_intake" not in previous["$defs"]["EnergyConfig"]["properties"]
+
+
+def test_host_public_exports_are_concrete() -> None:
+    assert all(hasattr(config_api, name) for name in config_api.__all__)
 
 
 def test_config_has_no_forbidden_imports() -> None:

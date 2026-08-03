@@ -39,17 +39,17 @@ persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024,
 
 Errors habituals: versions desconegudes, nombres expressats com strings, claus duplicades, fases solapades, capacitat espacial insuficient o reproducció energèticament inviable. `CoreConfig` i la transformació cap al nucli corresponen al PR-04.
 
-Des del PR-10, `population.initial_agents` admet zero i no s'exigeix que càpiga en el nombre de
-cel·les quan `allow_multiple_agents_per_cell` és cert. `placement: random` significa col·locació
-uniforme amb reemplaçament. El producte `world.width * world.height` no pot superar el màxim
-`int32`, necessari per a l'índex lineal d'ocupació.
-
 ## Frontera host-core
 
 `ExperimentConfig` és el contracte host complet i `config_hash` n'identifica tots els valors
-canònics. `compile_config` en crea una projecció `CoreConfig` PyTree: els paràmetres numèrics
-variables són arrays JAX amb dtype explícit, mentre que les formes i els selectors de control són
-primitives Python. Les dades operatives exclusives del host no entren al PyTree.
+canònics. `evolucio.config.compile.compile_config` en crea una projecció `CoreConfig` PyTree: els
+paràmetres numèrics variables són arrays JAX amb dtype explícit, mentre que les formes i els
+selectors de control són primitives Python. Les dades operatives exclusives del host no entren al
+PyTree.
+
+L'API compilada s'importa explícitament des d'`evolucio.config.compile`; no es reexporta des del
+paquet host `evolucio.config`, de manera que carregar o congelar configuracions no importa JAX ni
+Equinox i l'API pública és comprovable estàticament sense `__getattr__` dinàmic.
 
 `CompileSignature` és una allowlist immutable dels camps estàtics. El seu digest SHA-256 canònic
 identifica de manera persistent una classe d'executable; a diferència de `config_hash`, no canvia
@@ -60,9 +60,9 @@ diferents.
 | Camps reals | Categoria | Representació compilada | Motiu |
 |---|---|---|---|
 | `schema_version` | estàtic | `str` a `CompileSignature` | Versiona el contracte interpretat. |
-| `world.width`, `world.height`, `boundary_mode`, `resource_distribution`, `resource_patch_count` | estàtic | primitives Python | Defineixen formes o selecció de l'algoritme del món. |
+| `world.width`, `world.height`, `boundary_mode`, `resource_distribution` | estàtic | primitives Python | Defineixen formes o selecció de l'algoritme del món. |
 | `world.environment_schedule` (longitud) | estàtic | `int` a `CompileSignature` | Determina la forma dels vectors ambientals. |
-| `world.resource_capacity`, `initial_resource_mean`, `resource_patch_radius`, `resource_patch_contrast`, `environment_initial_value`, `regeneration_rate` | dinàmic | escalars `float32` | Canvien valors, no formes. |
+| `world.resource_capacity`, `initial_resource_fraction`, `regeneration_rate` | dinàmic | escalars `float32` | Canvien valors, no formes. |
 | valors de `environment_schedule` | dinàmic | vectors `int32`/`float32` | La longitud és fixa, però els valors poden variar. |
 | `population.max_agents`, `max_births_per_step`, `placement`, `allow_multiple_agents_per_cell` | estàtic | primitives Python | Defineixen capacitat, buffers o control compilat. |
 | `population.initial_agents` | dinàmic | escalar `int32` | Ocupació inicial dins una capacitat fixa. |
@@ -71,58 +71,4 @@ diferents.
 | edats d'`evolution` | dinàmic | escalars `int32` | Són comptadors i llindars. |
 | mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
 | `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
-| implementació PRNG `threefry2x32` | estàtic | `str` a `CompileSignature` | Afecta el dtype de clau i potencialment l’executable. |
-| `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
-
-
-La versió 8 de `CompileSignature` afegeix versió i digest del contracte de validació local; la
-versió 7 afegeix la selecció determinista i el recompte d'accions, la versió 6 el genoma i la
-versió 5 l'esquema complet de PolicyMLP. Aquest canvi versiona el contracte serialitzat de
-compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe
-d'executable.
-
-## Calendari ambiental del PR-09
-
-La longitud d'`environment_schedule` ja forma part de `CompileSignature`. Les dates, els multiplicadors, `stress_level` i `regeneration_rate` són dinàmics: canvien `config_hash`, però amb la mateixa longitud no canvien la signatura. El calendari compilat usa intervals semioberts `[start_step, end_step)` i vectors `int32`/`float32`.
-
-## Observacions locals i política a la signatura v5
-
-El bloc `observations` fixa `schema_version: 1` i valida `perception_radius` com enter estricte entre 1 i 3. La `CompileSignature` v4 incorpora versió, mida 15, digest canònic i radi. Les escales d’energia, edat i recursos són dinàmiques i no alteren la signatura. Vegeu [Esquema d’observacions locals v1](reference/local_observation_schema_v1.md).
-
-## Política neuronal fixa
-
-El bloc `policy` de l’esquema host 1.6 valida exclusivament la versió 1, 15 entrades, 16 unitats ocultes, 7 sortides, `tanh` i biaixos. `PolicyCoreConfig` conserva aquestes primitives com a camps estàtics i `CompileSignature` v5 incorpora també el digest de [PolicyMLP v1](reference/policy_mlp_schema_v1.md). Ni pesos, llavor ni paràmetres d’inicialització o mutació formen part de la signatura.
-
-## Genoma i signatura v6
-
-`genome` accepta només `schema_version: 1` i `initialization:
-glorot_uniform_zero_bias_v1`. `GenomeCoreConfig` conserva versió, digest, inicialitzador i
-recompte 375 com a primitives estàtiques. `CompileSignature` v6 inclou aquests camps; no inclou
-llavor, `initial_agents`, IDs ni valors dels pesos. El bloc sí forma part de `config_hash`.
-
-## Selecció determinista i signatura v7
-
-La selecció no és configurable. `PolicyCoreConfig` i `CompileSignature` incorporen la versió 1 i
-el digest canònic de [la selecció d'accions](reference/policy_inference_and_action_selection_v1.md),
-i la signatura registra set accions. Scores, propostes, `alive`, genomes, observacions, seed i
-root key són dades d'execució deliberadament excloses.
-
-## Validació local d'accions i signatura v8
-
-La `CompileSignature` incorpora la versió 1 i el digest canònic del
-[contracte d'accions](reference/action_contract_and_validation_v1.md). Propostes, accions
-encaminades, causes concretes, posicions, recursos, `alive`, costos i RNG continuen exclosos.
-# Signatura de resolució espacial
-
-`CompileSignature` versió 9 incorpora la versió i el digest de l'esquema fix de
-[moviment cardinal i conflictes espacials v1](reference/cardinal_movement_and_spatial_conflicts_v1.md).
-No incorpora claus, prioritats, posicions, ocupació ni recomptes d'execució, i no afegeix cap opció
-de configuració espacial nova.
-
-## Alimentació i signatura v10
-
-`max_energy` correspon a `maximum_energy` i `feeding_conversion` a
-`energy_gain_per_resource` al contracte del nucli. `feeding_max_resource_intake` és finit i
-estrictament positiu. Tots tres són dinàmics: modifiquen `config_hash`, no les formes, i no
-formen part de `CompileSignature`. La signatura v10 incorpora només la versió i el digest de
-l'[esquema d'alimentació](reference/feeding_resource_competition_and_energy_transfer_v1.md).
+| `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | RNG, orquestració i I/O són responsabilitats externes al nucli. |
