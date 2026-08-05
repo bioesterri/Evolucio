@@ -8,7 +8,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from evolucio.core.dtypes import INDEX_DTYPE, REAL_DTYPE
+from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
@@ -66,10 +66,17 @@ class WorldCoreConfig(eqx.Module):
     resource_patch_contrast: jax.Array
     environment_initial_value: jax.Array
     regeneration_rate: jax.Array
-    environment_start_steps: jax.Array
-    environment_end_steps: jax.Array
-    environment_regeneration_multipliers: jax.Array
-    environment_stress_levels: jax.Array
+    environment_calendar: "EnvironmentCalendarCoreConfig"
+
+
+class EnvironmentCalendarCoreConfig(eqx.Module):
+    """Fixed-length environmental calendar consumed by compiled world updates."""
+
+    phase_count: int = eqx.field(static=True)
+    start_steps: jax.Array
+    end_steps: jax.Array
+    regeneration_multipliers: jax.Array
+    environment_values: jax.Array
 
 
 class PopulationCoreConfig(eqx.Module):
@@ -154,7 +161,7 @@ def _static_int(value: int, field: str) -> int:
 
 def _int_scalar(value: int, field: str) -> jax.Array:
     _static_int(value, field)
-    result = jnp.asarray(value, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(value, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != ():
         raise ConfigCompilationError(f"{field} must compile to a scalar")
     return result
@@ -174,7 +181,7 @@ def _float_scalar(value: float, field: str) -> jax.Array:
 def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
     for value in values:
         _static_int(value, field)
-    return jnp.asarray(values, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    return jnp.asarray(values, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _float_vector(values: tuple[float, ...], field: str) -> jax.Array:
@@ -260,19 +267,24 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
                 world.environment_initial_value, "world.environment_initial_value"
             ),
             regeneration_rate=_float_scalar(world.regeneration_rate, "world.regeneration_rate"),
-            environment_start_steps=_int_vector(
-                tuple(phase.start_step for phase in phases), "world.environment_schedule.start_step"
-            ),
-            environment_end_steps=_int_vector(
-                tuple(phase.end_step for phase in phases), "world.environment_schedule.end_step"
-            ),
-            environment_regeneration_multipliers=_float_vector(
-                tuple(phase.regeneration_multiplier for phase in phases),
-                "world.environment_schedule.regeneration_multiplier",
-            ),
-            environment_stress_levels=_float_vector(
-                tuple(phase.stress_level for phase in phases),
-                "world.environment_schedule.stress_level",
+            environment_calendar=EnvironmentCalendarCoreConfig(
+                phase_count=len(phases),
+                start_steps=_int_vector(
+                    tuple(phase.start_step for phase in phases),
+                    "world.environment_schedule.start_step",
+                ),
+                end_steps=_int_vector(
+                    tuple(phase.end_step for phase in phases),
+                    "world.environment_schedule.end_step",
+                ),
+                regeneration_multipliers=_float_vector(
+                    tuple(phase.regeneration_multiplier for phase in phases),
+                    "world.environment_schedule.regeneration_multiplier",
+                ),
+                environment_values=_float_vector(
+                    tuple(phase.stress_level for phase in phases),
+                    "world.environment_schedule.stress_level",
+                ),
             ),
         ),
         population=PopulationCoreConfig(

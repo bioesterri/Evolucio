@@ -163,9 +163,11 @@ def test_environment_schedule_arrays_and_shape_signature(config: ExperimentConfi
     compiled = compile_config(changed)
 
     assert compiled.compile_signature.environment_schedule_length == 1
-    assert compiled.core.world.environment_start_steps.shape == (1,)
-    assert compiled.core.world.environment_start_steps.dtype == jnp.int32
-    assert compiled.core.world.environment_stress_levels.dtype == jnp.float32
+    calendar = compiled.core.world.environment_calendar
+    assert calendar.phase_count == 1
+    assert calendar.start_steps.shape == (1,)
+    assert calendar.start_steps.dtype == jnp.int32
+    assert calendar.environment_values.dtype == jnp.float32
     assert compiled.compile_signature != compile_config(config).compile_signature
 
 

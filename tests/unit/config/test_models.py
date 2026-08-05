@@ -43,7 +43,7 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("world", "resource_patch_radius"), 0.0, "resource_patch_radius"),
         (("world", "resource_patch_radius"), math.nan, "resource_patch_radius"),
         (("world", "resource_patch_contrast"), -0.1, "resource_patch_contrast"),
-        (("world", "resource_patch_contrast"), 1.1, "resource_patch_contrast"),
+        (("world", "resource_patch_contrast"), 1.2, "resource_patch_contrast"),
         (("world", "environment_initial_value"), -0.1, "environment_initial_value"),
         (("world", "environment_initial_value"), math.inf, "environment_initial_value"),
         (("world", "boundary_mode"), "toroidal", "boundary_mode"),
@@ -54,7 +54,7 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("energy", "initial_energy"), 101.0, "energy"),
         (("energy", "reproduction_threshold"), 15.0, "energy"),
         (("evolution", "max_age"), 5, "evolution"),
-        (("evolution", "mutation_rate"), 1.1, "mutation_rate"),
+        (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
         (("runtime", "record_stride"), 0, "record_stride"),
     ],
 )

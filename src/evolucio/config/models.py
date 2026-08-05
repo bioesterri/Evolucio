@@ -9,6 +9,8 @@ NonNegativeInt = Annotated[int, Field(ge=0)]
 PositiveFloat = Annotated[float, Field(gt=0)]
 NonNegativeFloat = Annotated[float, Field(ge=0)]
 Fraction = Annotated[float, Field(ge=0, le=1)]
+Rate = Annotated[float, Field(ge=0, lt=1)]
+_STEP_MAX = 2**31 - 1
 
 
 class _ConfigModel(BaseModel):
@@ -25,9 +27,9 @@ class _ConfigModel(BaseModel):
 class EnvironmentPhaseConfig(_ConfigModel):
     """A deterministic environmental interval, with an exclusive end."""
 
-    start_step: NonNegativeInt
-    end_step: PositiveInt
-    regeneration_multiplier: NonNegativeFloat
+    start_step: Annotated[int, Field(ge=0, le=_STEP_MAX)]
+    end_step: Annotated[int, Field(gt=0, le=_STEP_MAX)]
+    regeneration_multiplier: Fraction
     stress_level: Fraction
 
     @model_validator(mode="after")
@@ -50,8 +52,8 @@ class WorldConfig(_ConfigModel):
     resource_patch_radius: PositiveFloat
     resource_patch_contrast: Fraction
     environment_initial_value: Fraction
-    regeneration_rate: NonNegativeFloat
-    environment_schedule: tuple[EnvironmentPhaseConfig, ...]
+    regeneration_rate: Rate
+    environment_schedule: tuple[EnvironmentPhaseConfig, ...] = ()
 
     @model_validator(mode="after")
     def validate_initial_resource(self) -> Self:
@@ -67,11 +69,13 @@ class WorldConfig(_ConfigModel):
     @model_validator(mode="after")
     def validate_schedule(self) -> Self:
         previous: EnvironmentPhaseConfig | None = None
-        for phase in self.environment_schedule:
+        for index, phase in enumerate(self.environment_schedule):
             if previous is not None and phase.start_step < previous.start_step:
-                raise ValueError("environment phases must be ordered by start_step")
+                raise ValueError(
+                    f"environment_schedule[{index}].start_step must be strictly ordered"
+                )
             if previous is not None and phase.start_step < previous.end_step:
-                raise ValueError("environment phases must not overlap")
+                raise ValueError(f"environment_schedule[{index}].start_step must not overlap")
             previous = phase
         return self
 
@@ -187,9 +191,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.1."""
+    """Complete validated scientific configuration for schema 1.2."""
 
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.2"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
@@ -205,6 +209,9 @@ class ExperimentConfig(_ConfigModel):
             area = self.world.width * self.world.height
             if self.population.max_agents > area or self.population.initial_agents > area:
                 raise ValueError("population capacity exceeds world area without cell sharing")
-        if any(phase.end_step > self.runtime.steps for phase in self.world.environment_schedule):
-            raise ValueError("environment phase ends after runtime.steps")
+        for index, phase in enumerate(self.world.environment_schedule):
+            if phase.end_step > self.runtime.steps:
+                raise ValueError(
+                    f"environment_schedule[{index}].end_step must not exceed runtime.steps"
+                )
         return self
