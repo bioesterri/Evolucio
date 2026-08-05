@@ -24,6 +24,7 @@ from evolucio.core.rng import derive_indexed_key, derive_stream_key
 from evolucio.core.spatial import rebuild_world_occupancy
 from evolucio.core.state import PopulationState, WorldState
 from evolucio.core.types import Array
+from evolucio.core.world import rebuild_world_occupancy
 
 if TYPE_CHECKING:
     from evolucio.config.compile import EnergyCoreConfig, PopulationCoreConfig
