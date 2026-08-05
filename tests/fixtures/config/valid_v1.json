@@ -4,6 +4,7 @@
     "death_threshold": 0.0,
     "failed_action_cost": 0.0,
     "feeding_conversion": 1.0,
+    "feeding_max_resource_intake": 2.0,
     "feeding_cost": 0.0,
     "initial_energy": 20.0,
     "max_energy": 100.0,
@@ -29,9 +30,7 @@
   "policy": {
     "action_schema_version": "1.0",
     "activation": "tanh",
-    "hidden_size": 16,
-    "observation_schema_version": "1.0",
-    "perception_radius": 2
+    "hidden_size": 16
   },
   "population": {
     "allow_multiple_agents_per_cell": true,
@@ -62,5 +61,9 @@
     "resource_patch_count": 8,
     "resource_patch_radius": 5.0,
     "width": 64
+  },
+  "observations": {
+    "schema_version": 1,
+    "perception_radius": 2
   }
 }
