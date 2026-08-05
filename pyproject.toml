@@ -89,3 +89,9 @@ fail_under = 90
 [tool.importlinter]
 root_package = "evolucio"
 exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on host configuration"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.config"]
