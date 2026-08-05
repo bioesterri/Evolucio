@@ -8,29 +8,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from evolucio.core.actions import (
-    ACTION_CONTRACT_SCHEMA_DIGEST,
-    ACTION_CONTRACT_SCHEMA_VERSION,
-    FEEDING_RESOLUTION_SCHEMA_DIGEST,
-    FEEDING_RESOLUTION_SCHEMA_VERSION,
-    MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
-    MOVEMENT_RESOLUTION_SCHEMA_VERSION,
-)
-from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
-from evolucio.core.observations.schema import (
-    OBSERVATION_SCHEMA_DIGEST,
-    OBSERVATION_SIZE,
-)
-from evolucio.core.policy import (
-    ACTION_SELECTION_SCHEMA_DIGEST,
-    ACTION_SELECTION_SCHEMA_VERSION,
-    GENOME_INITIALIZATION_NAME,
-    GENOME_INITIALIZATION_VERSION,
-    GENOME_PARAMETER_COUNT,
-    GENOME_SCHEMA_DIGEST,
-    POLICY_SCHEMA_DIGEST,
-)
-from evolucio.core.rng import PRNG_IMPLEMENTATION
+from evolucio.core.dtypes import INDEX_DTYPE, REAL_DTYPE
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
@@ -230,7 +208,7 @@ def _static_int(value: int, field: str) -> int:
 
 def _int_scalar(value: int, field: str) -> jax.Array:
     _static_int(value, field)
-    result = jnp.asarray(value, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(value, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != ():
         raise ConfigCompilationError(f"{field} must compile to a scalar")
     return result
@@ -260,12 +238,13 @@ def _positive_float_scalar(value: float, field: str) -> jax.Array:
 def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
     for value in values:
         _static_int(value, field)
-    return jnp.asarray(values, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    return jnp.asarray(values, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _float_vector(values: tuple[float, ...], field: str) -> jax.Array:
-    for index, value in enumerate(values):
-        _float_scalar(value, f"{field}[{index}]")
+    for value in values:
+        if not math.isfinite(value) or abs(value) > _FLOAT32_MAX:
+            raise ConfigCompilationError(f"{field} contains a value outside the float32 range")
     result = jnp.asarray(values, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if not bool(jnp.all(jnp.isfinite(result))):
         raise ConfigCompilationError(f"{field} must contain only finite values")

@@ -6,10 +6,8 @@ from evolucio.core import (
     ACTION_COUNT,
     CODE_DTYPE,
     DEATH_CAUSE_COUNT,
-    INITIAL_PLACEMENT_COUNT,
     ActionCode,
     DeathCauseCode,
-    InitialPlacementCode,
 )
 
 
@@ -59,8 +57,3 @@ def test_death_cause_codes_round_trip_through_jax_integer_arrays() -> None:
 def test_codes_serialize_as_their_stable_integer_values() -> None:
     assert json.dumps(ActionCode.EAT) == "5"
     assert json.dumps(DeathCauseCode.INVALID_STATE) == "5"
-
-
-def test_initial_placement_code_is_stable_and_singular() -> None:
-    assert InitialPlacementCode.UNIFORM_WITH_REPLACEMENT == 0
-    assert INITIAL_PLACEMENT_COUNT == 1
