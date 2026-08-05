@@ -8,6 +8,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
+from evolucio.core.dtypes import INDEX_DTYPE, REAL_DTYPE
+
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
@@ -145,7 +147,7 @@ def _static_int(value: int, field: str) -> int:
 
 def _int_scalar(value: int, field: str) -> jax.Array:
     _static_int(value, field)
-    result = jnp.asarray(value, dtype=jnp.int32)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(value, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != ():
         raise ConfigCompilationError(f"{field} must compile to a scalar")
     return result
@@ -156,7 +158,7 @@ def _float_scalar(value: float, field: str) -> jax.Array:
         raise ConfigCompilationError(f"{field} must be finite")
     if abs(value) > _FLOAT32_MAX:
         raise ConfigCompilationError(f"{field} is outside the supported float32 range")
-    result = jnp.asarray(value, dtype=jnp.float32)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(value, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != () or not math.isfinite(float(result)):
         raise ConfigCompilationError(f"{field} must compile to a finite scalar")
     return result
@@ -165,14 +167,14 @@ def _float_scalar(value: float, field: str) -> jax.Array:
 def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
     for value in values:
         _static_int(value, field)
-    return jnp.asarray(values, dtype=jnp.int32)  # pyright: ignore[reportUnknownMemberType]
+    return jnp.asarray(values, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _float_vector(values: tuple[float, ...], field: str) -> jax.Array:
     for value in values:
         if not math.isfinite(value) or abs(value) > _FLOAT32_MAX:
             raise ConfigCompilationError(f"{field} contains a value outside the float32 range")
-    result = jnp.asarray(values, dtype=jnp.float32)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(values, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if not bool(jnp.all(jnp.isfinite(result))):
         raise ConfigCompilationError(f"{field} must contain only finite values")
     return result
