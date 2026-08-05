@@ -13,6 +13,8 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 - `world`: dimensions, límits, recursos i fases ambientals ordenades i no solapades.
 - `population`: capacitats, col·locació i política d'ocupació de cel·les.
 - `policy`: versions d'observació/acció i topologia fixa declarada.
+- L'espai d'accions del prototip és fix: `ACTION_COUNT` deriva dels set codis públics del nucli i
+  no és un paràmetre de la configuració host.
 - `energy`: reserves, costos i viabilitat reproductiva. `reproduction_cost` és el cost addicional i `offspring_initial_energy` es transfereix al descendent; ambdós es resten al progenitor. El PR-21 revalidarà la viabilitat efectiva.
 - `evolution`: edats i paràmetres explícits de mutació.
 - `runtime`: passos, chunk, mostreig i backend host.
