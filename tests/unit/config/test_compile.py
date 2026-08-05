@@ -9,6 +9,7 @@ import pytest
 from pydantic import BaseModel
 
 from evolucio.config import (
+    COMPILE_SIGNATURE_SCHEMA_VERSION,
     CompiledConfig,
     CompileSignature,
     ConfigCompilationError,
@@ -121,6 +122,13 @@ def test_host_only_change_is_excluded(
 def test_seed_is_host_only(config: ExperimentConfig) -> None:
     changed = config.model_copy(update={"seed": 99})
     assert compile_config(config).compile_signature == compile_config(changed).compile_signature
+
+
+def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
+    signature = build_compile_signature(config)
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 2
+    assert signature.rng_implementation == "threefry2x32"
+    assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 
 def test_signature_is_hashable_and_digest_is_stable(config: ExperimentConfig) -> None:

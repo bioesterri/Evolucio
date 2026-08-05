@@ -25,3 +25,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 
 - [Tipus, dtypes i codis del nucli](reference/core_types_and_codes.md)
 - [Estat del nucli i model poblacional de capacitat fixa](reference/core_state.md)
+- [RNG determinista i identificadors interns](reference/rng_and_identifiers.md)
