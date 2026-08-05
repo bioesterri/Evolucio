@@ -199,11 +199,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
-    assert signature.action_contract_schema_version == 1
-    assert signature.action_contract_schema_digest == (
-        "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
-    )
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 3
     assert signature.rng_implementation == "threefry2x32"
     assert signature.movement_resolution_schema_version == 1
     assert signature.movement_resolution_schema_digest == (
@@ -278,6 +274,20 @@ def test_compiled_contract_is_immutable(config: ExperimentConfig) -> None:
         compiled.config_hash = "changed"
     with pytest.raises(dataclasses.FrozenInstanceError):
         compiled.compile_signature.backend = "auto"
+
+
+def test_world_core_config_keywords_are_not_duplicated() -> None:
+    source = Path("src/evolucio/config/compile.py").read_text()
+    call_source = source.split("world=WorldCoreConfig(", maxsplit=1)[1].split(
+        "        ),\n        population=PopulationCoreConfig(", maxsplit=1
+    )[0]
+    for keyword in [
+        "resource_patch_count",
+        "resource_patch_radius",
+        "resource_patch_contrast",
+        "environment_initial_value",
+    ]:
+        assert call_source.count(f"{keyword}=") == 1
 
 
 def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) -> None:

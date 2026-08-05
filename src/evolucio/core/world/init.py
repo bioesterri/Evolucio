@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 import jax
 import jax.numpy as jnp
@@ -15,11 +15,23 @@ from evolucio.core.rng import derive_indexed_key, derive_stream_key
 from evolucio.core.state import WorldState
 from evolucio.core.types import Array
 
-if TYPE_CHECKING:
-    from evolucio.config.compile import WorldCoreConfig
+
+class WorldInitializationConfig(Protocol):
+    """Structural core-owned contract for world initialization inputs."""
+
+    width: int
+    height: int
+    boundary_mode: str
+    resource_distribution: str
+    resource_capacity: Array
+    initial_resource_mean: Array
+    resource_patch_count: int
+    resource_patch_radius: Array
+    resource_patch_contrast: Array
+    environment_initial_value: Array
 
 
-def _initialize_patches(config: WorldCoreConfig, key: Array) -> Array:
+def _initialize_patches(config: WorldInitializationConfig, key: Array) -> Array:
     x_key = derive_indexed_key(key, 0)
     y_key = derive_indexed_key(key, 1)
     center_x = jax.random.uniform(
@@ -43,6 +55,7 @@ def _initialize_patches(config: WorldCoreConfig, key: Array) -> Array:
     centered = raw - jnp.mean(raw)
     epsilon = jnp.asarray(jnp.finfo(REAL_DTYPE).eps, dtype=REAL_DTYPE)
     pattern = centered / jnp.maximum(jnp.max(jnp.abs(centered)), epsilon)
+    pattern = pattern - jnp.mean(pattern)
     margin = jnp.minimum(
         config.initial_resource_mean,
         config.resource_capacity - config.initial_resource_mean,
@@ -52,7 +65,7 @@ def _initialize_patches(config: WorldCoreConfig, key: Array) -> Array:
     return jnp.clip(resources, 0, config.resource_capacity).astype(REAL_DTYPE)
 
 
-def initialize_resources(config: WorldCoreConfig, key: Array) -> Array:
+def initialize_resources(config: WorldInitializationConfig, key: Array) -> Array:
     """Construct the configured uniform or Gaussian-patch resource field."""
     shape = (config.height, config.width)
     if config.resource_distribution == "uniform":
@@ -62,14 +75,14 @@ def initialize_resources(config: WorldCoreConfig, key: Array) -> Array:
     raise ValueError(f"unsupported resource distribution: {config.resource_distribution}")
 
 
-def initialize_environment(config: WorldCoreConfig) -> Array:
+def initialize_environment(config: WorldInitializationConfig) -> Array:
     """Construct the uniform basal environmental field."""
     return jnp.full(
         (config.height, config.width), config.environment_initial_value, dtype=REAL_DTYPE
     )
 
 
-def initialize_world(config: WorldCoreConfig, root_key: Array) -> WorldState:
+def initialize_world(config: WorldInitializationConfig, root_key: Array) -> WorldState:
     """Build a complete initial world without advancing persistent RNG state."""
     world_key = derive_stream_key(root_key, RngStreamCode.WORLD_INITIALIZATION)
     resource_key = derive_stream_key(world_key, RngStreamCode.RESOURCE_INITIALIZATION)
