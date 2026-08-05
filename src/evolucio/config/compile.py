@@ -35,7 +35,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 10
+COMPILE_SIGNATURE_SCHEMA_VERSION = 3
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -394,6 +394,18 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             resource_capacity=_float_scalar(world.resource_capacity, "world.resource_capacity"),
             initial_resource_mean=_float_scalar(
                 world.initial_resource_mean, "world.initial_resource_mean"
+            ),
+            resource_patch_count=_static_int(
+                world.resource_patch_count, "world.resource_patch_count"
+            ),
+            resource_patch_radius=_float_scalar(
+                world.resource_patch_radius, "world.resource_patch_radius"
+            ),
+            resource_patch_contrast=_float_scalar(
+                world.resource_patch_contrast, "world.resource_patch_contrast"
+            ),
+            environment_initial_value=_float_scalar(
+                world.environment_initial_value, "world.environment_initial_value"
             ),
             resource_patch_count=_static_int(
                 world.resource_patch_count, "world.resource_patch_count"
