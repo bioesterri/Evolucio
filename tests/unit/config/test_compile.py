@@ -75,6 +75,8 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
     [
         ("world", {"width": 65}),
         ("world", {"height": 65}),
+        ("world", {"resource_distribution": "uniform"}),
+        ("world", {"resource_patch_count": 9}),
         ("population", {"max_agents": 1025}),
         ("population", {"max_births_per_step": 65}),
         ("runtime", {"chunk_size": 64}),
@@ -126,7 +128,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 2
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 3
     assert signature.rng_implementation == "threefry2x32"
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
@@ -195,6 +197,20 @@ def test_compiled_contract_is_immutable(config: ExperimentConfig) -> None:
         compiled.config_hash = "changed"
     with pytest.raises(dataclasses.FrozenInstanceError):
         compiled.compile_signature.backend = "auto"
+
+
+def test_world_core_config_keywords_are_not_duplicated() -> None:
+    source = Path("src/evolucio/config/compile.py").read_text()
+    call_source = source.split("return WorldCoreConfig(", maxsplit=1)[1].split(
+        "\n\ndef compile_config(", maxsplit=1
+    )[0]
+    for keyword in [
+        "resource_patch_count",
+        "resource_patch_radius",
+        "resource_patch_contrast",
+        "environment_initial_value",
+    ]:
+        assert call_source.count(f"{keyword}=") == 1
 
 
 def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) -> None:
