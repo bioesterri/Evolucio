@@ -4,10 +4,14 @@ import jax.numpy as jnp
 
 from evolucio.core import (
     ACTION_COUNT,
+    BOUNDARY_MODE_COUNT,
     CODE_DTYPE,
     DEATH_CAUSE_COUNT,
+    RESOURCE_DISTRIBUTION_COUNT,
     ActionCode,
+    BoundaryModeCode,
     DeathCauseCode,
+    ResourceDistributionCode,
 )
 
 
@@ -57,3 +61,31 @@ def test_death_cause_codes_round_trip_through_jax_integer_arrays() -> None:
 def test_codes_serialize_as_their_stable_integer_values() -> None:
     assert json.dumps(ActionCode.EAT) == "5"
     assert json.dumps(DeathCauseCode.INVALID_STATE) == "5"
+    assert json.dumps(BoundaryModeCode.CLOSED) == "0"
+    assert json.dumps(ResourceDistributionCode.PATCHES) == "1"
+
+
+def test_world_boundary_mode_codes_are_stable_and_complete() -> None:
+    expected = {"CLOSED": 0}
+    assert {code.name: int(code) for code in BoundaryModeCode} == expected
+    assert [int(code) for code in BoundaryModeCode] == list(range(BOUNDARY_MODE_COUNT))
+    assert BOUNDARY_MODE_COUNT == 1
+    assert int(BoundaryModeCode.CLOSED) == 0
+
+
+def test_resource_distribution_codes_are_stable_and_complete() -> None:
+    expected = {"UNIFORM": 0, "PATCHES": 1}
+    assert {code.name: int(code) for code in ResourceDistributionCode} == expected
+    assert [int(code) for code in ResourceDistributionCode] == list(
+        range(RESOURCE_DISTRIBUTION_COUNT)
+    )
+    assert RESOURCE_DISTRIBUTION_COUNT == 2
+
+
+def test_world_codes_round_trip_through_jax_integer_arrays() -> None:
+    values = jnp.asarray(
+        [int(BoundaryModeCode.CLOSED), int(ResourceDistributionCode.PATCHES)],
+        dtype=CODE_DTYPE,
+    )
+    assert values.dtype == jnp.dtype(CODE_DTYPE)
+    assert values.tolist() == [0, 1]

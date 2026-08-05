@@ -32,6 +32,25 @@ class DeathCauseCode(IntEnum):
 DEATH_CAUSE_COUNT = len(DeathCauseCode)
 
 
+class BoundaryModeCode(IntEnum):
+    """Stable supported world-boundary modes."""
+
+    CLOSED = 0
+
+
+BOUNDARY_MODE_COUNT = len(BoundaryModeCode)
+
+
+class ResourceDistributionCode(IntEnum):
+    """Stable initial resource-distribution algorithms."""
+
+    UNIFORM = 0
+    PATCHES = 1
+
+
+RESOURCE_DISTRIBUTION_COUNT = len(ResourceDistributionCode)
+
+
 class RngStreamCode(IntEnum):
     """Stable domains for deterministic random-key derivation."""
 
