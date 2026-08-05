@@ -210,9 +210,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.6."""
+    """Complete validated scientific configuration for schema 1.2."""
 
-    schema_version: Literal["1.6"]
+    schema_version: Literal["1.2"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
@@ -230,4 +230,9 @@ class ExperimentConfig(_ConfigModel):
             area = self.world.width * self.world.height
             if self.population.max_agents > area or self.population.initial_agents > area:
                 raise ValueError("population capacity exceeds world area without cell sharing")
+        for index, phase in enumerate(self.world.environment_schedule):
+            if phase.end_step > self.runtime.steps:
+                raise ValueError(
+                    f"environment_schedule[{index}].end_step must not exceed runtime.steps"
+                )
         return self

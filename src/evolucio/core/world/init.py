@@ -48,6 +48,7 @@ def _initialize_patches(config: WorldCoreConfig, key: Array) -> Array:
         config.resource_capacity - config.initial_resource_mean,
     )
     resources = config.initial_resource_mean + config.resource_patch_contrast * margin * pattern
+    resources = resources - (jnp.mean(resources) - config.initial_resource_mean)
     # Protect only against float32 rounding; host validation establishes the valid interval.
     return jnp.clip(resources, 0, config.resource_capacity).astype(REAL_DTYPE)
 

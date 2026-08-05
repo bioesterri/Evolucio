@@ -70,6 +70,23 @@ def test_bad_schedule(
         ExperimentConfig.model_validate(value)
 
 
+def test_environment_schedule_must_fit_runtime(config: ExperimentConfig) -> None:
+    value = raw(config)
+    runtime = value["runtime"]  # type: ignore[index]
+    runtime["steps"] = 4  # type: ignore[index]
+    value["world"]["environment_schedule"] = [  # type: ignore[index]
+        {"start_step": 3, "end_step": 5, "regeneration_multiplier": 1.0, "stress_level": 0.0}
+    ]
+    with pytest.raises(ValidationError, match=r"environment_schedule\[0\]\.end_step"):
+        ExperimentConfig.model_validate(value)
+
+    value["world"]["environment_schedule"] = [  # type: ignore[index]
+        {"start_step": 4, "end_step": 5, "regeneration_multiplier": 1.0, "stress_level": 0.0}
+    ]
+    with pytest.raises(ValidationError, match=r"environment_schedule\[0\]\.end_step"):
+        ExperimentConfig.model_validate(value)
+
+
 def test_persistence_rules(config: ExperimentConfig) -> None:
     value = raw(config)
     value["persistence"]["destinations"] = ("local",)  # type: ignore[index]
