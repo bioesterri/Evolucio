@@ -21,6 +21,7 @@ from evolucio.core import (
     create_id_counters,
     create_rng_state,
 )
+from evolucio.core.policy import create_empty_genome_batch
 
 CAPACITY = 8
 HEIGHT = 4
@@ -65,6 +66,7 @@ def _state(active_slots: int = 0) -> SimulationState:
         ids=create_id_counters(),
         world=_world(),
         population=_population(active_slots),
+        genomes=create_empty_genome_batch(CAPACITY),
     )
 
 
