@@ -2,6 +2,8 @@
 
 import equinox as eqx
 
+from .ids import IdCounters
+from .rng import RngState
 from .types import Array
 
 
@@ -29,8 +31,10 @@ class PopulationState(eqx.Module):
 
 
 class SimulationState(eqx.Module):
-    """First fixed-shape state contract for the simulation core."""
+    """Complete fixed-shape state contract currently owned by the core."""
 
     step: Array
+    rng: RngState
+    ids: IdCounters
     world: WorldState
     population: PopulationState

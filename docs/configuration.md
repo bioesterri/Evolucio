@@ -65,4 +65,8 @@ diferents.
 | edats d'`evolution` | dinàmic | escalars `int32` | Són comptadors i llindars. |
 | mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
 | `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
-| `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | RNG, orquestració i I/O són responsabilitats externes al nucli. |
+| implementació PRNG `threefry2x32` | estàtic | `str` a `CompileSignature` | Afecta el dtype de clau i potencialment l’executable. |
+| `seed`, `runtime.steps` i tot `persistence` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
+
+
+La versió 2 de `CompileSignature` afegeix `rng_implementation`. Aquest canvi versiona el contracte serialitzat de compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe d’executable.

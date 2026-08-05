@@ -7,6 +7,12 @@ efectes laterals ni lògica d'inicialització.
 ```text
 SimulationState
 ├── step
+├── rng: RngState
+│   └── key
+├── ids: IdCounters
+│   ├── next_agent_id
+│   ├── next_genome_id
+│   └── next_lineage_id
 ├── world: WorldState
 │   ├── resources
 │   ├── environment
@@ -29,6 +35,10 @@ són fixes i no es desen duplicades a l'estat.
 | Subestat | Camp | Forma | Dtype | Semàntica |
 |---|---|---:|---|---|
 | `SimulationState` | `step` | `()` | `STEP_DTYPE` (`int32`) | Pas temporal actual. |
+| `RngState` | `key` | `()` | dtype PRNG tipat | Única clau arrel persistent. |
+| `IdCounters` | `next_agent_id` | `()` | `ID_DTYPE` (`int32`) | Següent ID d’agent. |
+| `IdCounters` | `next_genome_id` | `()` | `ID_DTYPE` (`int32`) | Següent ID de genoma. |
+| `IdCounters` | `next_lineage_id` | `()` | `ID_DTYPE` (`int32`) | Següent ID de llinatge. |
 | `WorldState` | `resources` | `[H, W]` | `REAL_DTYPE` (`float32`) | Recurs actual per cel·la. |
 | `WorldState` | `environment` | `[H, W]` | `REAL_DTYPE` (`float32`) | Valor ambiental local. |
 | `WorldState` | `occupancy` | `[H, W]` | `COUNT_DTYPE` (`int32`) | Recompte derivat d'agents vius per cel·la; pot superar un. |
@@ -56,7 +66,7 @@ i les morts futurs canviaran màscares i valors, però no afegiran, eliminaran n
 `alive[index]` determina si un slot participa en la simulació. Quan és `False`, el slot continua
 existint i la resta dels seus camps conserva forma i dtype, però els valors no tenen significat
 biològic: poden ser neutres o residuals, no formen un historial i només es poden interpretar sota
-la màscara. No s'estableix encara cap sentinel per als slots inactius.
+la màscara. `NULL_ID = -1` és el sentinel explícit per a referències absents o slots inactius; els camps només s’interpreten sota la màscara `alive`.
 
 L'índex del slot és una ubicació reutilitzable dins els arrays; no és `agent_id`. La identitat d'un
 agent és estable encara que els slots es reutilitzin. Confondre ambdós conceptes introduiria errors
@@ -67,6 +77,5 @@ per una limitació tècnica, mentre que una `C` excessiva consumeix memòria i t
 
 ## Ampliacions deliberadament absents
 
-Aquesta primera versió no inclou placeholders. El PR-07 afegirà RNG i comptadors d'identificadors;
-el PR-14, genomes batched; i el PR-25, acumuladors de mètriques i buffers d'esdeveniments. Els PR-08
+El PR-07 incorpora RNG i comptadors d’identificadors sense afegir inicialització ni regles ecològiques. El PR-14, genomes batched; i el PR-25, acumuladors de mètriques i buffers d'esdeveniments. Els PR-08
 i PR-10 seran responsables d'inicialitzar el món i la població, respectivament.
