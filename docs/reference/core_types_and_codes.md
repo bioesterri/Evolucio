@@ -8,13 +8,12 @@ estat, comportament ni lògica de simulació.
 | Ús | Dtype |
 |---|---|
 | Valors reals | `float32` |
-| Índexs, identificadors, comptadors, passos i codis | `int32` |
+| Índexs, identificadors, comptadors i passos | `int32` |
+| Codis categòrics d’acció, mort i flux RNG | `int16` |
 | Màscares | `bool` |
 
 `float32` és el format real portàtil i eficient del prototip, sense activar globalment JAX x64.
-`int32` fixa una representació homogènia per als enters del dispositiu i `bool` representa les
-màscares sense codificacions numèriques alternatives. Les conversions dels consumidors han de
-ser explícites i usar les constants de `evolucio.core`. La clau de `RngState` és l’única excepció: usa un dtype PRNG tipat, no un dtype numèric comú.
+`int32` fixa una representació homogènia per a índexs, identificadors, comptadors i passos del dispositiu; `int16` manté compactes els buffers de codis categòrics d’acció, mort i flux RNG, d’acord amb l’arquitectura; i `bool` representa les màscares sense codificacions numèriques alternatives. Les conversions dels consumidors han de ser explícites i usar les constants de `evolucio.core`.
 
 Els aliases d'identificadors són semàntica host; l'estat vectoritzat futur els emmagatzemarà en
 arrays amb `ID_DTYPE`.
@@ -47,6 +46,21 @@ L'espai d'accions és fix durant el prototip inicial i no és configurable.
 
 `DEATH_CAUSE_COUNT` val 6. Els valors numèrics **no defineixen cap prioritat de mortalitat**.
 
+## Codis de flux RNG
+
+| Nom | Valor | Significat |
+|---|---:|---|
+| `WORLD_INITIALIZATION` | 0 | Flux per inicialitzar l’estat del món. |
+| `RESOURCE_INITIALIZATION` | 1 | Flux per inicialitzar recursos. |
+| `AGENT_INITIALIZATION` | 2 | Flux per inicialitzar agents o ocupació inicial. |
+| `GENOME_INITIALIZATION` | 3 | Flux per inicialitzar genomes. |
+| `ENVIRONMENT` | 4 | Flux per variació ambiental reproduïble. |
+| `MOVEMENT_CONFLICT` | 5 | Flux per desempats de conflictes de moviment. |
+| `REPRODUCTION` | 6 | Flux per decisions reproductives futures. |
+| `MUTATION` | 7 | Flux per mutació heretable futura. |
+
+`RNG_STREAM_COUNT` val 8. Aquests codis només identifiquen streams de manera estable; no creen claus, no divideixen PRNGs i no implementen cap política d’aleatorietat en aquest PR.
+
 ## Representació i estabilitat
 
 Els `IntEnum` són representacions host del contracte. Els arrays JAX guarden els valors enters
@@ -54,30 +68,3 @@ amb `CODE_DTYPE`, mai strings ni objectes `Enum`. Els noms, l'ordre i els valors
 estable: canviar-los requeriria versionar i migrar qualsevol dada persistida que els contingui.
 
 Aquest PR no resol accions, moviment, alimentació, reproducció o mortalitat, ni assigna causes.
-
-
-## Codis de streams RNG
-
-Els onze valors explícits de `RngStreamCode`, de `WORLD_INITIALIZATION = 0` a `GENOME_MUTATION = 10`, identifiquen dominis estables d’aleatorietat. La taula completa i el contracte de derivació són a [RNG determinista i identificadors interns](rng_and_identifiers.md).
-
-## Codis del món
-
-`BoundaryModeCode.CLOSED = 0` és l'únic límit admès. `ResourceDistributionCode` fixa
-`UNIFORM = 0` i `PATCHES = 1`. Els valors són contractes host estables; no existeix cap codi
-toroidal ni cap distribució aleatòria blanca.
-
-## Codi de col·locació fundadora
-
-`InitialPlacementCode.UNIFORM_WITH_REPLACEMENT = 0` identifica l'únic algoritme inicial. En
-l'esquema host 1.3 conserva l'spelling establert `placement: random`; no hi ha aliases ni modes
-alternatius. El recompte `INITIAL_PLACEMENT_COUNT` val 1.
-
-## Sortides de la política
-
-La [PolicyMLP v1](policy_mlp_schema_v1.md) produeix set scores lineals en l'ordre numèric estable d'`ActionCode`; no selecciona ni valida cap acció.
-La [selecció determinista v1](policy_inference_and_action_selection_v1.md) converteix aquests
-scores en propostes i reserva la validació de legalitat per al PR-16.
-
-El [contracte d'accions i validació local v1](action_contract_and_validation_v1.md) afegeix sis
-`ActionValidationCode` estables, conserva la proposta original i encamina qualsevol rebuig a
-`STAY`; aquests codis no són causes de mort ni indiquen execució final.
