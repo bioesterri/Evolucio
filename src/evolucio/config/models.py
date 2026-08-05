@@ -59,6 +59,8 @@ class WorldConfig(_ConfigModel):
     def validate_initial_resource(self) -> Self:
         if self.initial_resource_mean > self.resource_capacity:
             raise ValueError("initial_resource_mean must not exceed resource_capacity")
+        if self.width * self.height > _STEP_MAX:
+            raise ValueError("world area must be representable as int32")
         return self
 
     @field_validator("environment_schedule", mode="before")
@@ -83,7 +85,7 @@ class WorldConfig(_ConfigModel):
 class PopulationConfig(_ConfigModel):
     """Fixed-capacity population parameters."""
 
-    initial_agents: PositiveInt
+    initial_agents: NonNegativeInt
     max_agents: PositiveInt
     max_births_per_step: PositiveInt
     placement: Literal["random"]
@@ -191,9 +193,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.2."""
+    """Complete validated scientific configuration for schema 1.3."""
 
-    schema_version: Literal["1.2"]
+    schema_version: Literal["1.3"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

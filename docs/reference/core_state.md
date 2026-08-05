@@ -54,8 +54,8 @@ són fixes i no es desen duplicades a l'estat.
 | `PopulationState` | `age` | `[C]` | `COUNT_DTYPE` (`int32`) | Edat en passos. |
 
 En accedir en el futur a un mapa `[H, W]`, una posició `[x, y]` s'indexarà com `[y, x]`.
-`occupancy` és un recompte derivat de `population.position` i `population.alive`; aquest contracte
-només l'emmagatzema i encara no el calcula.
+`occupancy` és un recompte derivat de `population.position` i `population.alive`. El PR-10 el
+calcula per a la població fundadora; el recàlcul general correspon al PR-11.
 
 ## Capacitat fixa i slots
 
@@ -77,5 +77,5 @@ per una limitació tècnica, mentre que una `C` excessiva consumeix memòria i t
 
 ## Ampliacions deliberadament absents
 
-El PR-07 incorpora RNG i comptadors d’identificadors sense afegir inicialització ni regles ecològiques. El PR-14, genomes batched; i el PR-25, acumuladors de mètriques i buffers d'esdeveniments. Els PR-08
-i PR-10 seran responsables d'inicialitzar el món i la població, respectivament.
+El PR-10 inicialitza slots i fundadors, però no genomes neuronals. El PR-14 incorpora genomes
+batched i el PR-25, acumuladors de mètriques i buffers d'esdeveniments.

@@ -51,6 +51,19 @@ class ResourceDistributionCode(IntEnum):
 RESOURCE_DISTRIBUTION_COUNT = len(ResourceDistributionCode)
 
 
+class InitialPlacementCode(IntEnum):
+    """Stable founder-placement algorithms.
+
+    The host spelling ``random`` denotes this sole, uniform-with-replacement
+    mode in configuration schema 1.3.
+    """
+
+    UNIFORM_WITH_REPLACEMENT = 0
+
+
+INITIAL_PLACEMENT_COUNT = len(InitialPlacementCode)
+
+
 class RngStreamCode(IntEnum):
     """Stable domains for deterministic random-key derivation."""
 

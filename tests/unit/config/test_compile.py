@@ -202,9 +202,6 @@ def test_compiled_contract_is_immutable(config: ExperimentConfig) -> None:
 
 
 def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) -> None:
-    too_wide = replace(config, "world", width=2**31)
-    with pytest.raises(ConfigCompilationError, match=r"world\.width"):
-        compile_config(too_wide)
     too_large = replace(config, "world", resource_capacity=1e100)
     with pytest.raises(ConfigCompilationError, match=r"world\.resource_capacity"):
         compile_config(too_large)
