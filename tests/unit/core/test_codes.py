@@ -6,10 +6,10 @@ from evolucio.core import (
     ACTION_COUNT,
     CODE_DTYPE,
     DEATH_CAUSE_COUNT,
-    INITIAL_PLACEMENT_COUNT,
+    RNG_STREAM_COUNT,
     ActionCode,
     DeathCauseCode,
-    InitialPlacementCode,
+    RngStreamCode,
 )
 
 
@@ -61,6 +61,20 @@ def test_codes_serialize_as_their_stable_integer_values() -> None:
     assert json.dumps(DeathCauseCode.INVALID_STATE) == "5"
 
 
-def test_initial_placement_code_is_stable_and_singular() -> None:
-    assert InitialPlacementCode.UNIFORM_WITH_REPLACEMENT == 0
-    assert INITIAL_PLACEMENT_COUNT == 1
+def test_rng_stream_codes_are_stable_and_complete() -> None:
+    expected = {
+        "INITIALIZATION": 0,
+        "ENVIRONMENT": 1,
+        "ACTION_CONFLICT": 2,
+        "REPRODUCTION": 3,
+        "MUTATION": 4,
+    }
+    assert {code.name: int(code) for code in RngStreamCode} == expected
+    assert [int(code) for code in RngStreamCode] == list(range(RNG_STREAM_COUNT))
+    assert RNG_STREAM_COUNT == 5
+
+
+def test_rng_stream_codes_round_trip_through_jax_integer_arrays() -> None:
+    values = jnp.asarray([int(code) for code in RngStreamCode], dtype=CODE_DTYPE)
+    assert values.dtype == jnp.dtype(CODE_DTYPE)
+    assert values.tolist() == list(range(RNG_STREAM_COUNT))
