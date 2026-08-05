@@ -29,11 +29,8 @@ from evolucio.core.population import (
     create_empty_population,
     initialize_population,
 )
-from evolucio.core.population.init import (
-    _build_initial_alive_mask,
-    _build_initial_occupancy,
-)
-from evolucio.core.world import initialize_world
+from evolucio.core.population.init import _build_initial_alive_mask
+from evolucio.core.world import compute_occupancy, initialize_world
 
 
 @pytest.fixture
@@ -230,12 +227,15 @@ def test_resources_environment_and_stream_order_do_not_affect_positions(
 def test_occupancy_manual_coordinate_order_and_inactive_weight() -> None:
     positions = jnp.asarray([[2, 0], [0, 1], [2, 0], [-1, -1]], dtype=INDEX_DTYPE)
     alive = jnp.asarray([True, True, True, False], dtype=MASK_DTYPE)
-    eager = _build_initial_occupancy(positions, alive, width=3, height=2)
-    compiled = jax.jit(_build_initial_occupancy, static_argnames=("width", "height"))(
-        positions, alive, width=3, height=2
+    population = eqx.tree_at(
+        lambda state: (state.position, state.alive),
+        create_empty_population(4),
+        (positions, alive),
     )
-    assert eager.tolist() == [[0, 0, 2], [1, 0, 0]]
-    assert jnp.array_equal(eager, compiled)
+    eager = compute_occupancy(population, width=3, height=2)
+    compiled = eqx.filter_jit(compute_occupancy)(population, width=3, height=2)
+    assert eager.occupancy.tolist() == [[0, 0, 2], [1, 0, 0]]
+    assert jnp.array_equal(eager.occupancy, compiled.occupancy)
 
 
 def test_initialize_population_eager_jit_and_scan(config: ExperimentConfig) -> None:

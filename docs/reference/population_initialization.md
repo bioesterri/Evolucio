@@ -54,9 +54,10 @@ executable compilat.
 
 ## Límit de responsabilitats
 
-El helper d'ocupació d'aquest PR només construeix l'estat inicial; el PR-11 l'extraurà o
-generalitzarà i afegirà densitat. No s'implementen regles vitals ni un inicialitzador integral de
-`SimulationState`.
+El PR-11 ha substituït el helper privat d'ocupació per `rebuild_world_occupancy`, la font de
+veritat de `core.world` per a ocupació. Les posicions fundadores vàlides produeixen zero agents vius invàlids,
+i la selecció atòmica continua restaurant el món original davant overflow d'identificadors. No
+s'implementen regles vitals ni un inicialitzador integral de `SimulationState`.
 
 | Funcionalitat | PR responsable |
 |---|---|

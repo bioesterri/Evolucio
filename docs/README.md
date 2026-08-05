@@ -29,3 +29,4 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [Inicialització del món 2D](reference/world_initialization.md)
 - [Regeneració de recursos i calendari ambiental](reference/resource_regeneration_and_environment_calendar.md)
 - [Inicialització de la població fundadora](reference/population_initialization.md)
+- [Ocupació i densitat espacials](reference/spatial_occupancy_and_density.md)

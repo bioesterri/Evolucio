@@ -56,7 +56,8 @@ de l'ordre d'altres streams. Els centres `x` i `y` reben claus filles diferents.
 
 L'ambient inicial és uniforme amb `environment_initial_value`, sense soroll, gradient ni canvi
 temporal. `initialize_world` crea ocupació zero; després el PR-10 substitueix només `occupancy`
-pel recompte fundador, conservant exactament recursos i ambient.
+mitjançant el component general de `core.world` del PR-11, conservant exactament recursos i ambient.
+La densitat no es persisteix i es deriva sota demanda de l'ocupació i `max_agents`.
 
 ## Garanties i treball posterior
 
