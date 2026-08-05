@@ -104,3 +104,20 @@ def test_persistence_rules(config: ExperimentConfig) -> None:
     value["persistence"]["destinations"] = ("local", "local")  # type: ignore[index]
     with pytest.raises(ValidationError, match="duplicates"):
         ExperimentConfig.model_validate(value)
+
+
+@pytest.mark.parametrize(
+    "genome",
+    [
+        {"schema_version": 2},
+        {"initialization": "unknown"},
+        {"initialization": ""},
+    ],
+)
+def test_invalid_genome_contract_is_rejected(
+    config: ExperimentConfig, genome: dict[str, object]
+) -> None:
+    candidate = config.model_dump(mode="python")
+    candidate["genome"] = genome
+    with pytest.raises(ValidationError):
+        ExperimentConfig.model_validate(candidate)

@@ -57,6 +57,55 @@ def test_dynamic_arrays_have_explicit_core_dtypes(config: ExperimentConfig) -> N
     )
 
 
+@pytest.mark.parametrize(
+    "field", ["max_energy", "feeding_conversion", "feeding_max_resource_intake"]
+)
+def test_positive_energy_values_must_remain_positive_in_float32(
+    config: ExperimentConfig, field: str
+) -> None:
+    data = config.model_dump(mode="python")
+    energy = data["energy"]
+    assert isinstance(energy, dict)
+    energy[field] = 1e-50
+    if field == "max_energy":
+        energy["initial_energy"] = 5e-51
+        energy["death_threshold"] = 0.0
+        energy["reproduction_threshold"] = 5e-51
+        energy["reproduction_cost"] = 0.0
+        energy["offspring_initial_energy"] = 1e-51
+    underflowing = ExperimentConfig.model_validate(data)
+
+    with pytest.raises(ConfigCompilationError, match="float32"):
+        compile_config(underflowing)
+
+
+@pytest.mark.parametrize(
+    ("block", "field"),
+    [("world", "regeneration_rate"), ("evolution", "mutation_rate")],
+)
+def test_nonzero_dynamic_values_must_not_underflow_to_zero(
+    config: ExperimentConfig, block: str, field: str
+) -> None:
+    changed = replace(config, block, **{field: 1e-100})
+    with pytest.raises(ConfigCompilationError, match=field):
+        compile_config(changed)
+
+
+def test_energy_invariants_are_rechecked_after_float32_conversion(
+    config: ExperimentConfig,
+) -> None:
+    changed = replace(
+        config,
+        "energy",
+        reproduction_threshold=40.000001,
+        reproduction_cost=30.0,
+        offspring_initial_energy=10.0,
+        death_threshold=0.0,
+    )
+    with pytest.raises(ConfigCompilationError, match=r"energy\.reproduction_threshold"):
+        compile_config(changed)
+
+
 def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -> None:
     changed = replace(config, "energy", basal_cost=0.25, movement_cost=0.15)
     first = compile_config(config)
@@ -73,6 +122,25 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
 @pytest.mark.parametrize(
     ("block", "change"),
     [
+        ("energy", {"max_energy": 110.0}),
+        ("energy", {"feeding_conversion": 1.5}),
+        ("energy", {"feeding_max_resource_intake": 3.0}),
+        ("energy", {"reproduction_threshold": 45.0}),
+        ("evolution", {"max_age": 1200}),
+        ("world", {"resource_capacity": 12.0}),
+    ],
+)
+def test_observation_scales_are_dynamic(
+    config: ExperimentConfig, block: str, change: dict[str, object]
+) -> None:
+    changed = replace(config, block, **change)
+    assert compile_config(config).config_hash != compile_config(changed).config_hash
+    assert build_compile_signature(config) == build_compile_signature(changed)
+
+
+@pytest.mark.parametrize(
+    ("block", "change"),
+    [
         ("world", {"width": 65}),
         ("world", {"height": 65}),
         ("world", {"resource_distribution": "uniform"}),
@@ -80,6 +148,7 @@ def test_dynamic_change_preserves_signature_and_tree(config: ExperimentConfig) -
         ("population", {"max_agents": 1025}),
         ("population", {"max_births_per_step": 65}),
         ("runtime", {"chunk_size": 64}),
+        ("observations", {"perception_radius": 3}),
     ],
 )
 def test_static_change_changes_signature(
@@ -92,10 +161,12 @@ def test_static_change_changes_signature(
 
 def test_policy_static_fields_are_in_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert signature.hidden_size == config.policy.hidden_size
-    assert signature.observation_schema_version == config.policy.observation_schema_version
+    assert signature.policy_hidden_size == config.policy.hidden_size
+    assert signature.observation_schema_version == config.observations.schema_version
+    assert signature.observation_schema_size == 15
+    assert len(signature.observation_schema_digest) == 64
     assert signature.action_schema_version == config.policy.action_schema_version
-    assert signature.activation == config.policy.activation
+    assert signature.policy_activation == config.policy.activation
 
 
 @pytest.mark.parametrize(
@@ -128,8 +199,16 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 3
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
+    assert signature.action_contract_schema_version == 1
+    assert signature.action_contract_schema_digest == (
+        "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
+    )
     assert signature.rng_implementation == "threefry2x32"
+    assert signature.movement_resolution_schema_version == 1
+    assert signature.movement_resolution_schema_digest == (
+        "9209b617b2ed80ae1f1fa90206f13d05a1c69c763ece24ef92be6f64959a2e03"
+    )
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 
@@ -202,9 +281,48 @@ def test_compiled_contract_is_immutable(config: ExperimentConfig) -> None:
 
 
 def test_compilation_rejects_unrepresentable_values(config: ExperimentConfig) -> None:
-    too_wide = replace(config, "world", width=2**31)
-    with pytest.raises(ConfigCompilationError, match=r"world\.width"):
-        compile_config(too_wide)
     too_large = replace(config, "world", resource_capacity=1e100)
     with pytest.raises(ConfigCompilationError, match=r"world\.resource_capacity"):
         compile_config(too_large)
+
+
+def test_policy_schema_is_static_and_complete(config: ExperimentConfig) -> None:
+    compiled = compile_config(config)
+    policy = compiled.core.policy
+    signature = compiled.compile_signature
+    assert (policy.schema_version, policy.input_size, policy.hidden_size, policy.output_size) == (
+        1,
+        15,
+        16,
+        7,
+    )
+    assert policy.activation == "tanh" and policy.use_bias is True
+    assert len(policy.schema_digest) == 64
+    assert signature.policy_schema_version == policy.schema_version
+    assert signature.policy_schema_digest == policy.schema_digest
+    assert (
+        signature.policy_input_size,
+        signature.policy_hidden_size,
+        signature.policy_output_size,
+    ) == (15, 16, 7)
+    assert signature.policy_activation == "tanh" and signature.policy_use_bias is True
+    assert policy.action_selection_schema_version == signature.action_selection_schema_version == 1
+    assert policy.action_selection_schema_digest == signature.action_selection_schema_digest
+    assert signature.action_count == 7
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "weights", "initialization_distribution", "mutation_sigma"} & fields
+
+
+def test_genome_schema_is_static_complete_and_excludes_run_values(
+    config: ExperimentConfig,
+) -> None:
+    compiled = compile_config(config)
+    genome = compiled.core.genome
+    signature = compiled.compile_signature
+    assert genome.schema_version == signature.genome_schema_version == 1
+    assert genome.schema_digest == signature.genome_schema_digest
+    assert genome.initialization_name == signature.genome_initialization_name
+    assert genome.initialization_version == signature.genome_initialization_version == 1
+    assert genome.parameter_count == signature.genome_parameter_count == 375
+    fields = {field.name for field in dataclasses.fields(signature)}
+    assert not {"seed", "initial_agents", "genome_id", "weights", "biases"} & fields

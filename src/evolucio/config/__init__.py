@@ -24,6 +24,8 @@ from .models import (
     EnvironmentPhaseConfig,
     EvolutionConfig,
     ExperimentConfig,
+    GenomeConfig,
+    ObservationsConfig,
     PersistenceConfig,
     PolicyConfig,
     PopulationConfig,
@@ -32,6 +34,37 @@ from .models import (
 )
 from .schema import experiment_config_json_schema
 from .versions import CONFIG_SCHEMA_VERSION
+
+_COMPILE_EXPORTS = frozenset(
+    {
+        "COMPILE_SIGNATURE_SCHEMA_VERSION",
+        "CompiledConfig",
+        "CompileSignature",
+        "ConfigCompilationError",
+        "CoreConfig",
+        "EnergyCoreConfig",
+        "EnvironmentCalendarCoreConfig",
+        "EvolutionCoreConfig",
+        "GenomeCoreConfig",
+        "ObservationsCoreConfig",
+        "PolicyCoreConfig",
+        "PopulationCoreConfig",
+        "RuntimeCoreConfig",
+        "WorldCoreConfig",
+        "build_compile_signature",
+        "compile_config",
+        "compile_signature_digest",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    """Load the JAX-facing configuration API only when explicitly requested."""
+    if name in _COMPILE_EXPORTS:
+        module = import_module(".compile", __name__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "COMPILE_SIGNATURE_SCHEMA_VERSION",
@@ -49,6 +82,10 @@ __all__ = [
     "EvolutionCoreConfig",
     "ExperimentConfig",
     "FrozenConfig",
+    "GenomeConfig",
+    "GenomeCoreConfig",
+    "ObservationsConfig",
+    "ObservationsCoreConfig",
     "PersistenceConfig",
     "PolicyConfig",
     "PolicyCoreConfig",

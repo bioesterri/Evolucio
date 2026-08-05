@@ -29,7 +29,7 @@ l'ordre de derivació ni del nombre de consumidors d'un altre domini.
 |---|---:|---|---|
 | `WORLD_INITIALIZATION` | 0 | Inicialització del món | Només domini reservat |
 | `RESOURCE_INITIALIZATION` | 1 | Recursos inicials | Només domini reservat |
-| `AGENT_INITIALIZATION` | 2 | Agents fundadors | Només domini reservat |
+| `AGENT_INITIALIZATION` | 2 | Posicions dels agents fundadors | Actiu al PR-10 |
 | `GENOME_INITIALIZATION` | 3 | Genomes fundadors | Només domini reservat |
 | `ENVIRONMENT_UPDATE` | 4 | Actualització ambiental | Només domini reservat |
 | `ACTION_TIE_BREAK` | 5 | Desempats d'accions | Només domini reservat |
@@ -46,8 +46,8 @@ Els codis identifiquen dominis, no prioritats ni regles funcionals. No es poden 
 Una clau usada per mostrejar no es reutilitza; una clau pare només deriva claus filles. El codi de
 producció d'aquest PR no mostreja cap valor. Les claus d'entitat deriven d'un `agent_id`,
 `genome_id`, `lineage_id` o índex amb semàntica explícita, mai de la posició accidental del slot.
-Els consumidors futurs filtraran `alive` abans de derivar o consumir claus i no consumiran claus
-de slots inactius.
+La inicialització fundadora en deriva claus indexades separades per a les coordenades `x` i `y` i
+mostreja tota la capacitat fixa abans d'aplicar `alive`.
 
 Amb la mateixa seed, versió de codi i seqüència funcional s'obtenen les mateixes arrels, claus de
 pas, streams, claus d'entitat i assignacions d'ID. Seeds, streams o identitats diferents separen
@@ -65,8 +65,8 @@ ID no es recicla mai. `genome_id` és identitat registral o genealògica, no un 
 `allocate_ids` usa màscara, suma acumulada i `where` sobre una forma fixa. L'ordre de la màscara és
 l'ordre registral. Si les peticions superen l'espai restant, l'operació és atòmica: retorna
 `overflow=True`, tots els valors són `NULL_ID` i el comptador no canvia. No hi ha assignació
-parcial ni wraparound. La futura reproducció haurà de coordinar de manera atòmica dominis
-múltiples; els descendents no rebran automàticament un llinatge nou.
+parcial ni wraparound. El PR-10 coordina atòmicament els tres dominis dels fundadors; la futura
+reproducció mantindrà el llinatge heretat.
 
 ## Continuació futura i exclusions
 
@@ -75,3 +75,15 @@ comptadors, `WorldState` i `PopulationState`, juntament amb versions i configura
 Aquest PR no serialitza claus ni escriu checkpoints. Tampoc inicialitza món, recursos, agents o
 genomes; no resol accions o conflictes; i no implementa reproducció, mutació, mortalitat,
 mètriques ni persistència.
+
+## Genomes fundadors
+
+`GENOME_INITIALIZATION` selecciona el domini global. Cada genoma es deriva de `genome_id`, no
+del slot, i les dues matrius usen substreams explícits diferents. Vegeu
+[l'esquema genòmic v1](genome_batch_schema_v1.md).
+# Conflictes de moviment
+
+El domini `MOVEMENT_CONFLICT` rep una clau derivada per pas. La resolució espacial deriva tres
+substreams `uint32` per `agent_id`, no per índex de slot, segons el contracte de
+[moviment cardinal v1](cardinal_movement_and_spatial_conflicts_v1.md). Aquesta fase no avança la
+clau arrel persistent.

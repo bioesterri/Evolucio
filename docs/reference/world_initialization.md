@@ -55,7 +55,9 @@ la signatura ni les formes. L'esquema de configuració és 1.2 i la signatura de
 de l'ordre d'altres streams. Els centres `x` i `y` reben claus filles diferents.
 
 L'ambient inicial és uniforme amb `environment_initial_value`, sense soroll, gradient ni canvi
-temporal. L'ocupació inicial és zero perquè aquest PR no crea població.
+temporal. `initialize_world` crea ocupació zero; després el PR-10 substitueix només `occupancy`
+mitjançant el component espacial general del PR-11, conservant exactament recursos i ambient.
+La densitat no es persisteix i es deriva sota demanda de l'ocupació i `max_agents`.
 
 ## Garanties i treball posterior
 
@@ -69,7 +71,8 @@ global.
 | Calendari ambiental | PR-09 |
 | Població inicial | PR-10 |
 | Posicions inicials | PR-10 |
-| Ocupació real | PR-11 |
+| Ocupació fundadora | PR-10 |
+| Ocupació general i densitat | PR-11 |
 | Observacions locals | PR-12 |
 | Moviment | PR-17 |
 | Alimentació | PR-18 |
