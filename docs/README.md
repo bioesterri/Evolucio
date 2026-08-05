@@ -20,3 +20,7 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 
 - [Guia de configuració](configuration.md)
 - [JSON Schema de configuració 1.0](schemas/experiment-config-v1.0.json)
+
+## Referència del nucli
+
+- [Tipus, dtypes i codis del nucli](reference/core_types_and_codes.md)
