@@ -32,52 +32,14 @@ class DeathCauseCode(IntEnum):
 DEATH_CAUSE_COUNT = len(DeathCauseCode)
 
 
-class BoundaryModeCode(IntEnum):
-    """Stable supported world-boundary modes."""
-
-    CLOSED = 0
-
-
-BOUNDARY_MODE_COUNT = len(BoundaryModeCode)
-
-
-class ResourceDistributionCode(IntEnum):
-    """Stable initial resource-distribution algorithms."""
-
-    UNIFORM = 0
-    PATCHES = 1
-
-
-RESOURCE_DISTRIBUTION_COUNT = len(ResourceDistributionCode)
-
-
-class InitialPlacementCode(IntEnum):
-    """Stable founder-placement algorithms.
-
-    The host spelling ``random`` denotes this sole, uniform-with-replacement
-    mode in configuration schema 1.2.
-    """
-
-    UNIFORM_WITH_REPLACEMENT = 0
-
-
-INITIAL_PLACEMENT_COUNT = len(InitialPlacementCode)
-
-
 class RngStreamCode(IntEnum):
-    """Stable domains for deterministic random-key derivation."""
+    """Host representation of deterministic RNG stream identifiers."""
 
-    WORLD_INITIALIZATION = 0
-    RESOURCE_INITIALIZATION = 1
-    AGENT_INITIALIZATION = 2
-    GENOME_INITIALIZATION = 3
-    ENVIRONMENT_UPDATE = 4
-    ACTION_TIE_BREAK = 5
-    MOVEMENT_CONFLICT = 6
-    RESOURCE_CONFLICT = 7
-    REPRODUCTION_CONFLICT = 8
-    BIRTH_PLACEMENT = 9
-    GENOME_MUTATION = 10
+    INITIALIZATION = 0
+    ENVIRONMENT = 1
+    ACTION_CONFLICT = 2
+    REPRODUCTION = 3
+    MUTATION = 4
 
 
 RNG_STREAM_COUNT = len(RngStreamCode)
