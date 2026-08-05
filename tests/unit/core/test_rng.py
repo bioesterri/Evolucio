@@ -79,7 +79,7 @@ def test_stream_codes_are_exact_stable_and_without_aliases() -> None:
         "ENVIRONMENT_UPDATE": 4,
         "ACTION_TIE_BREAK": 5,
         "MOVEMENT_CONFLICT": 6,
-        "RESOURCE_CONFLICT": 7,
+        "FEEDING_CONFLICT": 7,
         "REPRODUCTION_CONFLICT": 8,
         "BIRTH_PLACEMENT": 9,
         "GENOME_MUTATION": 10,

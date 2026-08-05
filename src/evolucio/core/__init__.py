@@ -1,8 +1,5 @@
 """Stable public vocabulary for the functional simulation core."""
 
-from importlib import import_module
-from typing import Final
-
 from .codes import (
     ACTION_COUNT,
     DEATH_CAUSE_COUNT,
@@ -20,6 +17,28 @@ from .dtypes import (
     REAL_DTYPE,
     STEP_DTYPE,
 )
+from .ids import (
+    FIRST_ID,
+    MAX_NEXT_ID,
+    NULL_ID,
+    IdAllocation,
+    IdCounters,
+    allocate_agent_ids,
+    allocate_genome_ids,
+    allocate_ids,
+    allocate_lineage_ids,
+    create_id_counters,
+)
+from .rng import (
+    PRNG_IMPLEMENTATION,
+    RngState,
+    advance_rng,
+    create_rng_state,
+    derive_entity_keys,
+    derive_indexed_key,
+    derive_stream_key,
+)
+from .state import PopulationState, SimulationState, WorldState
 from .types import AgentId, Array, GenomeId, LineageId, Shape, StepIndex
 
 _LAZY_EXPORTS: Final = {
@@ -48,9 +67,13 @@ __all__ = [
     "CODE_DTYPE",
     "COUNT_DTYPE",
     "DEATH_CAUSE_COUNT",
+    "FIRST_ID",
     "ID_DTYPE",
     "INDEX_DTYPE",
     "MASK_DTYPE",
+    "MAX_NEXT_ID",
+    "NULL_ID",
+    "PRNG_IMPLEMENTATION",
     "REAL_DTYPE",
     "RNG_STREAM_COUNT",
     "STEP_DTYPE",
@@ -59,10 +82,25 @@ __all__ = [
     "Array",
     "DeathCauseCode",
     "GenomeId",
+    "IdAllocation",
+    "IdCounters",
     "LineageId",
+    "PopulationState",
+    "RngState",
     "RngStreamCode",
     "Shape",
     "StepIndex",
+    "WorldState",
+    "advance_rng",
+    "allocate_agent_ids",
+    "allocate_genome_ids",
+    "allocate_ids",
+    "allocate_lineage_ids",
+    "create_id_counters",
+    "create_rng_state",
+    "derive_entity_keys",
+    "derive_indexed_key",
+    "derive_stream_key",
 ]
 
 
