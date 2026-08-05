@@ -8,7 +8,8 @@ estat, comportament ni lògica de simulació.
 | Ús | Dtype |
 |---|---|
 | Valors reals | `float32` |
-| Índexs, identificadors, comptadors, passos i codis | `int32` |
+| Índexs, identificadors, comptadors i passos | `int32` |
+| Codis categòrics d’acció, mort i flux RNG | `int32` |
 | Màscares | `bool` |
 
 `float32` és el format real portàtil i eficient del prototip, sense activar globalment JAX x64.
@@ -46,6 +47,24 @@ L'espai d'accions és fix durant el prototip inicial i no és configurable.
 | `INVALID_STATE` | 5 | Estat impossible o corrupte. |
 
 `DEATH_CAUSE_COUNT` val 6. Els valors numèrics **no defineixen cap prioritat de mortalitat**.
+
+## Codis de flux RNG
+
+| Nom | Valor | Significat |
+|---|---:|---|
+| `WORLD_INITIALIZATION` | 0 | Flux per inicialitzar l’estat del món. |
+| `RESOURCE_INITIALIZATION` | 1 | Flux per inicialitzar recursos. |
+| `AGENT_INITIALIZATION` | 2 | Flux per inicialitzar agents o ocupació inicial. |
+| `GENOME_INITIALIZATION` | 3 | Flux per inicialitzar genomes. |
+| `ENVIRONMENT_UPDATE` | 4 | Flux per actualitzacions ambientals reproduïbles. |
+| `ACTION_TIE_BREAK` | 5 | Flux per desempats de selecció d’accions. |
+| `MOVEMENT_CONFLICT` | 6 | Flux per conflictes de moviment. |
+| `RESOURCE_CONFLICT` | 7 | Flux per conflictes de recursos. |
+| `REPRODUCTION_CONFLICT` | 8 | Flux per conflictes reproductius. |
+| `BIRTH_PLACEMENT` | 9 | Flux per col·locació de naixements. |
+| `GENOME_MUTATION` | 10 | Flux per mutació genòmica. |
+
+`RNG_STREAM_COUNT` val 11. Aquests codis només identifiquen streams de manera estable; no creen claus, no divideixen PRNGs i no implementen cap política d’aleatorietat en aquest PR.
 
 ## Representació i estabilitat
 
