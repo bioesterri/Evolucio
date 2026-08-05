@@ -26,17 +26,20 @@ Les col·lisions espacials o la quantitat de cel·les no són overflow.
 
 La col·locació host `random` correspon al codi estable
 `InitialPlacementCode.UNIFORM_WITH_REPLACEMENT = 0`. Es deriva el stream
-`AGENT_INITIALIZATION` de la root key i, amb subíndexs 0 i 1, claus diferents per `x` i `y`.
-Sempre es mostregen `C` coordenades uniformes i després s'emmascaren els slots inactius; canviar
+`AGENT_INITIALIZATION` de la root key. Quan `allow_multiple_agents_per_cell` és cert, els
+subíndexs 0 i 1 deriven claus diferents per mostrejar `x` i `y` amb reemplaçament. Sempre es
+mostregen `C` coordenades uniformes i després s'emmascaren els slots inactius; canviar
 `initial_agents` només revela mostres ja determinades. La root key no avança i recursos, ambient i
 ordre de derivació d'altres streams no influeixen en les posicions.
 
-El mostreig és amb reemplaçament: permet molts agents en una cel·la i, per tant, no exigeix
-`initial_agents <= width * height`. Això representa solapament ecològic, no més slots que la
-capacitat computacional. Per cada slot viu en `[x,y]` es calcula
-`flat_index = y * width + x`; un recompte vectoritzat ponderat per `alive` construeix
-`occupancy[y,x]`. Els slots inactius apunten temporalment a zero amb pes exactament zero.
-Recursos i ambient es conserven exactament.
+El mostreig amb reemplaçament permet molts agents en una cel·la i, per tant, no exigeix
+`initial_agents <= width * height` quan `allow_multiple_agents_per_cell` és cert. Això representa
+solapament ecològic, no més slots que la capacitat computacional. Quan el flag és fals, el
+subíndex 2 deriva una permutació de cel·les i els fundadors actius reben cel·les úniques; la
+validació host exigeix llavors que la capacitat càpiga dins `width * height`. Per cada slot viu en
+`[x,y]` es calcula `flat_index = y * width + x`; un recompte vectoritzat ponderat per `alive`
+construeix `occupancy[y,x]`. Els slots inactius apunten temporalment a zero amb pes exactament
+zero. Recursos i ambient es conserven exactament.
 
 ## Configuració i compilació
 
@@ -44,20 +47,19 @@ Recursos i ambient es conserven exactament.
 |---|---|---|---|---|
 | `max_agents` | enter estricte `> 0` | estàtic | sí | sí; fixa formes |
 | `initial_agents` | enter estricte `0..max_agents` | dinàmic `int32` | sí | no |
-| `placement` | `random` (uniforme amb reemplaçament) | estàtic | sí | sí |
+| `placement` | `random` | estàtic | sí | sí |
 | `initial_energy` | finit, `death_threshold < value <= max_energy` | dinàmic `float32` | sí | no |
 | `max_energy`, `death_threshold` | finits i coherents | dinàmics `float32` | sí | no |
 
 `width * height` ha de ser representable com `int32`. `placement` i `max_agents` ja eren a la
-signatura; la versió actual és v4 pel contracte d'observacions del PR-12. Ni claus, IDs, posicions ni ocupació són propietats d'un
+signatura v3; no s'ha canviat la versió. Ni claus, IDs, posicions ni ocupació són propietats d'un
 executable compilat.
 
 ## Límit de responsabilitats
 
-El PR-11 ha substituït el helper privat d'ocupació per `rebuild_world_occupancy`, la font de
-veritat espacial general. Les posicions fundadores vàlides produeixen zero agents vius invàlids,
-i la selecció atòmica continua restaurant el món original davant overflow d'identificadors. No
-s'implementen regles vitals ni un inicialitzador integral de `SimulationState`.
+El helper d'ocupació d'aquest PR només construeix l'estat inicial; el PR-11 l'extraurà o
+generalitzarà i afegirà densitat. No s'implementen regles vitals ni un inicialitzador integral de
+`SimulationState`.
 
 | Funcionalitat | PR responsable |
 |---|---|
@@ -72,9 +74,3 @@ s'implementen regles vitals ni un inicialitzador integral de `SimulationState`.
 | Nous slots per descendència | PR-22 |
 | Genealogia i esdeveniments | PR-24 |
 | Inicialització integral del run | PR posterior de runtime |
-
-## Inicialització genòmica posterior
-
-La població no depèn de `policy`. Després d'obtenir els fundadors, l'orquestrador futur passarà
-`alive` i `genome_id` a `initialize_genome_batch`; els detalls són a
-[l'esquema genòmic](genome_batch_schema_v1.md).

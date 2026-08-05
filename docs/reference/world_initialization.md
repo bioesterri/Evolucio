@@ -46,7 +46,7 @@ Les distàncies són euclidianes ordinàries i les taques de vora queden truncad
 | `environment_initial_value` | finit, `[0, 1]` | dinàmic `float32` | valor basal |
 
 Els camps estàtics formen part de `CompileSignature`; els dinàmics canvien `config_hash`, però no
-la signatura ni les formes. L'esquema de configuració és 1.3 i la signatura de compilació és 4.
+la signatura ni les formes. L'esquema de configuració és 1.3 i la signatura de compilació és 3.
 
 ## RNG, ambient i ocupació
 
@@ -56,8 +56,7 @@ de l'ordre d'altres streams. Els centres `x` i `y` reben claus filles diferents.
 
 L'ambient inicial és uniforme amb `environment_initial_value`, sense soroll, gradient ni canvi
 temporal. `initialize_world` crea ocupació zero; després el PR-10 substitueix només `occupancy`
-mitjançant el component espacial general del PR-11, conservant exactament recursos i ambient.
-La densitat no es persisteix i es deriva sota demanda de l'ocupació i `max_agents`.
+pel recompte fundador, conservant exactament recursos i ambient.
 
 ## Garanties i treball posterior
 

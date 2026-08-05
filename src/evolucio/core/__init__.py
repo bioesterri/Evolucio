@@ -6,9 +6,13 @@ from typing import Final
 from .codes import (
     ACTION_COUNT,
     DEATH_CAUSE_COUNT,
+    INITIAL_PLACEMENT_COUNT,
+    RESOURCE_DISTRIBUTION_COUNT,
     RNG_STREAM_COUNT,
     ActionCode,
     DeathCauseCode,
+    InitialPlacementCode,
+    ResourceDistributionCode,
     RngStreamCode,
 )
 from .dtypes import (
@@ -50,6 +54,7 @@ __all__ = [
     "DEATH_CAUSE_COUNT",
     "ID_DTYPE",
     "INDEX_DTYPE",
+    "INITIAL_PLACEMENT_COUNT",
     "MASK_DTYPE",
     "REAL_DTYPE",
     "RNG_STREAM_COUNT",
@@ -59,6 +64,9 @@ __all__ = [
     "Array",
     "DeathCauseCode",
     "GenomeId",
+    "IdAllocation",
+    "IdCounters",
+    "InitialPlacementCode",
     "LineageId",
     "RngStreamCode",
     "Shape",

@@ -210,9 +210,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.6."""
+    """Complete validated scientific configuration for schema 1.3."""
 
-    schema_version: Literal["1.6"]
+    schema_version: Literal["1.3"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

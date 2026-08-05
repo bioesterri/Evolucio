@@ -31,3 +31,8 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 ## Referència del nucli
 
 - [Tipus, dtypes i codis del nucli](reference/core_types_and_codes.md)
+- [Estat del nucli i model poblacional de capacitat fixa](reference/core_state.md)
+- [RNG determinista i identificadors interns](reference/rng_and_identifiers.md)
+- [Inicialització del món 2D](reference/world_initialization.md)
+- [Regeneració de recursos i calendari ambiental](reference/resource_regeneration_and_environment_calendar.md)
+- [Inicialització de la població fundadora](reference/population_initialization.md)
