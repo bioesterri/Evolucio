@@ -8,7 +8,28 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from evolucio.core.dtypes import INDEX_DTYPE, REAL_DTYPE
+from evolucio.core.actions import (
+    ACTION_CONTRACT_SCHEMA_DIGEST,
+    ACTION_CONTRACT_SCHEMA_VERSION,
+    FEEDING_RESOLUTION_SCHEMA_DIGEST,
+    FEEDING_RESOLUTION_SCHEMA_VERSION,
+    MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
+    MOVEMENT_RESOLUTION_SCHEMA_VERSION,
+)
+from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
+from evolucio.core.observations.schema import (
+    OBSERVATION_SCHEMA_DIGEST,
+    OBSERVATION_SIZE,
+)
+from evolucio.core.policy import (
+    ACTION_SELECTION_SCHEMA_DIGEST,
+    ACTION_SELECTION_SCHEMA_VERSION,
+    GENOME_INITIALIZATION_NAME,
+    GENOME_INITIALIZATION_VERSION,
+    GENOME_PARAMETER_COUNT,
+    GENOME_SCHEMA_DIGEST,
+    POLICY_SCHEMA_DIGEST,
+)
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
@@ -40,10 +61,31 @@ class CompileSignature:
     max_births_per_step: int
     placement: str
     allow_multiple_agents_per_cell: bool
-    observation_schema_version: str
+    observation_schema_version: int
+    observation_schema_size: int
+    observation_schema_digest: str
     action_schema_version: str
-    hidden_size: int
-    activation: str
+    policy_schema_version: int
+    policy_schema_digest: str
+    policy_input_size: int
+    policy_hidden_size: int
+    policy_output_size: int
+    policy_activation: str
+    policy_use_bias: bool
+    action_selection_schema_version: int
+    action_selection_schema_digest: str
+    action_count: int
+    action_contract_schema_version: int
+    action_contract_schema_digest: str
+    movement_resolution_schema_version: int
+    movement_resolution_schema_digest: str
+    feeding_resolution_schema_version: int
+    feeding_resolution_schema_digest: str
+    genome_schema_version: int
+    genome_schema_digest: str
+    genome_initialization_name: str
+    genome_initialization_version: int
+    genome_parameter_count: int
     perception_radius: int
     chunk_size: int
     record_stride: int
@@ -66,10 +108,17 @@ class WorldCoreConfig(eqx.Module):
     resource_patch_contrast: jax.Array
     environment_initial_value: jax.Array
     regeneration_rate: jax.Array
-    environment_start_steps: jax.Array
-    environment_end_steps: jax.Array
-    environment_regeneration_multipliers: jax.Array
-    environment_stress_levels: jax.Array
+    environment_calendar: "EnvironmentCalendarCoreConfig"
+
+
+class EnvironmentCalendarCoreConfig(eqx.Module):
+    """Fixed-length environmental calendar consumed by compiled world updates."""
+
+    phase_count: int = eqx.field(static=True)
+    start_steps: jax.Array
+    end_steps: jax.Array
+    regeneration_multipliers: jax.Array
+    environment_values: jax.Array
 
 
 class PopulationCoreConfig(eqx.Module):
@@ -85,11 +134,35 @@ class PopulationCoreConfig(eqx.Module):
 class PolicyCoreConfig(eqx.Module):
     """Fixed policy topology and schema selectors."""
 
-    observation_schema_version: str
-    action_schema_version: str
-    hidden_size: int
-    activation: str
-    perception_radius: int
+    action_schema_version: str = eqx.field(static=True)
+    schema_version: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    input_size: int = eqx.field(static=True)
+    hidden_size: int = eqx.field(static=True)
+    output_size: int = eqx.field(static=True)
+    activation: str = eqx.field(static=True)
+    use_bias: bool = eqx.field(static=True)
+    action_selection_schema_version: int = eqx.field(static=True)
+    action_selection_schema_digest: str = eqx.field(static=True)
+
+
+class ObservationsCoreConfig(eqx.Module):
+    """Static, hashable local observation contract."""
+
+    schema_version: int = eqx.field(static=True)
+    schema_size: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    perception_radius: int = eqx.field(static=True)
+
+
+class GenomeCoreConfig(eqx.Module):
+    """Static, hashable neural-genome contract."""
+
+    schema_version: int = eqx.field(static=True)
+    schema_digest: str = eqx.field(static=True)
+    initialization_name: str = eqx.field(static=True)
+    initialization_version: int = eqx.field(static=True)
+    parameter_count: int = eqx.field(static=True)
 
 
 class EnergyCoreConfig(eqx.Module):
@@ -102,6 +175,7 @@ class EnergyCoreConfig(eqx.Module):
     movement_cost: jax.Array
     feeding_cost: jax.Array
     feeding_conversion: jax.Array
+    feeding_max_resource_intake: jax.Array
     reproduction_threshold: jax.Array
     reproduction_cost: jax.Array
     offspring_initial_energy: jax.Array
@@ -132,6 +206,8 @@ class CoreConfig(eqx.Module):
     world: WorldCoreConfig
     population: PopulationCoreConfig
     policy: PolicyCoreConfig
+    observations: ObservationsCoreConfig
+    genome: GenomeCoreConfig
     energy: EnergyCoreConfig
     evolution: EvolutionCoreConfig
     runtime: RuntimeCoreConfig
@@ -154,7 +230,7 @@ def _static_int(value: int, field: str) -> int:
 
 def _int_scalar(value: int, field: str) -> jax.Array:
     _static_int(value, field)
-    result = jnp.asarray(value, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    result = jnp.asarray(value, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != ():
         raise ConfigCompilationError(f"{field} must compile to a scalar")
     return result
@@ -168,23 +244,61 @@ def _float_scalar(value: float, field: str) -> jax.Array:
     result = jnp.asarray(value, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if result.shape != () or not math.isfinite(float(result)):
         raise ConfigCompilationError(f"{field} must compile to a finite scalar")
+    if value != 0.0 and float(result) == 0.0:
+        raise ConfigCompilationError(f"{field} underflows to zero in float32")
+    return result
+
+
+def _positive_float_scalar(value: float, field: str) -> jax.Array:
+    """Compile a positive scalar without allowing float32 underflow to zero."""
+    result = _float_scalar(value, field)
+    if not float(result) > 0:
+        raise ConfigCompilationError(f"{field} must remain positive in float32")
     return result
 
 
 def _int_vector(values: tuple[int, ...], field: str) -> jax.Array:
     for value in values:
         _static_int(value, field)
-    return jnp.asarray(values, dtype=INDEX_DTYPE)  # pyright: ignore[reportUnknownMemberType]
+    return jnp.asarray(values, dtype=STEP_DTYPE)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _float_vector(values: tuple[float, ...], field: str) -> jax.Array:
-    for value in values:
-        if not math.isfinite(value) or abs(value) > _FLOAT32_MAX:
-            raise ConfigCompilationError(f"{field} contains a value outside the float32 range")
+    for index, value in enumerate(values):
+        _float_scalar(value, f"{field}[{index}]")
     result = jnp.asarray(values, dtype=REAL_DTYPE)  # pyright: ignore[reportUnknownMemberType]
     if not bool(jnp.all(jnp.isfinite(result))):
         raise ConfigCompilationError(f"{field} must contain only finite values")
     return result
+
+
+def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
+    """Recheck relational energy invariants after float32 conversion."""
+    death_threshold = float(energy.death_threshold)
+    initial_energy = float(energy.initial_energy)
+    max_energy = float(energy.max_energy)
+    reproduction_threshold = float(energy.reproduction_threshold)
+    reproduction_cost = float(energy.reproduction_cost)
+    offspring_initial_energy = float(energy.offspring_initial_energy)
+
+    if not death_threshold < initial_energy <= max_energy:
+        raise ConfigCompilationError(
+            "energy.initial_energy violates viability bounds after float32 conversion"
+        )
+    if reproduction_threshold > max_energy:
+        raise ConfigCompilationError(
+            "energy.reproduction_threshold exceeds max_energy after float32 conversion"
+        )
+    if offspring_initial_energy <= death_threshold:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy is not viable after float32 conversion"
+        )
+    minimum = death_threshold + reproduction_cost + offspring_initial_energy
+    if reproduction_threshold <= minimum:
+        raise ConfigCompilationError(
+            "energy.reproduction_threshold does not leave the parent viable after float32 "
+            "conversion"
+        )
 
 
 def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
@@ -210,11 +324,34 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         ),
         placement=population.placement,
         allow_multiple_agents_per_cell=population.allow_multiple_agents_per_cell,
-        observation_schema_version=policy.observation_schema_version,
+        observation_schema_version=config.observations.schema_version,
+        observation_schema_size=OBSERVATION_SIZE,
+        observation_schema_digest=OBSERVATION_SCHEMA_DIGEST,
         action_schema_version=policy.action_schema_version,
-        hidden_size=_static_int(policy.hidden_size, "policy.hidden_size"),
-        activation=policy.activation,
-        perception_radius=_static_int(policy.perception_radius, "policy.perception_radius"),
+        policy_schema_version=policy.schema_version,
+        policy_schema_digest=POLICY_SCHEMA_DIGEST,
+        policy_input_size=_static_int(policy.input_size, "policy.input_size"),
+        policy_hidden_size=_static_int(policy.hidden_size, "policy.hidden_size"),
+        policy_output_size=_static_int(policy.output_size, "policy.output_size"),
+        policy_activation=policy.activation,
+        policy_use_bias=policy.use_bias,
+        action_selection_schema_version=ACTION_SELECTION_SCHEMA_VERSION,
+        action_selection_schema_digest=ACTION_SELECTION_SCHEMA_DIGEST,
+        action_count=_static_int(policy.output_size, "policy.output_size"),
+        action_contract_schema_version=ACTION_CONTRACT_SCHEMA_VERSION,
+        action_contract_schema_digest=ACTION_CONTRACT_SCHEMA_DIGEST,
+        movement_resolution_schema_version=MOVEMENT_RESOLUTION_SCHEMA_VERSION,
+        movement_resolution_schema_digest=MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
+        feeding_resolution_schema_version=FEEDING_RESOLUTION_SCHEMA_VERSION,
+        feeding_resolution_schema_digest=FEEDING_RESOLUTION_SCHEMA_DIGEST,
+        genome_schema_version=config.genome.schema_version,
+        genome_schema_digest=GENOME_SCHEMA_DIGEST,
+        genome_initialization_name=config.genome.initialization,
+        genome_initialization_version=GENOME_INITIALIZATION_VERSION,
+        genome_parameter_count=GENOME_PARAMETER_COUNT,
+        perception_radius=_static_int(
+            config.observations.perception_radius, "observations.perception_radius"
+        ),
         chunk_size=_static_int(runtime.chunk_size, "runtime.chunk_size"),
         record_stride=_static_int(runtime.record_stride, "runtime.record_stride"),
         snapshot_stride=(
@@ -287,13 +424,26 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             placement=config.population.placement,
             allow_multiple_agents_per_cell=config.population.allow_multiple_agents_per_cell,
         ),
-        policy=PolicyCoreConfig(**config.policy.model_dump()),
-        energy=EnergyCoreConfig(
-            **{
-                field: _float_scalar(value, f"energy.{field}")
-                for field, value in config.energy.model_dump().items()
-            }
+        policy=PolicyCoreConfig(
+            **config.policy.model_dump(),
+            schema_digest=POLICY_SCHEMA_DIGEST,
+            action_selection_schema_version=ACTION_SELECTION_SCHEMA_VERSION,
+            action_selection_schema_digest=ACTION_SELECTION_SCHEMA_DIGEST,
         ),
+        observations=ObservationsCoreConfig(
+            schema_version=config.observations.schema_version,
+            schema_size=OBSERVATION_SIZE,
+            schema_digest=OBSERVATION_SCHEMA_DIGEST,
+            perception_radius=config.observations.perception_radius,
+        ),
+        genome=GenomeCoreConfig(
+            schema_version=config.genome.schema_version,
+            schema_digest=GENOME_SCHEMA_DIGEST,
+            initialization_name=GENOME_INITIALIZATION_NAME,
+            initialization_version=GENOME_INITIALIZATION_VERSION,
+            parameter_count=GENOME_PARAMETER_COUNT,
+        ),
+        energy=energy,
         evolution=EvolutionCoreConfig(
             min_reproduction_age=_int_scalar(
                 config.evolution.min_reproduction_age, "evolution.min_reproduction_age"

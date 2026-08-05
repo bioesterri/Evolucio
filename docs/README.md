@@ -16,7 +16,14 @@ La carpeta `docs/` agrupa la documentació de referència del Projecte Evolució
 
 Aquesta pàgina és només un índex. No resumeix ni substitueix els documents de referència.
 
+- [Alimentació, competència pels recursos i transferència energètica v1](reference/feeding_resource_competition_and_energy_transfer_v1.md)
+
 ## Configuració
+
+- [Contracte d'accions i validació local v1](reference/action_contract_and_validation_v1.md):
+  codis, encaminament preliminar, fallback a `STAY` i límits amb els resolutors futurs.
+- [Moviment cardinal i conflictes espacials v1](reference/cardinal_movement_and_spatial_conflicts_v1.md):
+  instantània d'ocupació i resolució neutral simultània.
 
 - [Guia de configuració](configuration.md)
 - [JSON Schema de configuració 2.0](schemas/experiment-config-v2.0.json)
