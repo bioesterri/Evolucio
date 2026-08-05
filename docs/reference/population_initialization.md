@@ -49,7 +49,7 @@ Recursos i ambient es conserven exactament.
 | `max_energy`, `death_threshold` | finits i coherents | dinàmics `float32` | sí | no |
 
 `width * height` ha de ser representable com `int32`. `placement` i `max_agents` ja eren a la
-signatura v3; no s'ha canviat la versió. Ni claus, IDs, posicions ni ocupació són propietats d'un
+signatura; la versió actual és v4 pel contracte d'observacions del PR-12. Ni claus, IDs, posicions ni ocupació són propietats d'un
 executable compilat.
 
 ## Límit de responsabilitats
@@ -72,3 +72,9 @@ s'implementen regles vitals ni un inicialitzador integral de `SimulationState`.
 | Nous slots per descendència | PR-22 |
 | Genealogia i esdeveniments | PR-24 |
 | Inicialització integral del run | PR posterior de runtime |
+
+## Inicialització genòmica posterior
+
+La població no depèn de `policy`. Després d'obtenir els fundadors, l'orquestrador futur passarà
+`alive` i `genome_id` a `initialize_genome_batch`; els detalls són a
+[l'esquema genòmic](genome_batch_schema_v1.md).

@@ -50,8 +50,13 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("world", "resource_distribution"), "random", "resource_distribution"),
         (("population", "initial_agents"), 2000, "population"),
         (("policy", "hidden_size"), 8, "hidden_size"),
-        (("policy", "observation_schema_version"), "2.0", "observation_schema_version"),
+        (("observations", "schema_version"), 2, "schema_version"),
+        (("observations", "perception_radius"), True, "perception_radius"),
+        (("observations", "perception_radius"), 0, "perception_radius"),
+        (("observations", "perception_radius"), 4, "perception_radius"),
         (("energy", "initial_energy"), 101.0, "energy"),
+        (("energy", "feeding_max_resource_intake"), 0.0, "feeding_max_resource_intake"),
+        (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
         (("energy", "reproduction_threshold"), 15.0, "energy"),
         (("evolution", "max_age"), 5, "evolution"),
         (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
@@ -105,3 +110,21 @@ def test_valid_seeds(config: ExperimentConfig, seed: int) -> None:
     raw = data(config)
     raw["seed"] = seed
     assert ExperimentConfig.model_validate(raw).seed == seed
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", 2),
+        ("input_size", 14),
+        ("input_size", True),
+        ("hidden_size", 15),
+        ("output_size", 8),
+        ("activation", "relu"),
+        ("use_bias", False),
+    ],
+)
+def test_policy_contract_rejects_alternatives(
+    config: ExperimentConfig, field: str, value: object
+) -> None:
+    assert field in str(error(config, ("policy", field), value))

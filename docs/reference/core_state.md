@@ -80,3 +80,8 @@ per una limitació tècnica, mentre que una `C` excessiva consumeix memòria i t
 
 El PR-10 inicialitza slots i fundadors, però no genomes neuronals. El PR-14 incorpora genomes
 batched i el PR-25, acumuladors de mètriques i buffers d'esdeveniments.
+
+## Bloc genòmic (PR-14)
+
+`SimulationState.genomes` és el `GenomeBatch` de capacitat fixa associat slot a slot amb
+`PopulationState.genome_id`. Consulteu [l'esquema batched v1](genome_batch_schema_v1.md).

@@ -1,10 +1,17 @@
 """Fixed-shape PyTree containers for the simulation state."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import equinox as eqx
 
 from .ids import IdCounters
 from .rng import RngState
 from .types import Array
+
+if TYPE_CHECKING:
+    from .policy.batch import GenomeBatch
 
 
 class WorldState(eqx.Module):
@@ -38,3 +45,4 @@ class SimulationState(eqx.Module):
     ids: IdCounters
     world: WorldState
     population: PopulationState
+    genomes: GenomeBatch

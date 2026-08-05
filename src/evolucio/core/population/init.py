@@ -21,6 +21,7 @@ from evolucio.core.dtypes import (
 )
 from evolucio.core.ids import NULL_ID, IdCounters, allocate_ids
 from evolucio.core.rng import derive_indexed_key, derive_stream_key
+from evolucio.core.spatial import rebuild_world_occupancy
 from evolucio.core.state import PopulationState, WorldState
 from evolucio.core.types import Array
 from evolucio.core.world import rebuild_world_occupancy
