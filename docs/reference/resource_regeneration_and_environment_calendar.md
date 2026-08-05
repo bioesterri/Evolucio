@@ -24,7 +24,7 @@ La resolució compara vectorialment el pas amb tots els intervals. Si una fase �
 
 ## Configuració compilada i signatura
 
-`EnvironmentCalendarCoreConfig.phase_count` és estàtic perquè determina les formes `[L]`. Inicis i finals (`STEP_DTYPE`), multiplicadors i valors ambientals (`REAL_DTYPE`), taxa, capacitat i valor basal són dinàmics. Tots afecten `config_hash`; només canviar `L` altera `CompileSignature.environment_schedule_length`. Aquest camp ja existia i no s'ha incrementat la versió 3 de la signatura. Calendaris llargs tenen cost de resolució lineal i una longitud diferent implica una classe d'executable diferent.
+`EnvironmentCalendarCoreConfig.phase_count` és estàtic perquè determina les formes `[L]`. Inicis i finals (`STEP_DTYPE`), multiplicadors i valors ambientals (`REAL_DTYPE`), taxa, capacitat i valor basal són dinàmics. Tots afecten `config_hash`; només canviar `L` altera `CompileSignature.environment_schedule_length`. Aquest camp existeix des de la versió 3; la versió actual 4 correspon al contracte d'observacions. Calendaris llargs tenen cost de resolució lineal i una longitud diferent implica una classe d'executable diferent.
 
 ## Garanties i limitacions
 

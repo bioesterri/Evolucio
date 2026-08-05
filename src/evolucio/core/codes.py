@@ -65,7 +65,7 @@ INITIAL_PLACEMENT_COUNT = len(InitialPlacementCode)
 
 
 class RngStreamCode(IntEnum):
-    """Stable domains for deterministic random-key derivation."""
+    """Host representation of deterministic RNG stream identifiers."""
 
     WORLD_INITIALIZATION = 0
     RESOURCE_INITIALIZATION = 1
