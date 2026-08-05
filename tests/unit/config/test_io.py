@@ -34,7 +34,7 @@ def test_bad_documents(text: str, fmt: str, error: type[Exception]) -> None:
 
 
 def test_version_errors(config: ExperimentConfig) -> None:
-    text = '{"schema_version":"2.0"}'
+    text = '{"schema_version":"1.1"}'
     with pytest.raises(UnsupportedConfigVersionError):
         parse_config(text, format="json")
     with pytest.raises(ValidationError):

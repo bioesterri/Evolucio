@@ -142,14 +142,7 @@ def test_dynamic_world_fields_preserve_signature(config: ExperimentConfig) -> No
         assert jax.tree.structure(candidate.core) == jax.tree.structure(baseline.core)
 
 
-@given(
-    width=st.integers(1, 6),
-    height=st.integers(1, 6),
-    contrast=st.one_of(
-        st.just(0.0),
-        st.floats(min_value=1e-37, max_value=1.0, allow_nan=False),
-    ),
-)
+@given(width=st.integers(1, 6), height=st.integers(1, 6), contrast=st.floats(0, 1, allow_nan=False))
 @settings(
     max_examples=12, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
 )

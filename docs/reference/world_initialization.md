@@ -22,12 +22,13 @@ d²_k = (x - center_x_k)² + (y - center_y_k)²
 raw[y,x] = sum_k exp(-d²_k / (2 * resource_patch_radius²))
 centered = raw - mean(raw)
 pattern = centered / max(max(abs(centered)), epsilon)
+pattern = pattern - mean(pattern)
 margin = min(initial_resource_mean, resource_capacity - initial_resource_mean)
 resources = initial_resource_mean + resource_patch_contrast * margin * pattern
 ```
 
 El patró té mitjana aproximadament zero i interval `[-1, 1]`; per això ambdós modes conserven la
-mateixa mitjana global dins la tolerància de `float32`. Un `clip` final a
+mateixa mitjana global dins la tolerància de `float32`; el segon centrat evita deriva numèrica en graelles petites. Un `clip` final a
 `[0, resource_capacity]` protegeix només de l'arrodoniment: no substitueix la validació host.
 Les distàncies són euclidianes ordinàries i les taques de vora queden truncades.
 
@@ -41,12 +42,12 @@ Les distàncies són euclidianes ordinàries i les taques de vora queden truncad
 | `resource_patch_count` | enter estricte `>= 1` | estàtic | nombre de centres |
 | `resource_capacity` | finit, `>= 0` | dinàmic `float32` | límit local |
 | `initial_resource_mean` | finit, entre zero i capacitat | dinàmic `float32` | mitjana inicial |
-| `resource_patch_radius` | finit, `> 0` | dinàmic `float32` | escala espacial |
+| `resource_patch_radius` | finit, `>= 0.25` cel·les | dinàmic `float32` | escala espacial; rebutja radis que poden col·lapsar numèricament el patró |
 | `resource_patch_contrast` | finit, `[0, 1]` | dinàmic `float32` | amplitud |
 | `environment_initial_value` | finit, `[0, 1]` | dinàmic `float32` | valor basal |
 
 Els camps estàtics formen part de `CompileSignature`; els dinàmics canvien `config_hash`, però no
-la signatura ni les formes. L'esquema de configuració és 1.3 i la signatura de compilació és 4.
+la signatura ni les formes. L'esquema de configuració és 2.0 i la signatura de compilació és 3.
 
 ## RNG, ambient i ocupació
 
@@ -55,9 +56,7 @@ la signatura ni les formes. L'esquema de configuració és 1.3 i la signatura de
 de l'ordre d'altres streams. Els centres `x` i `y` reben claus filles diferents.
 
 L'ambient inicial és uniforme amb `environment_initial_value`, sense soroll, gradient ni canvi
-temporal. `initialize_world` crea ocupació zero; després el PR-10 substitueix només `occupancy`
-mitjançant el component espacial general del PR-11, conservant exactament recursos i ambient.
-La densitat no es persisteix i es deriva sota demanda de l'ocupació i `max_agents`.
+temporal. L'ocupació inicial és zero perquè aquest PR no crea població.
 
 ## Garanties i treball posterior
 
@@ -71,12 +70,7 @@ global.
 | Calendari ambiental | PR-09 |
 | Població inicial | PR-10 |
 | Posicions inicials | PR-10 |
-| Ocupació fundadora | PR-10 |
-| Ocupació general i densitat | PR-11 |
+| Ocupació real | PR-11 |
 | Observacions locals | PR-12 |
 | Moviment | PR-17 |
 | Alimentació | PR-18 |
-
-## Actualització temporal posterior
-
-La distribució inicial es conserva al pas zero. La regeneració posterior i l'actualització ambiental es defineixen a [Regeneració de recursos i calendari ambiental](resource_regeneration_and_environment_calendar.md).
