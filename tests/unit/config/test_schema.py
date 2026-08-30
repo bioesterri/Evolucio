@@ -17,6 +17,9 @@ def test_schema_snapshot() -> None:
         "runtime",
     }
     assert schema["additionalProperties"] is False
+    patch_radius = schema["$defs"]["WorldConfig"]["properties"]["resource_patch_radius"]
+    assert patch_radius["minimum"] == 0.25
+    assert "exclusiveMinimum" not in patch_radius
     assert json.loads(Path("docs/schemas/experiment-config-v2.0.json").read_text()) == schema
 
 
