@@ -5,10 +5,14 @@ from typing import Final
 
 from .codes import (
     ACTION_COUNT,
+    BOUNDARY_MODE_COUNT,
     DEATH_CAUSE_COUNT,
+    RESOURCE_DISTRIBUTION_COUNT,
     RNG_STREAM_COUNT,
     ActionCode,
+    BoundaryModeCode,
     DeathCauseCode,
+    ResourceDistributionCode,
     RngStreamCode,
 )
 from .dtypes import (
@@ -45,6 +49,7 @@ _LAZY_EXPORTS: Final = {
 
 __all__ = [
     "ACTION_COUNT",
+    "BOUNDARY_MODE_COUNT",
     "CODE_DTYPE",
     "COUNT_DTYPE",
     "DEATH_CAUSE_COUNT",
@@ -52,14 +57,19 @@ __all__ = [
     "INDEX_DTYPE",
     "MASK_DTYPE",
     "REAL_DTYPE",
+    "RESOURCE_DISTRIBUTION_COUNT",
     "RNG_STREAM_COUNT",
     "STEP_DTYPE",
     "ActionCode",
     "AgentId",
     "Array",
+    "BoundaryModeCode",
     "DeathCauseCode",
     "GenomeId",
     "LineageId",
+    "PopulationState",
+    "ResourceDistributionCode",
+    "RngState",
     "RngStreamCode",
     "Shape",
     "StepIndex",

@@ -41,9 +41,10 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("world", "resource_patch_count"), 0, "resource_patch_count"),
         (("world", "resource_patch_count"), True, "resource_patch_count"),
         (("world", "resource_patch_radius"), 0.0, "resource_patch_radius"),
+        (("world", "resource_patch_radius"), 0.249, "resource_patch_radius"),
         (("world", "resource_patch_radius"), math.nan, "resource_patch_radius"),
         (("world", "resource_patch_contrast"), -0.1, "resource_patch_contrast"),
-        (("world", "resource_patch_contrast"), 1.2, "resource_patch_contrast"),
+        (("world", "resource_patch_contrast"), 1.1, "resource_patch_contrast"),
         (("world", "environment_initial_value"), -0.1, "environment_initial_value"),
         (("world", "environment_initial_value"), math.inf, "environment_initial_value"),
         (("world", "boundary_mode"), "toroidal", "boundary_mode"),
@@ -67,6 +68,13 @@ def test_invalid_values(
     config: ExperimentConfig, path: tuple[str, ...], value: object, field: str
 ) -> None:
     assert field in str(error(config, path, value))
+
+
+def test_resource_patch_radius_accepts_declared_minimum(config: ExperimentConfig) -> None:
+    raw = data(config)
+    raw["world"]["resource_patch_radius"] = 0.25  # type: ignore[index]
+    parsed = ExperimentConfig.model_validate(raw)
+    assert parsed.world.resource_patch_radius == 0.25
 
 
 def test_extra_and_string_coercion(config: ExperimentConfig) -> None:

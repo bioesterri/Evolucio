@@ -49,18 +49,16 @@ class WorldConfig(_ConfigModel):
     initial_resource_mean: NonNegativeFloat
     resource_distribution: Literal["uniform", "patches"]
     resource_patch_count: PositiveInt
-    resource_patch_radius: PositiveFloat
+    resource_patch_radius: Annotated[float, Field(ge=0.25)]
     resource_patch_contrast: Fraction
     environment_initial_value: Fraction
-    regeneration_rate: Rate
-    environment_schedule: tuple[EnvironmentPhaseConfig, ...] = ()
+    regeneration_rate: NonNegativeFloat
+    environment_schedule: tuple[EnvironmentPhaseConfig, ...]
 
     @model_validator(mode="after")
     def validate_initial_resource(self) -> Self:
         if self.initial_resource_mean > self.resource_capacity:
             raise ValueError("initial_resource_mean must not exceed resource_capacity")
-        if self.width * self.height > _STEP_MAX:
-            raise ValueError("world area must be representable as int32")
         return self
 
     @field_validator("environment_schedule", mode="before")
@@ -210,9 +208,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.6."""
+    """Complete validated scientific configuration for schema 2.0."""
 
-    schema_version: Literal["1.6"]
+    schema_version: Literal["2.0"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

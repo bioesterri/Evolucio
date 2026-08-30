@@ -33,9 +33,9 @@ from evolucio.core.policy import (
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
-from .models import ExperimentConfig
+from .models import ExperimentConfig, WorldConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 10
+COMPILE_SIGNATURE_SCHEMA_VERSION = 3
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -370,64 +370,55 @@ def compile_signature_digest(signature: CompileSignature) -> str:
     return digest
 
 
+def _compile_world_config(world: WorldConfig) -> WorldCoreConfig:
+    phases = world.environment_schedule
+    return WorldCoreConfig(
+        width=_static_int(world.width, "world.width"),
+        height=_static_int(world.height, "world.height"),
+        boundary_mode=world.boundary_mode,
+        resource_distribution=world.resource_distribution,
+        resource_capacity=_float_scalar(world.resource_capacity, "world.resource_capacity"),
+        initial_resource_mean=_float_scalar(
+            world.initial_resource_mean, "world.initial_resource_mean"
+        ),
+        resource_patch_count=_static_int(world.resource_patch_count, "world.resource_patch_count"),
+        resource_patch_radius=_float_scalar(
+            world.resource_patch_radius, "world.resource_patch_radius"
+        ),
+        resource_patch_contrast=_float_scalar(
+            world.resource_patch_contrast, "world.resource_patch_contrast"
+        ),
+        environment_initial_value=_float_scalar(
+            world.environment_initial_value, "world.environment_initial_value"
+        ),
+        regeneration_rate=_float_scalar(world.regeneration_rate, "world.regeneration_rate"),
+        environment_start_steps=_int_vector(
+            tuple(phase.start_step for phase in phases), "world.environment_schedule.start_step"
+        ),
+        environment_end_steps=_int_vector(
+            tuple(phase.end_step for phase in phases), "world.environment_schedule.end_step"
+        ),
+        environment_regeneration_multipliers=_float_vector(
+            tuple(phase.regeneration_multiplier for phase in phases),
+            "world.environment_schedule.regeneration_multiplier",
+        ),
+        environment_stress_levels=_float_vector(
+            tuple(phase.stress_level for phase in phases),
+            "world.environment_schedule.stress_level",
+        ),
+    )
+
+
 def compile_config(config: ExperimentConfig) -> CompiledConfig:
     """Compile an already validated host model without I/O or side effects."""
-    world = config.world
-    phases = world.environment_schedule
     energy = EnergyCoreConfig(
         **{
-            field: (
-                _positive_float_scalar(value, f"energy.{field}")
-                if field in {"max_energy", "feeding_conversion", "feeding_max_resource_intake"}
-                else _float_scalar(value, f"energy.{field}")
-            )
+            field: _float_scalar(value, f"energy.{field}")
             for field, value in config.energy.model_dump().items()
         }
     )
-    _validate_compiled_energy(energy)
     core = CoreConfig(
-        world=WorldCoreConfig(
-            width=_static_int(world.width, "world.width"),
-            height=_static_int(world.height, "world.height"),
-            boundary_mode=world.boundary_mode,
-            resource_distribution=world.resource_distribution,
-            resource_capacity=_float_scalar(world.resource_capacity, "world.resource_capacity"),
-            initial_resource_mean=_float_scalar(
-                world.initial_resource_mean, "world.initial_resource_mean"
-            ),
-            resource_patch_count=_static_int(
-                world.resource_patch_count, "world.resource_patch_count"
-            ),
-            resource_patch_radius=_float_scalar(
-                world.resource_patch_radius, "world.resource_patch_radius"
-            ),
-            resource_patch_contrast=_float_scalar(
-                world.resource_patch_contrast, "world.resource_patch_contrast"
-            ),
-            environment_initial_value=_float_scalar(
-                world.environment_initial_value, "world.environment_initial_value"
-            ),
-            regeneration_rate=_float_scalar(world.regeneration_rate, "world.regeneration_rate"),
-            environment_calendar=EnvironmentCalendarCoreConfig(
-                phase_count=len(phases),
-                start_steps=_int_vector(
-                    tuple(phase.start_step for phase in phases),
-                    "world.environment_schedule.start_step",
-                ),
-                end_steps=_int_vector(
-                    tuple(phase.end_step for phase in phases),
-                    "world.environment_schedule.end_step",
-                ),
-                regeneration_multipliers=_float_vector(
-                    tuple(phase.regeneration_multiplier for phase in phases),
-                    "world.environment_schedule.regeneration_multiplier",
-                ),
-                environment_values=_float_vector(
-                    tuple(phase.stress_level for phase in phases),
-                    "world.environment_schedule.stress_level",
-                ),
-            ),
-        ),
+        world=_compile_world_config(config.world),
         population=PopulationCoreConfig(
             initial_agents=_int_scalar(
                 config.population.initial_agents, "population.initial_agents"
@@ -439,25 +430,7 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
             placement=config.population.placement,
             allow_multiple_agents_per_cell=config.population.allow_multiple_agents_per_cell,
         ),
-        policy=PolicyCoreConfig(
-            **config.policy.model_dump(),
-            schema_digest=POLICY_SCHEMA_DIGEST,
-            action_selection_schema_version=ACTION_SELECTION_SCHEMA_VERSION,
-            action_selection_schema_digest=ACTION_SELECTION_SCHEMA_DIGEST,
-        ),
-        observations=ObservationsCoreConfig(
-            schema_version=config.observations.schema_version,
-            schema_size=OBSERVATION_SIZE,
-            schema_digest=OBSERVATION_SCHEMA_DIGEST,
-            perception_radius=config.observations.perception_radius,
-        ),
-        genome=GenomeCoreConfig(
-            schema_version=config.genome.schema_version,
-            schema_digest=GENOME_SCHEMA_DIGEST,
-            initialization_name=GENOME_INITIALIZATION_NAME,
-            initialization_version=GENOME_INITIALIZATION_VERSION,
-            parameter_count=GENOME_PARAMETER_COUNT,
-        ),
+        policy=PolicyCoreConfig(**config.policy.model_dump()),
         energy=energy,
         evolution=EvolutionCoreConfig(
             min_reproduction_age=_int_scalar(
