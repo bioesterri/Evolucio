@@ -378,7 +378,7 @@
           "type": "integer"
         },
         "resource_patch_radius": {
-          "exclusiveMinimum": 0,
+          "minimum": 0.25,
           "title": "Resource Patch Radius",
           "type": "number"
         },
