@@ -49,19 +49,11 @@ class WorldConfig(_ConfigModel):
     initial_resource_mean: NonNegativeFloat
     resource_distribution: Literal["uniform", "patches"]
     resource_patch_count: PositiveInt
-    resource_patch_radius: PositiveFloat
+    resource_patch_radius: Annotated[float, Field(ge=0.25)]
     resource_patch_contrast: Fraction
     environment_initial_value: Fraction
     regeneration_rate: NonNegativeFloat
     environment_schedule: tuple[EnvironmentPhaseConfig, ...]
-
-    @field_validator("resource_patch_radius")
-    @classmethod
-    def validate_patch_radius_resolution(cls, value: float) -> float:
-        minimum_radius = 0.25
-        if value < minimum_radius:
-            raise ValueError("resource_patch_radius must be at least 0.25 cells")
-        return value
 
     @model_validator(mode="after")
     def validate_initial_resource(self) -> Self:
