@@ -70,6 +70,13 @@ def test_invalid_values(
     assert field in str(error(config, path, value))
 
 
+def test_resource_patch_radius_accepts_declared_minimum(config: ExperimentConfig) -> None:
+    raw = data(config)
+    raw["world"]["resource_patch_radius"] = 0.25  # type: ignore[index]
+    parsed = ExperimentConfig.model_validate(raw)
+    assert parsed.world.resource_patch_radius == 0.25
+
+
 def test_extra_and_string_coercion(config: ExperimentConfig) -> None:
     raw = data(config)
     raw["unknown"] = 1
