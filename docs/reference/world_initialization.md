@@ -22,11 +22,15 @@ d²_k = (x - center_x_k)² + (y - center_y_k)²
 raw[y,x] = sum_k exp(-d²_k / (2 * resource_patch_radius²))
 centered = raw - mean(raw)
 pattern = centered / max(max(abs(centered)), epsilon)
+pattern = pattern - mean(pattern)
+pattern = pattern / max(max(abs(pattern)), 1)
 margin = min(initial_resource_mean, resource_capacity - initial_resource_mean)
 resources = initial_resource_mean + resource_patch_contrast * margin * pattern
 ```
 
-El patró té mitjana aproximadament zero i interval `[-1, 1]`; per això ambdós modes conserven la
+El segon centrat elimina el residu que pot amplificar la normalització en `float32`, especialment
+en mons petits, i la normalització final torna a garantir l'interval. El patró té mitjana
+aproximadament zero i interval `[-1, 1]`; per això ambdós modes conserven la
 mateixa mitjana global dins la tolerància de `float32`. Un `clip` final a
 `[0, resource_capacity]` protegeix només de l'arrodoniment: no substitueix la validació host.
 Les distàncies són euclidianes ordinàries i les taques de vora queden truncades.

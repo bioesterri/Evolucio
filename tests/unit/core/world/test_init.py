@@ -83,6 +83,16 @@ def test_patch_parameters_control_structure_without_changing_shape(
     assert wide.shape == high.shape and not jnp.allclose(wide, high)
 
 
+def test_patch_resources_preserve_mean_in_small_world(config: ExperimentConfig) -> None:
+    core = world_config(
+        config, width=2, height=1, resource_patch_count=2, resource_patch_contrast=1.0
+    )
+
+    resources = initialize_world(core, create_rng_state(3).key).resources
+
+    assert float(resources.mean()) == pytest.approx(float(core.initial_resource_mean), abs=2e-5)
+
+
 def test_environment_and_complete_world_contract(config: ExperimentConfig) -> None:
     core = world_config(config, width=6, height=4, environment_initial_value=0.3)
     root = create_rng_state(12).key
