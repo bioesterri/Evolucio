@@ -8,6 +8,13 @@ def raw(config: ExperimentConfig) -> dict[str, object]:
     return config.model_dump(mode="python")
 
 
+def test_failed_action_cost_is_fixed_to_zero(config: ExperimentConfig) -> None:
+    value = raw(config)
+    value["energy"]["failed_action_cost"] = 0.1  # type: ignore[index]
+    with pytest.raises(ValidationError, match="less than or equal to 0"):
+        ExperimentConfig.model_validate(value)
+
+
 def test_environment_schedule(config: ExperimentConfig) -> None:
     value = raw(config)
     value["world"]["environment_schedule"] = [  # type: ignore[index]

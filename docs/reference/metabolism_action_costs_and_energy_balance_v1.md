@@ -52,6 +52,8 @@ L'esquema és `preaction_basal_postaction_success_costs_v1`, versió 1. El diges
 sobre JSON canònic i, amb la versió, forma part de `CompileSignature` v11. `basal_cost` és finit i
 estrictament positiu; `movement_cost` i `feeding_cost` són finits i no negatius. Els tres són
 escalars dinàmics `REAL_DTYPE`: alteren `config_hash`, però no les formes ni la signatura.
+La configuració host 2.0 restringeix `failed_action_cost` a `0.0`, de manera que cap paràmetre
+declarat pugui contradir la política versionada d'intents fallits sense cost.
 
 ## Límits posteriors
 

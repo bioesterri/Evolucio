@@ -15,6 +15,9 @@ def test_schema_is_complete_stable_and_has_no_rng_dependency() -> None:
     assert ENERGY_ACCOUNTING_SCHEMA_VERSION == 1
     assert payload["rng"] == "none"
     assert energy_accounting_schema_digest() == ENERGY_ACCOUNTING_SCHEMA_DIGEST
+    assert ENERGY_ACCOUNTING_SCHEMA_DIGEST == (
+        "e880b08ada85e35196b2d5801d3f3104647a6980f692b84076bdcca57733f9b1"
+    )
     assert re.fullmatch(r"[0-9a-f]{64}", ENERGY_ACCOUNTING_SCHEMA_DIGEST)
     for path in Path("src/evolucio/core/energy").glob("*.py"):
         tree = ast.parse(path.read_text())

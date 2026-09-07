@@ -27,7 +27,7 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
   instantània d'ocupació i resolució neutral simultània.
 
 - [Guia de configuració](configuration.md)
-- [JSON Schema de configuració 1.7](schemas/experiment-config-v1.7.json)
+- [JSON Schema de configuració 2.0](schemas/experiment-config-v2.0.json)
 
 ## Referència del nucli
 

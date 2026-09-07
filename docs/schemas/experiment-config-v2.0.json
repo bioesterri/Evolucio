@@ -56,6 +56,7 @@
           "type": "number"
         },
         "failed_action_cost": {
+          "maximum": 0,
           "minimum": 0,
           "title": "Failed Action Cost",
           "type": "number"
@@ -488,10 +489,10 @@
     }
   },
   "additionalProperties": false,
-  "description": "Complete validated scientific configuration for schema 1.7.",
+  "description": "Complete validated scientific configuration for schema 2.0.",
   "properties": {
     "schema_version": {
-      "const": "1.7",
+      "const": "2.0",
       "title": "Schema Version",
       "type": "string"
     },

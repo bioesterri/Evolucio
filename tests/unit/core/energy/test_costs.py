@@ -57,6 +57,17 @@ def test_inconsistent_inputs_pay_nothing_and_are_counted() -> None:
     assert jnp.isnan(result.population.energy[3])
 
 
+def test_phase_mismatches_and_unknown_codes_are_inconsistent() -> None:
+    result = apply(
+        [ActionCode.EAT, ActionCode.STAY, ActionCode.REPRODUCE],
+        [MovementResolutionCode.CONFLICT_LOST, 99, MovementResolutionCode.NOT_MOVEMENT],
+        [FeedingResolutionCode.FED_FULL, FeedingResolutionCode.NOT_FEEDING, 99],
+    )
+    assert result.invalid_action_cost_input_count.item() == 3
+    assert result.action_cost_applied.tolist() == [0, 0, 0]
+    assert result.population.energy.tolist() == [10, 10, 10]
+
+
 def test_costs_are_id_independent_permutation_equivariant_and_jittable() -> None:
     state = population([8, 9], [True, True])
     first = apply([ActionCode.EAT, ActionCode.MOVE_WEST], [0, 1], [1, 0], state)

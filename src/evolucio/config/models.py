@@ -140,7 +140,7 @@ class EnergyConfig(_ConfigModel):
     reproduction_threshold: float
     reproduction_cost: NonNegativeFloat
     offspring_initial_energy: float
-    failed_action_cost: NonNegativeFloat
+    failed_action_cost: Annotated[float, Field(ge=0, le=0)]
 
     @model_validator(mode="after")
     def validate_energy(self) -> Self:
@@ -210,9 +210,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 1.7."""
+    """Complete validated scientific configuration for schema 2.0."""
 
-    schema_version: Literal["1.7"]
+    schema_version: Literal["2.0"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
