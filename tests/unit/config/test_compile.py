@@ -199,16 +199,8 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 10
-    assert signature.action_contract_schema_version == 1
-    assert signature.action_contract_schema_digest == (
-        "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
-    )
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 2
     assert signature.rng_implementation == "threefry2x32"
-    assert signature.movement_resolution_schema_version == 1
-    assert signature.movement_resolution_schema_digest == (
-        "9209b617b2ed80ae1f1fa90206f13d05a1c69c763ece24ef92be6f64959a2e03"
-    )
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 

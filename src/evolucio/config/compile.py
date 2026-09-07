@@ -8,34 +8,13 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from evolucio.core.actions import (
-    ACTION_CONTRACT_SCHEMA_DIGEST,
-    ACTION_CONTRACT_SCHEMA_VERSION,
-    FEEDING_RESOLUTION_SCHEMA_DIGEST,
-    FEEDING_RESOLUTION_SCHEMA_VERSION,
-    MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
-    MOVEMENT_RESOLUTION_SCHEMA_VERSION,
-)
-from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
-from evolucio.core.observations.schema import (
-    OBSERVATION_SCHEMA_DIGEST,
-    OBSERVATION_SIZE,
-)
-from evolucio.core.policy import (
-    ACTION_SELECTION_SCHEMA_DIGEST,
-    ACTION_SELECTION_SCHEMA_VERSION,
-    GENOME_INITIALIZATION_NAME,
-    GENOME_INITIALIZATION_VERSION,
-    GENOME_PARAMETER_COUNT,
-    GENOME_SCHEMA_DIGEST,
-    POLICY_SCHEMA_DIGEST,
-)
+from evolucio.core.dtypes import INDEX_DTYPE, REAL_DTYPE
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 10
+COMPILE_SIGNATURE_SCHEMA_VERSION = 2
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38

@@ -13,7 +13,9 @@ estat, comportament ni lògica de simulació.
 | Màscares | `bool` |
 
 `float32` és el format real portàtil i eficient del prototip, sense activar globalment JAX x64.
-`int32` fixa una representació homogènia per a índexs, identificadors, comptadors, passos i codis categòrics que poden participar en selecció d’accions, indexació i contractes de compilació; i `bool` representa les màscares sense codificacions numèriques alternatives. Les conversions dels consumidors han de ser explícites i usar les constants de `evolucio.core`.
+`int32` fixa una representació homogènia per als enters del dispositiu i `bool` representa les
+màscares sense codificacions numèriques alternatives. Les conversions dels consumidors han de
+ser explícites i usar les constants de `evolucio.core`. La clau de `RngState` és l’única excepció: usa un dtype PRNG tipat, no un dtype numèric comú.
 
 Els aliases d'identificadors són semàntica host; l'estat vectoritzat futur els emmagatzemarà en
 arrays amb `ID_DTYPE`.
@@ -71,3 +73,8 @@ amb `CODE_DTYPE`, mai strings ni objectes `Enum`. Els noms, l'ordre i els valors
 estable: canviar-los requeriria versionar i migrar qualsevol dada persistida que els contingui.
 
 Aquest PR no resol accions, moviment, alimentació, reproducció o mortalitat, ni assigna causes.
+
+
+## Codis de streams RNG
+
+Els onze valors explícits de `RngStreamCode`, de `WORLD_INITIALIZATION = 0` a `GENOME_MUTATION = 10`, identifiquen dominis estables d’aleatorietat. La taula completa i el contracte de derivació són a [RNG determinista i identificadors interns](rng_and_identifiers.md).
