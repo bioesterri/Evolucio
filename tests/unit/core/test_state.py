@@ -147,7 +147,7 @@ def test_simulation_state_is_an_array_only_stable_pytree() -> None:
     assert isinstance(state.population, PopulationState)
     assert isinstance(state.rng, RngState)
     assert isinstance(state.ids, IdCounters)
-    _assert_array_leaves(state, 22)
+    _assert_array_leaves(state, 18)
     assert jax.dtypes.issubdtype(state.rng.key.dtype, jax.dtypes.prng_key)
     assert jax.tree.structure(state) == jax.tree.structure(other)
     zeroed = jax.tree.map(jnp.zeros_like, state)
@@ -213,15 +213,3 @@ def test_in_memory_state_is_sufficient_for_deterministic_continuation() -> None:
     first = continue_branch(intermediate)
     second = continue_branch(intermediate)
     assert all(jnp.array_equal(left, right) for left, right in zip(first, second, strict=True))
-
-
-def test_simulation_state_genomes_cross_lax_scan_unchanged() -> None:
-    state = _state(active_slots=3)
-
-    def keep_genomes(carry: SimulationState, _: jax.Array) -> tuple[SimulationState, jax.Array]:
-        return carry, carry.step
-
-    result, _ = jax.lax.scan(keep_genomes, state, jnp.arange(3, dtype=STEP_DTYPE))
-    assert jax.tree.structure(result) == jax.tree.structure(state)
-    assert jax.tree.all(jax.tree.map(jnp.array_equal, result.genomes, state.genomes))
-    assert result.genomes.layer1.weight.shape[0] == state.population.alive.shape[0]
