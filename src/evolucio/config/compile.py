@@ -17,6 +17,10 @@ from evolucio.core.actions import (
     MOVEMENT_RESOLUTION_SCHEMA_VERSION,
 )
 from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
+from evolucio.core.energy import (
+    ENERGY_ACCOUNTING_SCHEMA_DIGEST,
+    ENERGY_ACCOUNTING_SCHEMA_VERSION,
+)
 from evolucio.core.observations.schema import (
     OBSERVATION_SCHEMA_DIGEST,
     OBSERVATION_SIZE,
@@ -35,7 +39,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 10
+COMPILE_SIGNATURE_SCHEMA_VERSION = 11
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -81,6 +85,8 @@ class CompileSignature:
     movement_resolution_schema_digest: str
     feeding_resolution_schema_version: int
     feeding_resolution_schema_digest: str
+    energy_accounting_schema_version: int
+    energy_accounting_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -344,6 +350,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         movement_resolution_schema_digest=MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
         feeding_resolution_schema_version=FEEDING_RESOLUTION_SCHEMA_VERSION,
         feeding_resolution_schema_digest=FEEDING_RESOLUTION_SCHEMA_DIGEST,
+        energy_accounting_schema_version=ENERGY_ACCOUNTING_SCHEMA_VERSION,
+        energy_accounting_schema_digest=ENERGY_ACCOUNTING_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
@@ -378,7 +386,13 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
         **{
             field: (
                 _positive_float_scalar(value, f"energy.{field}")
-                if field in {"max_energy", "feeding_conversion", "feeding_max_resource_intake"}
+                if field
+                in {
+                    "max_energy",
+                    "basal_cost",
+                    "feeding_conversion",
+                    "feeding_max_resource_intake",
+                }
                 else _float_scalar(value, f"energy.{field}")
             )
             for field, value in config.energy.model_dump().items()
