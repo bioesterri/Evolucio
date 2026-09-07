@@ -17,6 +17,13 @@ def test_schema_snapshot() -> None:
         "runtime",
     }
     assert schema["additionalProperties"] is False
+    assert schema["$defs"]["EnergyConfig"]["properties"]["failed_action_cost"] == {
+        "const": 0.0,
+        "maximum": 0,
+        "minimum": 0,
+        "title": "Failed Action Cost",
+        "type": "number",
+    }
     assert json.loads(Path("docs/schemas/experiment-config-v2.0.json").read_text()) == schema
 
 
