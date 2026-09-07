@@ -1,6 +1,6 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.6** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence` i `genome`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.3** conté els blocs `world`, `population`, `policy`, `energy`, `evolution`, `runtime` i `persistence`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -25,7 +25,7 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.6"
+schema_version: "1.3"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
@@ -40,8 +40,8 @@ persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024,
 Errors habituals: versions desconegudes, nombres expressats com strings, claus duplicades, fases solapades, capacitat espacial insuficient o reproducció energèticament inviable. `CoreConfig` i la transformació cap al nucli corresponen al PR-04.
 
 Des del PR-10, `population.initial_agents` admet zero i no s'exigeix que càpiga en el nombre de
-cel·les quan `allow_multiple_agents_per_cell` és cert. `placement: random` significa col·locació
-uniforme amb reemplaçament. El producte `world.width * world.height` no pot superar el màxim
+cel·les quan `allow_multiple_agents_per_cell` és cert. `placement: random` significa col·locació uniforme; amb `allow_multiple_agents_per_cell: true`
+usa reemplaçament, i amb `false` preserva cel·les fundadores úniques. El producte `world.width * world.height` no pot superar el màxim
 `int32`, necessari per a l'índex lineal d'ocupació.
 
 ## Frontera host-core

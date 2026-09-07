@@ -29,8 +29,10 @@ from evolucio.core.population import (
     create_empty_population,
     initialize_population,
 )
-from evolucio.core.population.init import _build_initial_alive_mask
-from evolucio.core.spatial import compute_occupancy
+from evolucio.core.population.init import (
+    _build_initial_alive_mask,
+    _build_initial_occupancy,
+)
 from evolucio.core.world import initialize_world
 
 
@@ -178,6 +180,33 @@ def test_positions_overlap_occupancy_and_world_conservation(config: ExperimentCo
     assert not bool(initialized.overflow)
 
 
+def test_non_shared_cell_policy_samples_unique_founder_cells(config: ExperimentConfig) -> None:
+    raw = config.model_dump(mode="python")
+    raw["world"].update({"width": 2, "height": 2})  # type: ignore[union-attr]
+    raw["population"].update(  # type: ignore[union-attr]
+        {
+            "initial_agents": 4,
+            "max_agents": 4,
+            "max_births_per_step": 1,
+            "allow_multiple_agents_per_cell": False,
+        }
+    )
+    host = ExperimentConfig.model_validate(raw)
+    core = compile_config(host).core
+    key = create_rng_state(21).key
+    world = initialize_world(core.world, key)
+    initialized = initialize_population(
+        world, core.population, core.energy, key, create_id_counters()
+    )
+    active_positions = [
+        tuple(position) for position in initialized.population.position[:4].tolist()
+    ]
+    assert len(set(active_positions)) == 4
+    assert int(initialized.world.occupancy.max()) == 1
+    assert int(initialized.world.occupancy.sum()) == 4
+    assert not bool(initialized.overflow)
+
+
 def test_zero_capacity_full_capacity_determinism_and_keys(config: ExperimentConfig) -> None:
     zero = result(config, initial_agents=0)
     full = result(config, initial_agents=8)
@@ -228,15 +257,12 @@ def test_resources_environment_and_stream_order_do_not_affect_positions(
 def test_occupancy_manual_coordinate_order_and_inactive_weight() -> None:
     positions = jnp.asarray([[2, 0], [0, 1], [2, 0], [-1, -1]], dtype=INDEX_DTYPE)
     alive = jnp.asarray([True, True, True, False], dtype=MASK_DTYPE)
-    population = eqx.tree_at(
-        lambda state: (state.position, state.alive),
-        create_empty_population(4),
-        (positions, alive),
+    eager = _build_initial_occupancy(positions, alive, width=3, height=2)
+    compiled = jax.jit(_build_initial_occupancy, static_argnames=("width", "height"))(
+        positions, alive, width=3, height=2
     )
-    eager = compute_occupancy(population, width=3, height=2)
-    compiled = eqx.filter_jit(compute_occupancy)(population, width=3, height=2)
-    assert eager.occupancy.tolist() == [[0, 0, 2], [1, 0, 0]]
-    assert jnp.array_equal(eager.occupancy, compiled.occupancy)
+    assert eager.tolist() == [[0, 0, 2], [1, 0, 0]]
+    assert jnp.array_equal(eager, compiled)
 
 
 def test_initialize_population_eager_jit_and_scan(config: ExperimentConfig) -> None:

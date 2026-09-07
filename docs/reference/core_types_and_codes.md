@@ -71,3 +71,20 @@ amb `CODE_DTYPE`, mai strings ni objectes `Enum`. Els noms, l'ordre i els valors
 estable: canviar-los requeriria versionar i migrar qualsevol dada persistida que els contingui.
 
 Aquest PR no resol accions, moviment, alimentació, reproducció o mortalitat, ni assigna causes.
+
+
+## Codis de streams RNG
+
+Els onze valors explícits de `RngStreamCode`, de `WORLD_INITIALIZATION = 0` a `GENOME_MUTATION = 10`, identifiquen dominis estables d’aleatorietat. La taula completa i el contracte de derivació són a [RNG determinista i identificadors interns](rng_and_identifiers.md).
+
+## Codis del món
+
+`BoundaryModeCode.CLOSED = 0` és l'únic límit admès. `ResourceDistributionCode` fixa
+`UNIFORM = 0` i `PATCHES = 1`. Els valors són contractes host estables; no existeix cap codi
+toroidal ni cap distribució aleatòria blanca.
+
+## Codi de col·locació fundadora
+
+`InitialPlacementCode.UNIFORM_WITH_REPLACEMENT = 0` identifica l'únic algoritme inicial. En
+l'esquema host 1.3 conserva l'spelling establert `placement: random`; no hi ha aliases ni modes
+alternatius. El recompte `INITIAL_PLACEMENT_COUNT` val 1.
