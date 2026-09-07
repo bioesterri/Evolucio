@@ -1,28 +1,22 @@
 """Stable host configuration API."""
 
-from importlib import import_module
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .compile import (
-        COMPILE_SIGNATURE_SCHEMA_VERSION,
-        CompiledConfig,
-        CompileSignature,
-        ConfigCompilationError,
-        CoreConfig,
-        EnergyCoreConfig,
-        EnvironmentCalendarCoreConfig,
-        EvolutionCoreConfig,
-        GenomeCoreConfig,
-        ObservationsCoreConfig,
-        PolicyCoreConfig,
-        PopulationCoreConfig,
-        RuntimeCoreConfig,
-        WorldCoreConfig,
-        build_compile_signature,
-        compile_config,
-        compile_signature_digest,
-    )
+from .compile import (
+    COMPILE_SIGNATURE_SCHEMA_VERSION,
+    CompiledConfig,
+    CompileSignature,
+    ConfigCompilationError,
+    CoreConfig,
+    EnergyCoreConfig,
+    EnvironmentCalendarCoreConfig,
+    EvolutionCoreConfig,
+    PolicyCoreConfig,
+    PopulationCoreConfig,
+    RuntimeCoreConfig,
+    WorldCoreConfig,
+    build_compile_signature,
+    compile_config,
+    compile_signature_digest,
+)
 from .freeze import FrozenConfig, freeze_config
 from .io import ConfigFormat, dump_config, load_config, parse_config, serialize_config
 from .models import (

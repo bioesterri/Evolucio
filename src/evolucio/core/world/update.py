@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import jax
-
 from evolucio.core.state import WorldState
 from evolucio.core.types import Array
 
@@ -19,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def update_world_for_step(world: WorldState, step: Array, config: WorldCoreConfig) -> WorldState:
-    """Apply environment controls and, after step zero, regenerate resources."""
+    """Apply environment controls and regenerate resources before decisions."""
     control = resolve_environment_control(step, config)
 
     def regenerate(resources: Array) -> Array:
@@ -30,7 +28,7 @@ def update_world_for_step(world: WorldState, step: Array, config: WorldCoreConfi
             regeneration_multiplier=control.regeneration_multiplier,
         )
 
-    resources = jax.lax.cond(step > 0, regenerate, lambda value: value, world.resources)
+    resources = regenerate(world.resources)
     return WorldState(
         resources=resources,
         environment=update_environment_layer(world.environment, control.environment_value),

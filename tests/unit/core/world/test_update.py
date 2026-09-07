@@ -44,11 +44,11 @@ def configured_world() -> tuple[object, WorldState]:
     return config, world
 
 
-def test_step_zero_updates_environment_but_preserves_resources_and_occupancy() -> None:
+def test_step_zero_updates_environment_regenerates_resources_and_preserves_occupancy() -> None:
     config, world = configured_world()
     updated = update_world_for_step(world, jnp.asarray(0, STEP_DTYPE), config)  # type: ignore[arg-type]
     assert isinstance(updated, WorldState)
-    assert jnp.array_equal(updated.resources, world.resources)
+    assert jnp.allclose(updated.resources, jnp.asarray([[0.1, 0.55]], dtype=REAL_DTYPE))
     assert jnp.allclose(updated.environment, 0.8)
     assert jnp.array_equal(updated.occupancy, world.occupancy)
 

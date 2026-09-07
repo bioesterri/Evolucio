@@ -2,7 +2,7 @@
 
 ## Objectiu i ordre temporal
 
-El PR-09 prepara el món per a les decisions del pas actual. Primer resol la fase global, després actualitza tota la capa ambiental i, només quan `step > 0`, regenera recursos. Al pas zero la fase ja és observable, però els recursos inicials del PR-08 es conserven exactament. El PR-27 cridarà `update_world_for_step(state.world, state.step, config.world)` abans del metabolisme, la viabilitat preacció, les observacions, la política i les accions.
+El PR-09 prepara el món per a les decisions del pas actual. Primer resol la fase global, després actualitza tota la capa ambiental i regenera recursos abans que es calculin les observacions del pas. Al pas zero la fase ja és observable i el seu multiplicador també modula la regeneració del dèficit inicial. El PR-27 cridarà `update_world_for_step(state.world, state.step, config.world)` abans del metabolisme, la viabilitat preacció, les observacions, la política i les accions.
 
 ## Regeneració
 
@@ -18,13 +18,13 @@ La configuració garanteix `0 <= r < 1` i `0 <= m <= 1`. Amb `0 <= R <= K`, la f
 
 ## Calendari i ambient
 
-Es reutilitza el contracte host existent: `regeneration_rate` és la taxa, `environment_schedule` el calendari, `end_step` expressa el final en lloc d'una durada, i `stress_level` és el valor aplicat a la capa ambiental. Cada fase ocupa `[start_step, end_step)`. Les fases estan estrictament ordenades, no se solapen, poden ser consecutives o deixar buits. Als buits i amb calendari buit s'apliquen el multiplicador basal `1.0` i `environment_initial_value`.
+Es reutilitza el contracte host existent: `regeneration_rate` és la taxa, `environment_schedule` el calendari, `end_step` expressa el final en lloc d'una durada, i `stress_level` és el valor aplicat a la capa ambiental. Cada fase ocupa `[start_step, end_step)` i ha d'acabar dins de `runtime.steps` per evitar fases parcialment o totalment inexecutables. Les fases estan estrictament ordenades, no se solapen, poden ser consecutives o deixar buits. Als buits i amb calendari buit s'apliquen el multiplicador basal `1.0` i `environment_initial_value`.
 
 La resolució compara vectorialment el pas amb tots els intervals. Si una fase és activa selecciona els seus valors; altrament retorna `NO_ACTIVE_PHASE`. La capa `[H,W]` queda global i uniforme. El calendari és piecewise constant: no hi ha interpolació, variació regional, soroll ni RNG.
 
 ## Configuració compilada i signatura
 
-`EnvironmentCalendarCoreConfig.phase_count` és estàtic perquè determina les formes `[L]`. Inicis i finals (`STEP_DTYPE`), multiplicadors i valors ambientals (`REAL_DTYPE`), taxa, capacitat i valor basal són dinàmics. Tots afecten `config_hash`; només canviar `L` altera `CompileSignature.environment_schedule_length`. Aquest camp existeix des de la versió 3; la versió actual 4 correspon al contracte d'observacions. Calendaris llargs tenen cost de resolució lineal i una longitud diferent implica una classe d'executable diferent.
+`EnvironmentCalendarCoreConfig.phase_count` és estàtic perquè determina les formes `[L]`. Inicis i finals (`STEP_DTYPE`), multiplicadors i valors ambientals (`REAL_DTYPE`), taxa, capacitat i valor basal són dinàmics. Tots afecten `config_hash`; només canviar `L` altera `CompileSignature.environment_schedule_length`. Aquest camp ja existia i no s'ha incrementat la versió 3 de la signatura. Calendaris llargs tenen cost de resolució lineal i una longitud diferent implica una classe d'executable diferent.
 
 ## Garanties i limitacions
 
