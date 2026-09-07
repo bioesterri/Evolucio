@@ -140,7 +140,10 @@ class EnergyConfig(_ConfigModel):
     reproduction_threshold: float
     reproduction_cost: NonNegativeFloat
     offspring_initial_energy: float
-    failed_action_cost: Annotated[float, Field(ge=0, le=0)]
+    failed_action_cost: Annotated[
+        float,
+        Field(ge=0, le=0, json_schema_extra={"const": 0.0}),
+    ]
 
     @model_validator(mode="after")
     def validate_energy(self) -> Self:
