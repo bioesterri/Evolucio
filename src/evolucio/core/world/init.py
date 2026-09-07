@@ -43,6 +43,9 @@ def _initialize_patches(config: WorldCoreConfig, key: Array) -> Array:
     centered = raw - jnp.mean(raw)
     epsilon = jnp.asarray(jnp.finfo(REAL_DTYPE).eps, dtype=REAL_DTYPE)
     pattern = centered / jnp.maximum(jnp.max(jnp.abs(centered)), epsilon)
+    # Normalization can amplify float32 cancellation left by the first centering.
+    pattern = pattern - jnp.mean(pattern)
+    pattern = pattern / jnp.maximum(jnp.max(jnp.abs(pattern)), 1)
     margin = jnp.minimum(
         config.initial_resource_mean,
         config.resource_capacity - config.initial_resource_mean,
