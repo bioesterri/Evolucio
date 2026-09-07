@@ -19,5 +19,7 @@ agent-agent, regeneració ni aleatorietat. L'esquema
 `local_proportional_feasible_demand_resource_transfer_v1`, versió 1, té un digest SHA-256
 canònic integrat a `CompileSignature`; els valors dinàmics no hi entren.
 
-El PR-19 serà responsable dels costos i el metabolisme. Aquesta fase no decideix viabilitat,
-mort, reproducció, herència ni mutació i no avança el pas complet.
+El [contracte energètic del PR-19](metabolism_action_costs_and_energy_balance_v1.md) aplica després
+el cost només als resultats `FED_FULL` i `FED_PARTIAL`; una alimentació sense efecte paga zero.
+Aquesta fase no decideix viabilitat, mort, reproducció, herència ni mutació i no avança el pas
+complet.

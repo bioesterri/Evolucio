@@ -68,7 +68,7 @@ configuració alternativa de capacitat o política espacial.
 | Validació local | PR-16 |
 | Moviment i conflictes espacials | PR-17 |
 | Alimentació i conflictes de recurs | PR-18 |
-| Cost del moviment | PR-19 |
+| [Cost del moviment executat](metabolism_action_costs_and_energy_balance_v1.md) | PR-19 |
 | Viabilitat | PR-20 i PR-21 |
 | Mètriques de conflicte | PR-25 |
 | Invariants | PR-26 |

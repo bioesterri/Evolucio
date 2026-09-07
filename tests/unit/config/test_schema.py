@@ -7,7 +7,7 @@ from evolucio.config import CONFIG_SCHEMA_VERSION, experiment_config_json_schema
 
 def test_schema_snapshot() -> None:
     schema = experiment_config_json_schema()
-    assert CONFIG_SCHEMA_VERSION == "1.6"
+    assert CONFIG_SCHEMA_VERSION == "1.7"
     assert set(schema["required"]) >= {
         "world",
         "population",
@@ -17,15 +17,15 @@ def test_schema_snapshot() -> None:
         "runtime",
     }
     assert schema["additionalProperties"] is False
-    assert json.loads(Path("docs/schemas/experiment-config-v1.6.json").read_text()) == schema
+    assert json.loads(Path("docs/schemas/experiment-config-v1.7.json").read_text()) == schema
 
 
 def test_previous_schema_snapshot_remains_published() -> None:
-    """Publishing 1.6 must not remove or reinterpret the auditable 1.5 contract."""
-    previous = json.loads(Path("docs/schemas/experiment-config-v1.5.json").read_text())
+    """Publishing 1.7 must not reinterpret the auditable 1.6 contract."""
+    previous = json.loads(Path("docs/schemas/experiment-config-v1.6.json").read_text())
 
-    assert previous["properties"]["schema_version"]["const"] == "1.5"
-    assert "feeding_max_resource_intake" not in previous["$defs"]["EnergyConfig"]["properties"]
+    assert previous["properties"]["schema_version"]["const"] == "1.6"
+    assert previous["$defs"]["EnergyConfig"]["properties"]["basal_cost"]["minimum"] == 0
 
 
 def test_config_has_no_forbidden_imports() -> None:

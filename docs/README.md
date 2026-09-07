@@ -17,6 +17,7 @@ La carpeta `docs/` agrupa la documentació de referència del Projecte Evolució
 Aquesta pàgina és només un índex. No resumeix ni substitueix els documents de referència.
 
 - [Alimentació, competència pels recursos i transferència energètica v1](reference/feeding_resource_competition_and_energy_transfer_v1.md)
+- [Metabolisme, costos d'acció i balanç energètic v1](reference/metabolism_action_costs_and_energy_balance_v1.md)
 
 ## Configuració
 
@@ -26,7 +27,7 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
   instantània d'ocupació i resolució neutral simultània.
 
 - [Guia de configuració](configuration.md)
-- [JSON Schema de configuració 1.0](schemas/experiment-config-v1.0.json)
+- [JSON Schema de configuració 1.7](schemas/experiment-config-v1.7.json)
 
 ## Referència del nucli
 

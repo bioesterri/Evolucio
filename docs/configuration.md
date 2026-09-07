@@ -1,6 +1,8 @@
 # Configuració d'experiments
 
-La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació. L'esquema **1.6** conté els blocs `world`, `population`, `policy`, `observations`, `energy`, `evolution`, `runtime` i `persistence` i `genome`, a més de la llavor explícita.
+La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació.
+L'esquema **1.7** conté els blocs `world`, `population`, `policy`, `observations`, `energy`,
+`evolution`, `runtime`, `persistence` i `genome`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
 
@@ -25,7 +27,7 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "1.6"
+schema_version: "1.7"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
@@ -75,7 +77,12 @@ diferents.
 | `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
-La versió 8 de `CompileSignature` afegeix versió i digest del contracte de validació local; la
+La versió 11 de `CompileSignature` incorpora la versió i el digest de l'esquema de
+[metabolisme i costos energètics](reference/metabolism_action_costs_and_energy_balance_v1.md).
+Els imports numèrics `basal_cost`, `movement_cost` i `feeding_cost` continuen exclosos de la
+signatura: són escalars `float32` dinàmics, però modifiquen `config_hash`. `basal_cost` és finit i
+estrictament positiu; els altres dos són finits i no negatius. La versió 8 de `CompileSignature`
+afegeix versió i digest del contracte de validació local; la
 versió 7 afegeix la selecció determinista i el recompte d'accions, la versió 6 el genoma i la
 versió 5 l'esquema complet de PolicyMLP. Aquest canvi versiona el contracte serialitzat de
 compilació; la seed continua exclosa perquè canvia la trajectòria del run, no la classe
