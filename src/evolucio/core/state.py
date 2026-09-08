@@ -13,6 +13,8 @@ from .types import Array
 if TYPE_CHECKING:
     from .policy.batch import GenomeBatch
 
+INACTIVE_POSITION_COORDINATE = -1
+
 
 class WorldState(eqx.Module):
     """Spatial fields with fixed world dimensions."""
