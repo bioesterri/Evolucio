@@ -5,6 +5,8 @@ import json
 
 PRE_ACTION_VIABILITY_SCHEMA_NAME = "invalid_energy_age_preaction_death_v1"
 PRE_ACTION_VIABILITY_SCHEMA_VERSION = 1
+POST_ACTION_VIABILITY_SCHEMA_NAME = "postaction_death_and_projected_reproduction_survival_v1"
+POST_ACTION_VIABILITY_SCHEMA_VERSION = 1
 
 
 def pre_action_viability_schema_payload() -> dict[str, object]:
@@ -51,3 +53,41 @@ def pre_action_viability_schema_digest() -> str:
 
 
 PRE_ACTION_VIABILITY_SCHEMA_DIGEST = pre_action_viability_schema_digest()
+
+
+def post_action_viability_schema_payload() -> dict[str, object]:
+    """Return the complete JSON-compatible post-action viability contract."""
+    return {
+        "name": POST_ACTION_VIABILITY_SCHEMA_NAME,
+        "version": POST_ACTION_VIABILITY_SCHEMA_VERSION,
+        "phase": "after_action_costs_before_births",
+        "active_terminal_causes": ["INVALID_STATE", "ENERGY_DEPLETION", "MAX_AGE"],
+        "cause_priority": ["INVALID_STATE", "ENERGY_DEPLETION", "MAX_AGE"],
+        "death_before_reproduction": True,
+        "reproduction_conditions": [
+            "alive_after_postaction_viability",
+            "action_is_REPRODUCE",
+            "energy_at_least_reproduction_threshold",
+            "age_at_least_minimum_reproduction_age",
+        ],
+        "projected_parent_energy": ("energy - reproduction_energy_cost - offspring_initial_energy"),
+        "projected_survival": "projected_parent_energy > death_energy_threshold",
+        "reproduction_cost_application": "successful_birth_only_not_gate",
+        "spatial_availability_check": "none",
+        "rng": "none",
+    }
+
+
+def post_action_viability_schema_digest() -> str:
+    """Return the SHA-256 digest of canonical post-action schema JSON."""
+    canonical = json.dumps(
+        post_action_viability_schema_payload(),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+POST_ACTION_VIABILITY_SCHEMA_DIGEST = post_action_viability_schema_digest()

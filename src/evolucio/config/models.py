@@ -138,7 +138,7 @@ class EnergyConfig(_ConfigModel):
     feeding_conversion: PositiveFloat
     feeding_max_resource_intake: PositiveFloat
     reproduction_threshold: float
-    reproduction_cost: NonNegativeFloat
+    reproduction_cost: PositiveFloat
     offspring_initial_energy: float
     failed_action_cost: Annotated[float, Field(ge=0, le=0)]
 
@@ -152,16 +152,15 @@ class EnergyConfig(_ConfigModel):
             raise ValueError("reproduction_threshold must not exceed max_energy")
         if self.offspring_initial_energy <= self.death_threshold:
             raise ValueError("offspring_initial_energy must be above death_threshold")
-        minimum = self.death_threshold + self.reproduction_cost + self.offspring_initial_energy
-        if self.reproduction_threshold <= minimum:
-            raise ValueError("reproduction_threshold does not leave the parent viable")
+        if self.reproduction_threshold <= self.death_threshold:
+            raise ValueError("reproduction_threshold must be above death_threshold")
         return self
 
 
 class EvolutionConfig(_ConfigModel):
     """Age and heritable mutation parameters."""
 
-    min_reproduction_age: Annotated[int, Field(ge=1)]
+    min_reproduction_age: Annotated[int, Field(ge=0)]
     max_age: PositiveInt
     mutation_rate: Fraction
     mutation_sigma: NonNegativeFloat
@@ -210,9 +209,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 2.0."""
+    """Complete validated scientific configuration for schema 2.1."""
 
-    schema_version: Literal["2.0"]
+    schema_version: Literal["2.1"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

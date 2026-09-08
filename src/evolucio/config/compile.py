@@ -36,6 +36,8 @@ from evolucio.core.policy import (
 )
 from evolucio.core.rng import PRNG_IMPLEMENTATION
 from evolucio.core.viability import (
+    POST_ACTION_VIABILITY_SCHEMA_DIGEST,
+    POST_ACTION_VIABILITY_SCHEMA_VERSION,
     PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
     PRE_ACTION_VIABILITY_SCHEMA_VERSION,
 )
@@ -43,7 +45,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 12
+COMPILE_SIGNATURE_SCHEMA_VERSION = 13
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -93,6 +95,8 @@ class CompileSignature:
     energy_accounting_schema_digest: str
     pre_action_viability_schema_version: int
     pre_action_viability_schema_digest: str
+    post_action_viability_schema_version: int
+    post_action_viability_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -290,7 +294,6 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
     initial_energy = float(energy.initial_energy)
     max_energy = float(energy.max_energy)
     reproduction_threshold = float(energy.reproduction_threshold)
-    reproduction_cost = float(energy.reproduction_cost)
     offspring_initial_energy = float(energy.offspring_initial_energy)
 
     if not death_threshold < initial_energy <= max_energy:
@@ -305,11 +308,9 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
         raise ConfigCompilationError(
             "energy.offspring_initial_energy is not viable after float32 conversion"
         )
-    minimum = death_threshold + reproduction_cost + offspring_initial_energy
-    if reproduction_threshold <= minimum:
+    if reproduction_threshold <= death_threshold:
         raise ConfigCompilationError(
-            "energy.reproduction_threshold does not leave the parent viable after float32 "
-            "conversion"
+            "energy.reproduction_threshold must exceed death_threshold after float32 conversion"
         )
 
 
@@ -360,6 +361,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         energy_accounting_schema_digest=ENERGY_ACCOUNTING_SCHEMA_DIGEST,
         pre_action_viability_schema_version=PRE_ACTION_VIABILITY_SCHEMA_VERSION,
         pre_action_viability_schema_digest=PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
+        post_action_viability_schema_version=POST_ACTION_VIABILITY_SCHEMA_VERSION,
+        post_action_viability_schema_digest=POST_ACTION_VIABILITY_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
@@ -400,6 +403,7 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
                     "basal_cost",
                     "feeding_conversion",
                     "feeding_max_resource_intake",
+                    "reproduction_cost",
                 }
                 else _float_scalar(value, f"energy.{field}")
             )
