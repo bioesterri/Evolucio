@@ -8,8 +8,7 @@ import jax.numpy as jnp
 from evolucio.core.codes import DeathCauseCode
 from evolucio.core.dtypes import CODE_DTYPE, ID_DTYPE, INDEX_DTYPE, REAL_DTYPE, STEP_DTYPE
 from evolucio.core.ids import NULL_ID
-from evolucio.core.population.init import INACTIVE_POSITION_COORDINATE
-from evolucio.core.state import PopulationState
+from evolucio.core.state import INACTIVE_POSITION_COORDINATE, PopulationState
 from evolucio.core.types import Array
 
 

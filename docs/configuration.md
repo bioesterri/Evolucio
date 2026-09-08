@@ -74,12 +74,18 @@ diferents.
 | tots els camps d'`energy` | dinàmic | escalars `float32` | Són costos i llindars sense efecte sobre formes. |
 | edats d'`evolution` | dinàmic | escalars `int32` | Són comptadors i llindars. |
 | mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
+| versió i digest de viabilitat preacció | estàtic | `int` i `str` a `CompileSignature` | Identifiquen exactament el contracte de resolució de morts compilat. |
 | `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
 | implementació PRNG `threefry2x32` | estàtic | `str` a `CompileSignature` | Afecta el dtype de clau i potencialment l’executable. |
 | `seed`, `runtime.steps` i tot `persistence` i `genome` | només host | exclosos | La seed identifica el run, però no formes ni topologia; orquestració i I/O són responsabilitats host. |
 
 
-La versió 11 de `CompileSignature` incorpora la versió i el digest de l'esquema de
+La versió 12 de `CompileSignature` incorpora els camps
+`pre_action_viability_schema_version` i `pre_action_viability_schema_digest`, que identifiquen
+el contracte de [viabilitat preacció i causes de mort](mort-seleccio-ambiental.md). El contracte
+vigent té versió `1` i digest SHA-256
+`64ca5bf100fe1a8cb1f9cf6ad286ddc45e2c7615eddb8f24f49a813351f176a6`. La versió 11 hi havia
+incorporat la versió i el digest de l'esquema de
 [metabolisme i costos energètics](reference/metabolism_action_costs_and_energy_balance_v1.md).
 Els imports numèrics `basal_cost`, `movement_cost` i `feeding_cost` continuen exclosos de la
 signatura: són escalars `float32` dinàmics, però modifiquen `config_hash`. `basal_cost` és finit i

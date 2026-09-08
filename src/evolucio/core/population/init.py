@@ -22,13 +22,12 @@ from evolucio.core.dtypes import (
 from evolucio.core.ids import NULL_ID, IdCounters, allocate_ids
 from evolucio.core.rng import derive_indexed_key, derive_stream_key
 from evolucio.core.spatial import rebuild_world_occupancy
-from evolucio.core.state import PopulationState, WorldState
+from evolucio.core.state import INACTIVE_POSITION_COORDINATE, PopulationState, WorldState
 from evolucio.core.types import Array
 
 if TYPE_CHECKING:
     from evolucio.config.compile import EnergyCoreConfig, PopulationCoreConfig
 
-INACTIVE_POSITION_COORDINATE = -1
 INITIAL_GENERATION = 0
 INITIAL_AGE = 0
 INITIAL_BIRTH_STEP = 0

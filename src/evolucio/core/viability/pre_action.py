@@ -10,9 +10,8 @@ from evolucio.core.codes import DeathCauseCode
 from evolucio.core.dtypes import CODE_DTYPE, COUNT_DTYPE, ID_DTYPE, INDEX_DTYPE, REAL_DTYPE
 from evolucio.core.ids import NULL_ID
 from evolucio.core.policy.batch import GenomeBatch
-from evolucio.core.population.init import INACTIVE_POSITION_COORDINATE
 from evolucio.core.spatial import rebuild_world_occupancy
-from evolucio.core.state import PopulationState, WorldState
+from evolucio.core.state import INACTIVE_POSITION_COORDINATE, PopulationState, WorldState
 from evolucio.core.types import Array
 from evolucio.core.world.bounds import positions_in_bounds
 
