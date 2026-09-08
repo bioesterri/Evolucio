@@ -35,11 +35,15 @@ from evolucio.core.policy import (
     POLICY_SCHEMA_DIGEST,
 )
 from evolucio.core.rng import PRNG_IMPLEMENTATION
+from evolucio.core.viability import (
+    PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
+    PRE_ACTION_VIABILITY_SCHEMA_VERSION,
+)
 
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 11
+COMPILE_SIGNATURE_SCHEMA_VERSION = 12
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -87,6 +91,8 @@ class CompileSignature:
     feeding_resolution_schema_digest: str
     energy_accounting_schema_version: int
     energy_accounting_schema_digest: str
+    pre_action_viability_schema_version: int
+    pre_action_viability_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -352,6 +358,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         feeding_resolution_schema_digest=FEEDING_RESOLUTION_SCHEMA_DIGEST,
         energy_accounting_schema_version=ENERGY_ACCOUNTING_SCHEMA_VERSION,
         energy_accounting_schema_digest=ENERGY_ACCOUNTING_SCHEMA_DIGEST,
+        pre_action_viability_schema_version=PRE_ACTION_VIABILITY_SCHEMA_VERSION,
+        pre_action_viability_schema_digest=PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
