@@ -57,7 +57,7 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("energy", "initial_energy"), 101.0, "energy"),
         (("energy", "feeding_max_resource_intake"), 0.0, "feeding_max_resource_intake"),
         (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
-        (("energy", "reproduction_threshold"), 15.0, "energy"),
+        (("energy", "reproduction_cost"), 0.0, "reproduction_cost"),
         (("evolution", "max_age"), 5, "evolution"),
         (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
         (("runtime", "record_stride"), 0, "record_stride"),
@@ -94,6 +94,16 @@ def test_zero_founders_and_overlapping_population_are_valid(config: ExperimentCo
     raw["population"]["max_agents"] = 4  # type: ignore[index]
     raw["population"]["max_births_per_step"] = 1  # type: ignore[index]
     assert ExperimentConfig.model_validate(raw).population.initial_agents == 0
+
+
+def test_dynamic_reproduction_gate_configuration_is_valid(config: ExperimentConfig) -> None:
+    raw = data(config)
+    raw["energy"]["reproduction_threshold"] = 5.0  # type: ignore[index]
+    raw["energy"]["reproduction_cost"] = 4.0  # type: ignore[index]
+    raw["evolution"]["min_reproduction_age"] = 0  # type: ignore[index]
+    validated = ExperimentConfig.model_validate(raw)
+    assert validated.energy.reproduction_threshold == 5.0
+    assert validated.evolution.min_reproduction_age == 0
 
 
 def test_world_area_must_fit_linear_int32_index(config: ExperimentConfig) -> None:

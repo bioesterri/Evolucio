@@ -1,7 +1,7 @@
 # Configuració d'experiments
 
 La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació.
-L'esquema **2.0** conté els blocs `world`, `population`, `policy`, `observations`, `energy`,
+L'esquema **2.1** conté els blocs `world`, `population`, `policy`, `observations`, `energy`,
 `evolution`, `runtime`, `persistence` i `genome`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
@@ -17,8 +17,13 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 - `policy`: versions d'observació/acció i topologia fixa declarada.
 - L'espai d'accions del prototip és fix: `ACTION_COUNT` deriva dels set codis públics del nucli i
   no és un paràmetre de la configuració host.
-- `energy`: reserves, costos i viabilitat reproductiva. `reproduction_cost` és el cost addicional i `offspring_initial_energy` es transfereix al descendent; ambdós es resten al progenitor. El PR-21 revalidarà la viabilitat efectiva.
-  A l'esquema 2.0, `basal_cost` és estrictament positiu i `failed_action_cost` està restringit a
+- `energy`: reserves, costos i viabilitat reproductiva. A l'esquema 2.1,
+  `reproduction_cost` és l'únic cost que es resta al progenitor quan el naixement té èxit;
+  `offspring_initial_energy` dota el descendent, però no és un segon dèbit del progenitor.
+  La porta del PR-21 projecta només `reproduction_cost` i bloqueja el candidat si la projecció no
+  supera estrictament `death_threshold`.
+  A l'esquema 2.1, `basal_cost` i `reproduction_cost` són estrictament positius i
+  `failed_action_cost` està restringit a
   `0.0`: la política v1 no cobra els intents fallits i no admet configuracions sense efecte.
 - `evolution`: edats i paràmetres explícits de mutació.
 - `runtime`: passos, chunk, mostreig i backend host.
@@ -29,7 +34,7 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "2.0"
+schema_version: "2.1"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
