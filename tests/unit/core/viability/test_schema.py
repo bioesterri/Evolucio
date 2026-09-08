@@ -37,11 +37,14 @@ def test_post_action_schema_is_frozen():
     assert POST_ACTION_VIABILITY_SCHEMA_VERSION == 1
     assert payload["cause_priority"] == ["INVALID_STATE", "ENERGY_DEPLETION", "MAX_AGE"]
     assert payload["death_before_reproduction"] is True
+    assert payload["projected_parent_energy"] == (
+        "energy - reproduction_energy_cost - offspring_initial_energy"
+    )
     assert payload["projected_survival"] == ("projected_parent_energy > death_energy_threshold")
     assert payload["spatial_availability_check"] == payload["rng"] == "none"
     assert post_action_viability_schema_digest() == POST_ACTION_VIABILITY_SCHEMA_DIGEST
     assert (
         POST_ACTION_VIABILITY_SCHEMA_DIGEST
-        == "2ac864d935afe9ef28620a2cc2c8b4a3a1b2641d831fb90b1840a097bdef4dcd"
+        == "2125e8425d9c397ee85f58cadf416d9135de125d3bfc10c71c7ebc6e6e38c08e"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", POST_ACTION_VIABILITY_SCHEMA_DIGEST)

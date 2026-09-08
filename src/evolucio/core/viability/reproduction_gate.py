@@ -45,6 +45,7 @@ def evaluate_reproduction_gate(
     reproduction_energy_threshold: Array,
     minimum_reproduction_age: Array,
     reproduction_energy_cost: Array,
+    offspring_initial_energy: Array,
     death_energy_threshold: Array,
 ) -> ReproductionGateResult:
     """Select requests whose parent would remain strictly viable after birth cost."""
@@ -56,9 +57,11 @@ def evaluate_reproduction_gate(
     inputs_valid = (
         jnp.isfinite(reproduction_energy_threshold)
         & jnp.isfinite(reproduction_energy_cost)
+        & jnp.isfinite(offspring_initial_energy)
         & jnp.isfinite(death_energy_threshold)
         & (reproduction_energy_threshold > death_energy_threshold)
         & (reproduction_energy_cost > 0)
+        & (offspring_initial_energy > death_energy_threshold)
         & (minimum_reproduction_age >= 0)
         & jnp.isfinite(population_after_viability.energy)
     )
@@ -72,7 +75,9 @@ def evaluate_reproduction_gate(
     below_age = (
         valid_request & ~below_energy & (population_after_viability.age < minimum_reproduction_age)
     )
-    projected = population_after_viability.energy - reproduction_energy_cost
+    projected = (
+        population_after_viability.energy - reproduction_energy_cost - offspring_initial_energy
+    )
     suicidal = valid_request & ~below_energy & ~below_age & (projected <= death_energy_threshold)
     eligible = valid_request & ~below_energy & ~below_age & ~suicidal
 

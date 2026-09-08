@@ -10,13 +10,14 @@ marca candidats vius que compleixen acció, energia i edat. La supervivència de
 projecta sense modificar l'estat:
 
 ```text
-projected_parent_energy = energy - reproduction_energy_cost
+projected_parent_energy = energy - reproduction_energy_cost - offspring_initial_energy
 projected_parent_energy > death_energy_threshold
 ```
 
 La desigualtat és estricta perquè una energia igual o inferior al llindar és mortal. El cost no
-s'aplica en aquesta fase: el PR-22 només el cobrarà si el naixement té èxit. L'energia inicial del
-descendent no és un dèbit addicional del progenitor en l'esquema de configuració 2.1.
+s'aplica en aquesta fase: el PR-22 només cobrarà el cost reproductiu i transferirà l'energia inicial
+al descendent si el naixement té èxit. La projecció inclou tots dos imports per impedir que un
+naixement deixi el progenitor inviable.
 
 La porta no comprova slots lliures, disponibilitat espacial, posicions o conflictes; tampoc crea
 identificadors, copia genomes, muta ni consumeix RNG. Tots els arrays conserven la capacitat fixa.

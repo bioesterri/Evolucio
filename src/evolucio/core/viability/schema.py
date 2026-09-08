@@ -70,7 +70,7 @@ def post_action_viability_schema_payload() -> dict[str, object]:
             "energy_at_least_reproduction_threshold",
             "age_at_least_minimum_reproduction_age",
         ],
-        "projected_parent_energy": "energy - reproduction_energy_cost",
+        "projected_parent_energy": ("energy - reproduction_energy_cost - offspring_initial_energy"),
         "projected_survival": "projected_parent_energy > death_energy_threshold",
         "reproduction_cost_application": "successful_birth_only_not_gate",
         "spatial_availability_check": "none",

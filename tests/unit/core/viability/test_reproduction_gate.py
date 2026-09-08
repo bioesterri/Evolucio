@@ -18,7 +18,17 @@ def changed(population, slot=0, **changes):
     return PopulationState(**values)
 
 
-def gate(before, after=None, actions=None, *, threshold=5.0, age=2, cost=4.0, death=1.0):
+def gate(
+    before,
+    after=None,
+    actions=None,
+    *,
+    threshold=5.0,
+    age=2,
+    cost=4.0,
+    offspring_energy=2.0,
+    death=1.0,
+):
     if after is None:
         after = before
     if actions is None:
@@ -33,6 +43,7 @@ def gate(before, after=None, actions=None, *, threshold=5.0, age=2, cost=4.0, de
         reproduction_energy_threshold=jnp.asarray(threshold, dtype=REAL_DTYPE),
         minimum_reproduction_age=jnp.asarray(age, dtype=COUNT_DTYPE),
         reproduction_energy_cost=jnp.asarray(cost, dtype=REAL_DTYPE),
+        offspring_initial_energy=jnp.asarray(offspring_energy, dtype=REAL_DTYPE),
         death_energy_threshold=jnp.asarray(death, dtype=REAL_DTYPE),
     )
 
@@ -42,15 +53,32 @@ def test_critical_suicidal_boundary_does_not_charge_parent(viability_state):
     result = gate(population)
     assert not bool(result.eligible[0])
     assert int(result.gate_codes[0]) == ReproductionGateCode.SUICIDAL_PROJECTED_ENERGY
-    assert float(result.projected_parent_energy[0]) == 1.0
+    assert float(result.projected_parent_energy[0]) == -1.0
     assert float(population.energy[0]) == 5.0
     assert int(result.suicidal_block_count) == 1
 
-    above = changed(population, energy=5.1)
+    above = changed(population, energy=7.1)
     eligible = gate(above)
     assert bool(eligible.eligible[0])
     assert int(eligible.gate_codes[0]) == ReproductionGateCode.ELIGIBLE
-    assert float(above.energy[0]) == pytest.approx(5.1)
+    assert float(above.energy[0]) == pytest.approx(7.1)
+
+
+def test_projection_debits_reproduction_cost_and_offspring_energy(viability_state):
+    population, _, _ = viability_state
+    population = changed(population, energy=10.0)
+
+    result = gate(
+        population,
+        threshold=10.0,
+        cost=5.0,
+        offspring_energy=10.0,
+        death=0.0,
+    )
+
+    assert not bool(result.eligible[0])
+    assert int(result.gate_codes[0]) == ReproductionGateCode.SUICIDAL_PROJECTED_ENERGY
+    assert float(result.projected_parent_energy[0]) == -5.0
 
 
 @pytest.mark.parametrize(
@@ -85,6 +113,7 @@ def test_dead_request_is_distinct_from_not_requested(viability_state):
         reproduction_energy_threshold=jnp.asarray(5, dtype=REAL_DTYPE),
         minimum_reproduction_age=jnp.asarray(2, dtype=COUNT_DTYPE),
         reproduction_energy_cost=jnp.asarray(1, dtype=REAL_DTYPE),
+        offspring_initial_energy=jnp.asarray(2, dtype=REAL_DTYPE),
         death_energy_threshold=jnp.asarray(0, dtype=REAL_DTYPE),
     )
     assert result.gate_codes.tolist() == [ReproductionGateCode.DEAD_POST_ACTION, 0, 0]
