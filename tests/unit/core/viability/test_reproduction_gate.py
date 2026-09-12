@@ -79,6 +79,10 @@ def test_projection_debits_reproduction_cost_and_offspring_energy(viability_stat
     assert not bool(result.eligible[0])
     assert int(result.gate_codes[0]) == ReproductionGateCode.SUICIDAL_PROJECTED_ENERGY
     assert float(result.projected_parent_energy[0]) == -5.0
+    assert int(result.requested_count) == 1
+    assert int(result.eligible_count) == 0
+    assert int(result.suicidal_block_count) == 1
+    assert float(population.energy[0]) == 10.0
 
 
 @pytest.mark.parametrize(
