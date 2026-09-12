@@ -100,6 +100,7 @@ def test_dynamic_reproduction_gate_configuration_is_valid(config: ExperimentConf
     raw = data(config)
     raw["energy"]["reproduction_threshold"] = 5.0  # type: ignore[index]
     raw["energy"]["reproduction_cost"] = 4.0  # type: ignore[index]
+    raw["energy"]["offspring_initial_energy"] = 3.0  # type: ignore[index]
     raw["evolution"]["min_reproduction_age"] = 0  # type: ignore[index]
     validated = ExperimentConfig.model_validate(raw)
     assert validated.energy.reproduction_threshold == 5.0

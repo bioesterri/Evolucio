@@ -21,6 +21,10 @@ from evolucio.core.energy import (
     ENERGY_ACCOUNTING_SCHEMA_DIGEST,
     ENERGY_ACCOUNTING_SCHEMA_VERSION,
 )
+from evolucio.core.evolution import (
+    REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
+    REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
+)
 from evolucio.core.observations.schema import (
     OBSERVATION_SCHEMA_DIGEST,
     OBSERVATION_SIZE,
@@ -45,7 +49,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 13
+COMPILE_SIGNATURE_SCHEMA_VERSION = 14
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -97,6 +101,8 @@ class CompileSignature:
     pre_action_viability_schema_digest: str
     post_action_viability_schema_version: int
     post_action_viability_schema_digest: str
+    reproduction_resolution_schema_version: int
+    reproduction_resolution_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -294,6 +300,7 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
     initial_energy = float(energy.initial_energy)
     max_energy = float(energy.max_energy)
     reproduction_threshold = float(energy.reproduction_threshold)
+    reproduction_cost = float(energy.reproduction_cost)
     offspring_initial_energy = float(energy.offspring_initial_energy)
 
     if not death_threshold < initial_energy <= max_energy:
@@ -307,6 +314,14 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
     if offspring_initial_energy <= death_threshold:
         raise ConfigCompilationError(
             "energy.offspring_initial_energy is not viable after float32 conversion"
+        )
+    if offspring_initial_energy > reproduction_cost:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy exceeds reproduction_cost after float32 conversion"
+        )
+    if offspring_initial_energy > max_energy:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy exceeds max_energy after float32 conversion"
         )
     if reproduction_threshold <= death_threshold:
         raise ConfigCompilationError(
@@ -363,6 +378,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         pre_action_viability_schema_digest=PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
         post_action_viability_schema_version=POST_ACTION_VIABILITY_SCHEMA_VERSION,
         post_action_viability_schema_digest=POST_ACTION_VIABILITY_SCHEMA_DIGEST,
+        reproduction_resolution_schema_version=REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
+        reproduction_resolution_schema_digest=REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
