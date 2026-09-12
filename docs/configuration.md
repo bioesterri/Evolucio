@@ -25,7 +25,7 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
   A l'esquema 2.2, `basal_cost` i `reproduction_cost` són estrictament positius i
   `failed_action_cost` està restringit a
   `0.0`: la política v1 no cobra els intents fallits i no admet configuracions sense efecte.
-- `evolution`: edats i paràmetres explícits de mutació.
+- `evolution`: edats i taxes, sigmes i límits explícits i independents per a pesos i biaixos.
 - `runtime`: passos, chunk, mostreig i backend host.
 - `persistence` i `genome`: nivell, destins i lots host-only, sense comprovar connexions.
 
@@ -40,8 +40,8 @@ world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, i
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
 policy: {action_schema_version: "1.0", schema_version: 1, input_size: 15, hidden_size: 16, output_size: 7, activation: tanh, use_bias: true}
 observations: {schema_version: 1, perception_radius: 2}
-energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, feeding_max_resource_intake: 2.0, reproduction_threshold: 40.0, reproduction_cost: 10.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
-evolution: {min_reproduction_age: 5, max_age: 1000, mutation_rate: 0.05, mutation_sigma: 0.02, mutation_clip_abs: 5.0}
+energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, feeding_max_resource_intake: 2.0, reproduction_threshold: 40.0, reproduction_cost: 5.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
+evolution: {min_reproduction_age: 5, max_age: 1000, weight_mutation_rate: 0.05, weight_mutation_sigma: 0.02, weight_abs_limit: 5.0, bias_mutation_rate: 0.05, bias_mutation_sigma: 0.02, bias_abs_limit: 5.0}
 runtime: {steps: 10000, chunk_size: 128, record_stride: 10, snapshot_stride: 1000, backend: cpu}
 persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024, checkpoint_stride: null}
 ```
@@ -78,7 +78,7 @@ diferents.
 | versions, topologia, activació i radi de `policy` | estàtic | primitives Python | Defineixen esquema, topologia o observació. |
 | tots els camps d'`energy` | dinàmic | escalars `float32` | Són costos i llindars sense efecte sobre formes. |
 | edats d'`evolution` | dinàmic | escalars `int32` | Són comptadors i llindars. |
-| mutació d'`evolution` | dinàmic | escalars `float32` | Són taxes, sigma i clipping numèric. |
+| taxes, sigmes i límits de mutació d'`evolution` | dinàmic | escalars `float32` | Canvien la mutació, però no les formes ni la signatura de compilació. |
 | versió i digest de viabilitat preacció | estàtic | `int` i `str` a `CompileSignature` | Identifiquen exactament el contracte de resolució de morts compilat. |
 | `runtime.chunk_size`, `record_stride`, `snapshot_stride`, `backend` | estàtic | primitives a la signatura; controls de sortida al bloc runtime quan escau | Determinen l'executable, els buffers o la política de compilació. |
 | implementació PRNG `threefry2x32` | estàtic | `str` a `CompileSignature` | Afecta el dtype de clau i potencialment l’executable. |
