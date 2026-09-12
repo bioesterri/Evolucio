@@ -1,13 +1,8 @@
 # Ocupació i densitat espacials
 
-El helper neutral `evolucio.core.spatial.gather_map_values` extreu mapes `[H,W]` en posicions
-`[...,2]` interpretades com `[x,y]`. Les coordenades fora dels límits tancats reben el
-`fill_value` indicat sense indexació insegura; observacions i validació d'accions comparteixen
-aquesta única implementació.
-
 ## Objectiu i estat persistent
 
-El PR-11 converteix una `PopulationState` de capacitat fixa en mapes espacials generals,
+El PR-11, ubicat sota `evolucio.core.world`, converteix una `PopulationState` de capacitat fixa en mapes espacials generals,
 deterministes i compatibles amb JAX. `WorldState.occupancy` és l'únic mapa persistent: conté
 recomptes enters primaris. La densitat és una vista derivada i no es desa, evitant duplicació,
 desincronització i un invariant addicional després de naixements, morts o moviments.
@@ -70,12 +65,3 @@ operacions no fan I/O ni usen RNG i són compatibles amb eager, `eqx.filter_jit`
 
 El PR-12 extraurà els mapes per agent, construirà direccions i restarà l'agent focal quan la
 variable signifiqui «altres agents». Els mapes generals del PR-11 no anticipen aquesta semàntica.
-
-## Consum perceptiu
-
-L'extracció per slot, els raigs cardinals i l'exclusió exacta del focal es documenten a [Esquema d'observacions locals v1](local_observation_schema_v1.md).
-# Ús durant el moviment
-
-La resolució de [moviment cardinal v1](cardinal_movement_and_spatial_conflicts_v1.md) tracta
-l'ocupació anterior com una instantània immutable i la reconstrueix, després de l'actualització
-simultània de posicions, mitjançant `rebuild_world_occupancy`.
