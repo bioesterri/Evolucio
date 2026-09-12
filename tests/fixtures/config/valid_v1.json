@@ -10,7 +10,7 @@
     "max_energy": 100.0,
     "movement_cost": 0.05,
     "offspring_initial_energy": 10.0,
-    "reproduction_cost": 5.0,
+    "reproduction_cost": 10.0,
     "reproduction_threshold": 40.0
   },
   "evolution": {
@@ -46,7 +46,7 @@
     "snapshot_stride": 1000,
     "steps": 10000
   },
-  "schema_version": "2.1",
+  "schema_version": "2.2",
   "seed": 42,
   "world": {
     "boundary_mode": "closed",

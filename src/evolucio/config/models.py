@@ -152,6 +152,10 @@ class EnergyConfig(_ConfigModel):
             raise ValueError("reproduction_threshold must not exceed max_energy")
         if self.offspring_initial_energy <= self.death_threshold:
             raise ValueError("offspring_initial_energy must be above death_threshold")
+        if self.offspring_initial_energy > self.reproduction_cost:
+            raise ValueError("offspring_initial_energy must not exceed reproduction_cost")
+        if self.offspring_initial_energy > self.max_energy:
+            raise ValueError("offspring_initial_energy must not exceed max_energy")
         if self.reproduction_threshold <= self.death_threshold:
             raise ValueError("reproduction_threshold must be above death_threshold")
         return self
@@ -209,9 +213,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 2.1."""
+    """Complete validated scientific configuration for schema 2.2."""
 
-    schema_version: Literal["2.1"]
+    schema_version: Literal["2.2"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

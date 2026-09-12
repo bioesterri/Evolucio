@@ -98,8 +98,8 @@ def test_energy_invariants_are_rechecked_after_float32_conversion(
         config,
         "energy",
         reproduction_threshold=1.00000001,
-        reproduction_cost=1.0,
-        offspring_initial_energy=10.0,
+        reproduction_cost=2.0,
+        offspring_initial_energy=2.0,
         death_threshold=1.0,
     )
     with pytest.raises(ConfigCompilationError, match=r"energy\.reproduction_threshold"):
@@ -199,7 +199,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 13
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 14
     assert signature.action_contract_schema_version == 1
     assert signature.action_contract_schema_digest == (
         "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
@@ -213,8 +213,10 @@ def test_prng_implementation_versions_compile_signature(config: ExperimentConfig
     assert len(signature.energy_accounting_schema_digest) == 64
     assert signature.pre_action_viability_schema_version == 1
     assert len(signature.pre_action_viability_schema_digest) == 64
-    assert signature.post_action_viability_schema_version == 1
+    assert signature.post_action_viability_schema_version == 2
     assert len(signature.post_action_viability_schema_digest) == 64
+    assert signature.reproduction_resolution_schema_version == 1
+    assert len(signature.reproduction_resolution_schema_digest) == 64
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 

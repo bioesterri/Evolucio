@@ -1,7 +1,7 @@
 # Configuració d'experiments
 
 La configuració host descriu i valida els paràmetres científics abans de qualsevol simulació.
-L'esquema **2.1** conté els blocs `world`, `population`, `policy`, `observations`, `energy`,
+L'esquema **2.2** conté els blocs `world`, `population`, `policy`, `observations`, `energy`,
 `evolution`, `runtime`, `persistence` i `genome`, a més de la llavor explícita.
 
 ## Versions i immutabilitat
@@ -17,12 +17,12 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 - `policy`: versions d'observació/acció i topologia fixa declarada.
 - L'espai d'accions del prototip és fix: `ACTION_COUNT` deriva dels set codis públics del nucli i
   no és un paràmetre de la configuració host.
-- `energy`: reserves, costos i viabilitat reproductiva. A l'esquema 2.1,
+- `energy`: reserves, costos i viabilitat reproductiva. A l'esquema 2.2,
   `reproduction_cost` és el cost addicional i `offspring_initial_energy` es transfereix al
   descendent; tots dos imports es resten al progenitor quan el naixement té èxit. La porta del
   PR-21 els projecta i bloqueja el candidat si la projecció no supera estrictament
   `death_threshold`.
-  A l'esquema 2.1, `basal_cost` i `reproduction_cost` són estrictament positius i
+  A l'esquema 2.2, `basal_cost` i `reproduction_cost` són estrictament positius i
   `failed_action_cost` està restringit a
   `0.0`: la política v1 no cobra els intents fallits i no admet configuracions sense efecte.
 - `evolution`: edats i paràmetres explícits de mutació.
@@ -34,13 +34,13 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 S'admeten YAML (`.yaml`, `.yml`) i JSON (`.json`) UTF-8, amb claus úniques. Exemple complet de validació estructural (els valors **no estan calibrats científicament**):
 
 ```yaml
-schema_version: "2.1"
+schema_version: "2.2"
 seed: 42
 world: {width: 64, height: 64, boundary_mode: closed, resource_capacity: 10.0, initial_resource_mean: 5.0, resource_distribution: patches, resource_patch_count: 8, resource_patch_radius: 5.0, resource_patch_contrast: 0.8, environment_initial_value: 0.0, regeneration_rate: 0.05, environment_schedule: []}
 population: {initial_agents: 128, max_agents: 1024, max_births_per_step: 64, placement: random, allow_multiple_agents_per_cell: true}
 policy: {action_schema_version: "1.0", schema_version: 1, input_size: 15, hidden_size: 16, output_size: 7, activation: tanh, use_bias: true}
 observations: {schema_version: 1, perception_radius: 2}
-energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, feeding_max_resource_intake: 2.0, reproduction_threshold: 40.0, reproduction_cost: 5.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
+energy: {initial_energy: 20.0, max_energy: 100.0, death_threshold: 0.0, basal_cost: 0.1, movement_cost: 0.05, feeding_cost: 0.0, feeding_conversion: 1.0, feeding_max_resource_intake: 2.0, reproduction_threshold: 40.0, reproduction_cost: 10.0, offspring_initial_energy: 10.0, failed_action_cost: 0.0}
 evolution: {min_reproduction_age: 5, max_age: 1000, mutation_rate: 0.05, mutation_sigma: 0.02, mutation_clip_abs: 5.0}
 runtime: {steps: 10000, chunk_size: 128, record_stride: 10, snapshot_stride: 1000, backend: cpu}
 persistence: {level: none, destinations: [], output_dir: runs, batch_size: 1024, checkpoint_stride: null}
