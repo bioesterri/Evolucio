@@ -48,7 +48,7 @@ def evaluate_reproduction_gate(
     offspring_initial_energy: Array,
     death_energy_threshold: Array,
 ) -> ReproductionGateResult:
-    """Select requests whose parent would remain strictly viable after birth cost."""
+    """Select requests whose parent survives the reproduction cost and energy transfer."""
     requested = population_before_viability.alive & (
         actions_before_viability == int(ActionCode.REPRODUCE)
     )
