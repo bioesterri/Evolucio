@@ -81,7 +81,7 @@ def test_positive_energy_values_must_remain_positive_in_float32(
 
 @pytest.mark.parametrize(
     ("block", "field"),
-    [("world", "regeneration_rate"), ("evolution", "mutation_rate")],
+    [("world", "regeneration_rate"), ("evolution", "weight_mutation_rate")],
 )
 def test_nonzero_dynamic_values_must_not_underflow_to_zero(
     config: ExperimentConfig, block: str, field: str
@@ -199,7 +199,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 13
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 14
     assert signature.action_contract_schema_version == 1
     assert signature.action_contract_schema_digest == (
         "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"

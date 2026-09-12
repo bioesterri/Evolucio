@@ -59,7 +59,7 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
         (("energy", "reproduction_cost"), 0.0, "reproduction_cost"),
         (("evolution", "max_age"), 5, "evolution"),
-        (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
+        (("evolution", "weight_mutation_rate"), 1.2, "weight_mutation_rate"),
         (("runtime", "record_stride"), 0, "record_stride"),
     ],
 )

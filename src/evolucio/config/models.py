@@ -162,9 +162,12 @@ class EvolutionConfig(_ConfigModel):
 
     min_reproduction_age: Annotated[int, Field(ge=0)]
     max_age: PositiveInt
-    mutation_rate: Fraction
-    mutation_sigma: NonNegativeFloat
-    mutation_clip_abs: PositiveFloat
+    weight_mutation_rate: Fraction
+    weight_mutation_sigma: NonNegativeFloat
+    weight_abs_limit: PositiveFloat
+    bias_mutation_rate: Fraction
+    bias_mutation_sigma: NonNegativeFloat
+    bias_abs_limit: PositiveFloat
 
     @model_validator(mode="after")
     def validate_ages(self) -> Self:
@@ -209,9 +212,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 2.1."""
+    """Complete validated scientific configuration for schema 2.2."""
 
-    schema_version: Literal["2.1"]
+    schema_version: Literal["2.2"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig
