@@ -98,8 +98,8 @@ def test_energy_invariants_are_rechecked_after_float32_conversion(
         config,
         "energy",
         reproduction_threshold=1.00000001,
-        reproduction_cost=1.0,
-        offspring_initial_energy=10.0,
+        reproduction_cost=2.0,
+        offspring_initial_energy=2.0,
         death_threshold=1.0,
     )
     with pytest.raises(ConfigCompilationError, match=r"energy\.reproduction_threshold"):
@@ -213,8 +213,10 @@ def test_prng_implementation_versions_compile_signature(config: ExperimentConfig
     assert len(signature.energy_accounting_schema_digest) == 64
     assert signature.pre_action_viability_schema_version == 1
     assert len(signature.pre_action_viability_schema_digest) == 64
-    assert signature.post_action_viability_schema_version == 1
+    assert signature.post_action_viability_schema_version == 2
     assert len(signature.post_action_viability_schema_digest) == 64
+    assert signature.reproduction_resolution_schema_version == 1
+    assert len(signature.reproduction_resolution_schema_digest) == 64
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 

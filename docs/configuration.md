@@ -17,12 +17,12 @@ Els models Pydantic són estrictes, rebutgen camps desconeguts i queden immutabl
 - `policy`: versions d'observació/acció i topologia fixa declarada.
 - L'espai d'accions del prototip és fix: `ACTION_COUNT` deriva dels set codis públics del nucli i
   no és un paràmetre de la configuració host.
-- `energy`: reserves, costos i viabilitat reproductiva. A l'esquema 2.1,
+- `energy`: reserves, costos i viabilitat reproductiva. A l'esquema 2.2,
   `reproduction_cost` és el cost addicional i `offspring_initial_energy` es transfereix al
   descendent; tots dos imports es resten al progenitor quan el naixement té èxit. La porta del
   PR-21 els projecta i bloqueja el candidat si la projecció no supera estrictament
   `death_threshold`.
-  A l'esquema 2.1, `basal_cost` i `reproduction_cost` són estrictament positius i
+  A l'esquema 2.2, `basal_cost` i `reproduction_cost` són estrictament positius i
   `failed_action_cost` està restringit a
   `0.0`: la política v1 no cobra els intents fallits i no admet configuracions sense efecte.
 - `evolution`: edats i taxes, sigmes i límits explícits i independents per a pesos i biaixos.

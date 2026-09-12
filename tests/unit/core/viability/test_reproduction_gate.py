@@ -53,18 +53,18 @@ def test_critical_suicidal_boundary_does_not_charge_parent(viability_state):
     result = gate(population)
     assert not bool(result.eligible[0])
     assert int(result.gate_codes[0]) == ReproductionGateCode.SUICIDAL_PROJECTED_ENERGY
-    assert float(result.projected_parent_energy[0]) == -1.0
+    assert float(result.projected_parent_energy[0]) == 1.0
     assert float(population.energy[0]) == 5.0
     assert int(result.suicidal_block_count) == 1
 
-    above = changed(population, energy=7.1)
+    above = changed(population, energy=5.1)
     eligible = gate(above)
     assert bool(eligible.eligible[0])
     assert int(eligible.gate_codes[0]) == ReproductionGateCode.ELIGIBLE
-    assert float(above.energy[0]) == pytest.approx(7.1)
+    assert float(above.energy[0]) == pytest.approx(5.1)
 
 
-def test_projection_debits_reproduction_cost_and_offspring_energy(viability_state):
+def test_projection_debits_total_reproduction_cost_once(viability_state):
     population, _, _ = viability_state
     population = changed(population, energy=10.0)
 
@@ -72,13 +72,13 @@ def test_projection_debits_reproduction_cost_and_offspring_energy(viability_stat
         population,
         threshold=10.0,
         cost=5.0,
-        offspring_energy=10.0,
+        offspring_energy=5.0,
         death=0.0,
     )
 
-    assert not bool(result.eligible[0])
-    assert int(result.gate_codes[0]) == ReproductionGateCode.SUICIDAL_PROJECTED_ENERGY
-    assert float(result.projected_parent_energy[0]) == -5.0
+    assert bool(result.eligible[0])
+    assert int(result.gate_codes[0]) == ReproductionGateCode.ELIGIBLE
+    assert float(result.projected_parent_energy[0]) == 5.0
 
 
 @pytest.mark.parametrize(

@@ -152,6 +152,10 @@ class EnergyConfig(_ConfigModel):
             raise ValueError("reproduction_threshold must not exceed max_energy")
         if self.offspring_initial_energy <= self.death_threshold:
             raise ValueError("offspring_initial_energy must be above death_threshold")
+        if self.offspring_initial_energy > self.reproduction_cost:
+            raise ValueError("offspring_initial_energy must not exceed reproduction_cost")
+        if self.offspring_initial_energy > self.max_energy:
+            raise ValueError("offspring_initial_energy must not exceed max_energy")
         if self.reproduction_threshold <= self.death_threshold:
             raise ValueError("reproduction_threshold must be above death_threshold")
         return self
