@@ -60,6 +60,7 @@ def reproduction_case():
         "birth_placement_key": jax.random.key(1),
         "reproduction_conflict_key": jax.random.key(2),
         "death_energy_threshold": jnp.asarray(0, dtype=REAL_DTYPE),
+        "max_births_per_step": 3,
         "width": 3,
         "height": 3,
     }
