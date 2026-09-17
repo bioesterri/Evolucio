@@ -62,6 +62,7 @@ def evaluate_reproduction_gate(
         & (reproduction_energy_threshold > death_energy_threshold)
         & (reproduction_energy_cost > 0)
         & (offspring_initial_energy > death_energy_threshold)
+        & (offspring_initial_energy <= reproduction_energy_cost)
         & (minimum_reproduction_age >= 0)
         & jnp.isfinite(population_after_viability.energy)
     )
@@ -75,9 +76,7 @@ def evaluate_reproduction_gate(
     below_age = (
         valid_request & ~below_energy & (population_after_viability.age < minimum_reproduction_age)
     )
-    projected = (
-        population_after_viability.energy - reproduction_energy_cost - offspring_initial_energy
-    )
+    projected = population_after_viability.energy - reproduction_energy_cost
     suicidal = valid_request & ~below_energy & ~below_age & (projected <= death_energy_threshold)
     eligible = valid_request & ~below_energy & ~below_age & ~suicidal
 

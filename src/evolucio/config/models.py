@@ -11,6 +11,15 @@ NonNegativeFloat = Annotated[float, Field(ge=0)]
 Fraction = Annotated[float, Field(ge=0, le=1)]
 Rate = Annotated[float, Field(ge=0, lt=1)]
 _STEP_MAX = 2**31 - 1
+_FLOAT32_MAX = 3.4028235e38
+_GENOME_PARAMETER_COUNT = 375
+# Layer 2 has the widest Glorot support in the fixed v1 topology.
+_POLICY_HIDDEN_SIZE = 16
+_POLICY_OUTPUT_SIZE = 7
+_LAYER2_GLOROT_ABS_BOUND = (6.0 / (_POLICY_OUTPUT_SIZE + _POLICY_HIDDEN_SIZE)) ** 0.5
+# Keep the worst-case aggregate below half of float32's maximum.
+_MAX_SAFE_MUTATION_ABS_LIMIT = _FLOAT32_MAX / (4 * _GENOME_PARAMETER_COUNT)
+MutationAbsLimit = Annotated[float, Field(gt=0, le=_MAX_SAFE_MUTATION_ABS_LIMIT)]
 
 
 class _ConfigModel(BaseModel):
@@ -152,6 +161,10 @@ class EnergyConfig(_ConfigModel):
             raise ValueError("reproduction_threshold must not exceed max_energy")
         if self.offspring_initial_energy <= self.death_threshold:
             raise ValueError("offspring_initial_energy must be above death_threshold")
+        if self.offspring_initial_energy > self.reproduction_cost:
+            raise ValueError("offspring_initial_energy must not exceed reproduction_cost")
+        if self.offspring_initial_energy > self.max_energy:
+            raise ValueError("offspring_initial_energy must not exceed max_energy")
         if self.reproduction_threshold <= self.death_threshold:
             raise ValueError("reproduction_threshold must be above death_threshold")
         return self
@@ -162,14 +175,23 @@ class EvolutionConfig(_ConfigModel):
 
     min_reproduction_age: Annotated[int, Field(ge=0)]
     max_age: PositiveInt
-    mutation_rate: Fraction
-    mutation_sigma: NonNegativeFloat
-    mutation_clip_abs: PositiveFloat
+    weight_mutation_rate: Fraction
+    weight_mutation_sigma: NonNegativeFloat
+    weight_abs_limit: MutationAbsLimit
+    bias_mutation_rate: Fraction
+    bias_mutation_sigma: NonNegativeFloat
+    bias_abs_limit: MutationAbsLimit
 
     @model_validator(mode="after")
     def validate_ages(self) -> Self:
         if self.max_age <= self.min_reproduction_age:
             raise ValueError("max_age must be greater than min_reproduction_age")
+        return self
+
+    @model_validator(mode="after")
+    def validate_founder_support(self) -> Self:
+        if self.weight_abs_limit < _LAYER2_GLOROT_ABS_BOUND:
+            raise ValueError("weight_abs_limit must cover the glorot_uniform_zero_bias_v1 support")
         return self
 
 
@@ -209,9 +231,9 @@ class PersistenceConfig(_ConfigModel):
 
 
 class ExperimentConfig(_ConfigModel):
-    """Complete validated scientific configuration for schema 2.1."""
+    """Complete validated scientific configuration for schema 3.0."""
 
-    schema_version: Literal["2.1"]
+    schema_version: Literal["3.0"]
     seed: Annotated[int, Field(ge=0, le=2**32 - 1)]
     world: WorldConfig
     population: PopulationConfig

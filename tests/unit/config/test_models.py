@@ -59,7 +59,10 @@ def test_valid_and_frozen(config: ExperimentConfig) -> None:
         (("energy", "feeding_max_resource_intake"), True, "feeding_max_resource_intake"),
         (("energy", "reproduction_cost"), 0.0, "reproduction_cost"),
         (("evolution", "max_age"), 5, "evolution"),
-        (("evolution", "mutation_rate"), 1.2, "mutation_rate"),
+        (("evolution", "weight_mutation_rate"), 1.2, "weight_mutation_rate"),
+        (("evolution", "weight_abs_limit"), 0.1, "glorot_uniform_zero_bias_v1"),
+        (("evolution", "weight_abs_limit"), 1e38, "weight_abs_limit"),
+        (("evolution", "bias_abs_limit"), 1e38, "bias_abs_limit"),
         (("runtime", "record_stride"), 0, "record_stride"),
     ],
 )
@@ -100,6 +103,7 @@ def test_dynamic_reproduction_gate_configuration_is_valid(config: ExperimentConf
     raw = data(config)
     raw["energy"]["reproduction_threshold"] = 5.0  # type: ignore[index]
     raw["energy"]["reproduction_cost"] = 4.0  # type: ignore[index]
+    raw["energy"]["offspring_initial_energy"] = 3.0  # type: ignore[index]
     raw["evolution"]["min_reproduction_age"] = 0  # type: ignore[index]
     validated = ExperimentConfig.model_validate(raw)
     assert validated.energy.reproduction_threshold == 5.0
