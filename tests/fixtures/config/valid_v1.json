@@ -10,7 +10,7 @@
     "max_energy": 100.0,
     "movement_cost": 0.05,
     "offspring_initial_energy": 10.0,
-    "reproduction_cost": 5.0,
+    "reproduction_cost": 10.0,
     "reproduction_threshold": 40.0
   },
   "evolution": {

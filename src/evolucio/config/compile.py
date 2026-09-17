@@ -303,6 +303,7 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
     initial_energy = float(energy.initial_energy)
     max_energy = float(energy.max_energy)
     reproduction_threshold = float(energy.reproduction_threshold)
+    reproduction_cost = float(energy.reproduction_cost)
     offspring_initial_energy = float(energy.offspring_initial_energy)
 
     if not death_threshold < initial_energy <= max_energy:
@@ -316,6 +317,14 @@ def _validate_compiled_energy(energy: EnergyCoreConfig) -> None:
     if offspring_initial_energy <= death_threshold:
         raise ConfigCompilationError(
             "energy.offspring_initial_energy is not viable after float32 conversion"
+        )
+    if offspring_initial_energy > reproduction_cost:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy exceeds reproduction_cost after float32 conversion"
+        )
+    if offspring_initial_energy > max_energy:
+        raise ConfigCompilationError(
+            "energy.offspring_initial_energy exceeds max_energy after float32 conversion"
         )
     if reproduction_threshold <= death_threshold:
         raise ConfigCompilationError(

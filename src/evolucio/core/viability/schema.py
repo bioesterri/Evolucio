@@ -5,8 +5,8 @@ import json
 
 PRE_ACTION_VIABILITY_SCHEMA_NAME = "invalid_energy_age_preaction_death_v1"
 PRE_ACTION_VIABILITY_SCHEMA_VERSION = 1
-POST_ACTION_VIABILITY_SCHEMA_NAME = "postaction_death_and_projected_reproduction_survival_v1"
-POST_ACTION_VIABILITY_SCHEMA_VERSION = 1
+POST_ACTION_VIABILITY_SCHEMA_NAME = "postaction_death_and_total_reproduction_cost_v2"
+POST_ACTION_VIABILITY_SCHEMA_VERSION = 2
 
 
 def pre_action_viability_schema_payload() -> dict[str, object]:
@@ -70,7 +70,8 @@ def post_action_viability_schema_payload() -> dict[str, object]:
             "energy_at_least_reproduction_threshold",
             "age_at_least_minimum_reproduction_age",
         ],
-        "projected_parent_energy": ("energy - reproduction_energy_cost - offspring_initial_energy"),
+        "reproduction_energy_cost": "total_parent_debit_including_offspring_energy",
+        "projected_parent_energy": "energy - reproduction_energy_cost",
         "projected_survival": "projected_parent_energy > death_energy_threshold",
         "reproduction_cost_application": "successful_birth_only_not_gate",
         "spatial_availability_check": "none",
