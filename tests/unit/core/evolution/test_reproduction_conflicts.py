@@ -81,3 +81,59 @@ def test_same_cell_conflict_has_one_reproducible_identity_winner(reproduction_ca
     assert jnp.sum(codes == ReproductionResolutionCode.BIRTH_POSITION_CONFLICT) == 1
     assert jnp.array_equal(first.reproduction_codes, second.reproduction_codes)
     assert jnp.array_equal(first.birth_positions, second.birth_positions)
+
+
+def test_max_births_per_step_neutrally_limits_spatial_winners(reproduction_case):
+    case = dict(reproduction_case)
+    expanded_population = jax.tree.map(
+        lambda value: jnp.concatenate((value, value[-1:])), case["population"]
+    )
+    case["genomes"] = jax.tree.map(
+        lambda value: jnp.concatenate((value, value[-1:])), case["genomes"]
+    )
+    population = eqx.tree_at(
+        lambda value: (
+            value.alive,
+            value.agent_id,
+            value.lineage_id,
+            value.genome_id,
+            value.position,
+            value.energy,
+        ),
+        expanded_population,
+        (
+            jnp.asarray([True, True, False, False]),
+            jnp.asarray([7, 8, -1, -1], dtype=jnp.int32),
+            jnp.asarray([4, 5, -1, -1], dtype=jnp.int32),
+            jnp.asarray([9, 10, -1, -1], dtype=jnp.int32),
+            jnp.asarray([[0, 0], [2, 2], [-1, -1], [-1, -1]], dtype=jnp.int32),
+            jnp.asarray([10, 10, 0, 0], dtype=jnp.float32),
+        ),
+    )
+    case["population"] = population
+    case["world"] = eqx.tree_at(
+        lambda value: value.occupancy,
+        case["world"],
+        jnp.asarray([[1, 0, 1], [1, 1, 1], [1, 0, 1]], dtype=jnp.int32),
+    )
+    case["reproduction_gate"] = eqx.tree_at(
+        lambda value: value.eligible,
+        case["reproduction_gate"],
+        jnp.asarray([True, True, False, False]),
+    )
+    case["actions_after_viability"] = jnp.asarray(
+        [ActionCode.REPRODUCE, ActionCode.REPRODUCE, ActionCode.STAY, ActionCode.STAY],
+        dtype=jnp.int32,
+    )
+    case["max_births_per_step"] = 1
+
+    first = resolve_asexual_reproduction(**case)
+    second = resolve_asexual_reproduction(**case)
+
+    assert int(first.birth_count) == 1
+    assert jnp.sum(first.reproduction_codes[:2] == ReproductionResolutionCode.BIRTH_SUCCEEDED) == 1
+    assert (
+        jnp.sum(first.reproduction_codes[:2] == ReproductionResolutionCode.NO_FREE_POPULATION_SLOT)
+        == 1
+    )
+    assert jnp.array_equal(first.reproduction_codes, second.reproduction_codes)

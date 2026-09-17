@@ -81,6 +81,7 @@ def resolve_asexual_reproduction(
     birth_placement_key: Array,
     reproduction_conflict_key: Array,
     death_energy_threshold: Array,
+    max_births_per_step: int,
     width: int,
     height: int,
 ) -> ReproductionResolutionResult:
@@ -138,12 +139,16 @@ def resolve_asexual_reproduction(
 
     free_slots = ~population.alive
     free_count = jnp.sum(free_slots, dtype=COUNT_DTYPE)
+    birth_limit = jnp.minimum(
+        free_count,
+        jnp.asarray(max_births_per_step, dtype=COUNT_DTYPE),
+    )
     capacity_higher = (conflict_priority[:, 1, None] > conflict_priority[None, :, 1]) | (
         (conflict_priority[:, 1, None] == conflict_priority[None, :, 1])
         & (population.agent_id[:, None] > population.agent_id[None, :])
     )
     priority_rank = jnp.sum(capacity_higher.T & spatial_winner[None, :], axis=1, dtype=COUNT_DTYPE)
-    accepted = spatial_winner & (priority_rank < free_count)
+    accepted = spatial_winner & (priority_rank < birth_limit)
     birth_count_before_ids = jnp.sum(accepted, dtype=COUNT_DTYPE)
 
     remaining_agent = jnp.asarray(MAX_NEXT_ID, dtype=ID_DTYPE) - ids.next_agent_id
