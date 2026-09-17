@@ -386,12 +386,8 @@ seed mestra
 ├── fold_in(step, MOVEMENT_CONFLICT)
 ├── fold_in(step, FEEDING_CONFLICT)
 └── fold_in(step, REPRODUCTION)
-└── fold_in(child_genome_id) → mutació genòmica independent del slot
+└── fold_in(agent_id) → mutació / desempat individual
 ```
-
-El PR-23 concreta la identitat de la mutació genòmica com el `genome_id` nou assignat al
-descendent. Aquesta especialització substitueix l'esbós inicial basat en `agent_id`: conserva la
-jerarquia estable del stream de mutació i garanteix equivariància quan es permuten els slots.
 
 ## 8.3 Configuració estàtica i dinàmica
 
