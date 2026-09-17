@@ -1,25 +1,29 @@
-"""Public evolutionary reproduction API."""
+"""Public evolutionary core contracts."""
 
-from .reproduction import (
-    ReproductionResolutionCode,
-    ReproductionResolutionResult,
-    resolve_asexual_reproduction,
-)
-from .reproduction_schema import (
-    REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
-    REPRODUCTION_RESOLUTION_SCHEMA_NAME,
-    REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
-    reproduction_resolution_schema_digest,
-    reproduction_resolution_schema_payload,
+from .mutation import GenomeMutationResult, GenomeMutationStreamCode, mutate_newborn_genomes
+from .mutation_schema import (
+    GENOME_MUTATION_DISTRIBUTION,
+    GENOME_MUTATION_LIMIT_POLICY,
+    GENOME_MUTATION_MASK_POLICY,
+    GENOME_MUTATION_SCHEMA_DIGEST,
+    GENOME_MUTATION_SCHEMA_NAME,
+    GENOME_MUTATION_SCHEMA_VERSION,
+    GENOME_MUTATION_SCOPE,
+    genome_mutation_schema_digest,
+    genome_mutation_schema_payload,
 )
 
 __all__ = [
-    "REPRODUCTION_RESOLUTION_SCHEMA_DIGEST",
-    "REPRODUCTION_RESOLUTION_SCHEMA_NAME",
-    "REPRODUCTION_RESOLUTION_SCHEMA_VERSION",
-    "ReproductionResolutionCode",
-    "ReproductionResolutionResult",
-    "reproduction_resolution_schema_digest",
-    "reproduction_resolution_schema_payload",
-    "resolve_asexual_reproduction",
+    "GENOME_MUTATION_DISTRIBUTION",
+    "GENOME_MUTATION_LIMIT_POLICY",
+    "GENOME_MUTATION_MASK_POLICY",
+    "GENOME_MUTATION_SCHEMA_DIGEST",
+    "GENOME_MUTATION_SCHEMA_NAME",
+    "GENOME_MUTATION_SCHEMA_VERSION",
+    "GENOME_MUTATION_SCOPE",
+    "GenomeMutationResult",
+    "GenomeMutationStreamCode",
+    "genome_mutation_schema_digest",
+    "genome_mutation_schema_payload",
+    "mutate_newborn_genomes",
 ]

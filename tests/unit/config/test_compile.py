@@ -81,7 +81,7 @@ def test_positive_energy_values_must_remain_positive_in_float32(
 
 @pytest.mark.parametrize(
     ("block", "field"),
-    [("world", "regeneration_rate"), ("evolution", "mutation_rate")],
+    [("world", "regeneration_rate"), ("evolution", "weight_mutation_rate")],
 )
 def test_nonzero_dynamic_values_must_not_underflow_to_zero(
     config: ExperimentConfig, block: str, field: str
