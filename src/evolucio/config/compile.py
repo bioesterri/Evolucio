@@ -22,6 +22,8 @@ from evolucio.core.energy import (
     ENERGY_ACCOUNTING_SCHEMA_VERSION,
 )
 from evolucio.core.evolution import (
+    GENOME_MUTATION_SCHEMA_DIGEST,
+    GENOME_MUTATION_SCHEMA_VERSION,
     REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
     REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
 )
@@ -49,7 +51,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 14
+COMPILE_SIGNATURE_SCHEMA_VERSION = 15
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -101,6 +103,8 @@ class CompileSignature:
     pre_action_viability_schema_digest: str
     post_action_viability_schema_version: int
     post_action_viability_schema_digest: str
+    genome_mutation_schema_version: int
+    genome_mutation_schema_digest: str
     reproduction_resolution_schema_version: int
     reproduction_resolution_schema_digest: str
     genome_schema_version: int
@@ -209,9 +213,12 @@ class EvolutionCoreConfig(eqx.Module):
 
     min_reproduction_age: jax.Array
     max_age: jax.Array
-    mutation_rate: jax.Array
-    mutation_sigma: jax.Array
-    mutation_clip_abs: jax.Array
+    weight_mutation_rate: jax.Array
+    weight_mutation_sigma: jax.Array
+    weight_abs_limit: jax.Array
+    bias_mutation_rate: jax.Array
+    bias_mutation_sigma: jax.Array
+    bias_abs_limit: jax.Array
 
 
 class RuntimeCoreConfig(eqx.Module):
@@ -378,6 +385,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         pre_action_viability_schema_digest=PRE_ACTION_VIABILITY_SCHEMA_DIGEST,
         post_action_viability_schema_version=POST_ACTION_VIABILITY_SCHEMA_VERSION,
         post_action_viability_schema_digest=POST_ACTION_VIABILITY_SCHEMA_DIGEST,
+        genome_mutation_schema_version=GENOME_MUTATION_SCHEMA_VERSION,
+        genome_mutation_schema_digest=GENOME_MUTATION_SCHEMA_DIGEST,
         reproduction_resolution_schema_version=REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
         reproduction_resolution_schema_digest=REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
@@ -507,12 +516,23 @@ def compile_config(config: ExperimentConfig) -> CompiledConfig:
                 config.evolution.min_reproduction_age, "evolution.min_reproduction_age"
             ),
             max_age=_int_scalar(config.evolution.max_age, "evolution.max_age"),
-            mutation_rate=_float_scalar(config.evolution.mutation_rate, "evolution.mutation_rate"),
-            mutation_sigma=_float_scalar(
-                config.evolution.mutation_sigma, "evolution.mutation_sigma"
+            weight_mutation_rate=_float_scalar(
+                config.evolution.weight_mutation_rate, "evolution.weight_mutation_rate"
             ),
-            mutation_clip_abs=_float_scalar(
-                config.evolution.mutation_clip_abs, "evolution.mutation_clip_abs"
+            weight_mutation_sigma=_float_scalar(
+                config.evolution.weight_mutation_sigma, "evolution.weight_mutation_sigma"
+            ),
+            weight_abs_limit=_positive_float_scalar(
+                config.evolution.weight_abs_limit, "evolution.weight_abs_limit"
+            ),
+            bias_mutation_rate=_float_scalar(
+                config.evolution.bias_mutation_rate, "evolution.bias_mutation_rate"
+            ),
+            bias_mutation_sigma=_float_scalar(
+                config.evolution.bias_mutation_sigma, "evolution.bias_mutation_sigma"
+            ),
+            bias_abs_limit=_positive_float_scalar(
+                config.evolution.bias_abs_limit, "evolution.bias_abs_limit"
             ),
         ),
         runtime=RuntimeCoreConfig(
