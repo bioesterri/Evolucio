@@ -81,6 +81,7 @@ def resolve_asexual_reproduction(
     birth_placement_key: Array,
     reproduction_conflict_key: Array,
     death_energy_threshold: Array,
+    max_births_per_step: int,
     width: int,
     height: int,
 ) -> ReproductionResolutionResult:
@@ -104,6 +105,7 @@ def resolve_asexual_reproduction(
         & (population.agent_id >= 0)
         & (population.lineage_id >= 0)
         & (population.genome_id >= 0)
+        & (population.generation < MAX_NEXT_ID)
         & (actions_after_viability == int(ActionCode.REPRODUCE))
         & jnp.isfinite(population.energy)
         & (projected > death_energy_threshold)
@@ -143,7 +145,8 @@ def resolve_asexual_reproduction(
         & (population.agent_id[:, None] > population.agent_id[None, :])
     )
     priority_rank = jnp.sum(capacity_higher.T & spatial_winner[None, :], axis=1, dtype=COUNT_DTYPE)
-    accepted = spatial_winner & (priority_rank < free_count)
+    birth_capacity = jnp.minimum(free_count, jnp.asarray(max_births_per_step, dtype=COUNT_DTYPE))
+    accepted = spatial_winner & (priority_rank < birth_capacity)
     birth_count_before_ids = jnp.sum(accepted, dtype=COUNT_DTYPE)
 
     remaining_agent = jnp.asarray(MAX_NEXT_ID, dtype=ID_DTYPE) - ids.next_agent_id
@@ -179,6 +182,9 @@ def resolve_asexual_reproduction(
 
     parent_paid = committed
     energy = jnp.where(parent_paid, projected, population.energy)
+    safe_parent_generation = jnp.where(
+        population.generation < MAX_NEXT_ID, population.generation, 0
+    )
     updated_population = PopulationState(
         alive=jnp.where(child_slots, True, population.alive).astype(MASK_DTYPE),
         agent_id=_replace_rows(population.agent_id, child_slots, child_agent_ids),
@@ -190,7 +196,7 @@ def resolve_asexual_reproduction(
         ),
         genome_id=_replace_rows(population.genome_id, child_slots, child_genome_ids),
         generation=_replace_rows(
-            population.generation, child_slots, population.generation[safe_parent] + 1
+            population.generation, child_slots, safe_parent_generation[safe_parent] + 1
         ),
         position=_replace_rows(population.position, child_slots, birth_positions),
         energy=_replace_rows(
