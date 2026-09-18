@@ -199,7 +199,7 @@ def test_seed_is_host_only(config: ExperimentConfig) -> None:
 
 def test_prng_implementation_versions_compile_signature(config: ExperimentConfig) -> None:
     signature = build_compile_signature(config)
-    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 15
+    assert COMPILE_SIGNATURE_SCHEMA_VERSION == signature.signature_schema_version == 16
     assert signature.action_contract_schema_version == 1
     assert signature.action_contract_schema_digest == (
         "85dbbbb9418746b480b119e956a2d4c4297b9b3739034db42b1bba79871890c3"
@@ -217,6 +217,8 @@ def test_prng_implementation_versions_compile_signature(config: ExperimentConfig
     assert len(signature.post_action_viability_schema_digest) == 64
     assert signature.reproduction_resolution_schema_version == 1
     assert len(signature.reproduction_resolution_schema_digest) == 64
+    assert signature.genealogy_schema_version == 1
+    assert len(signature.genealogy_schema_digest) == 64
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 
 
