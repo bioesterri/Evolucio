@@ -78,3 +78,12 @@ def test_eager_jit_and_scan_are_equivalent(reproduction_case):
 
     _, counts = jax.lax.scan(body, reproduction_case["population"], xs=None, length=1)
     assert int(counts[0]) == 1
+
+
+def test_max_births_per_step_caps_committed_births(reproduction_case):
+    case = dict(reproduction_case)
+    case["max_births_per_step"] = 0
+    result = resolve_asexual_reproduction(**case)
+    assert int(result.birth_count) == 0
+    assert not bool(jnp.any(result.newborn_mask))
+    assert int(result.no_free_slot_count) == 1

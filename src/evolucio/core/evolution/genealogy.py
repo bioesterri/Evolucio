@@ -103,9 +103,52 @@ def validate_genealogy(
     parent = population_before_reproduction
     child = reproduction.population
     parent_generation = parent.generation[safe_parent_slots]
+    child_agent_matches_previous = jnp.any(
+        (child.agent_id[:, None] == parent.agent_id[None, :]) & parent.alive[None, :], axis=1
+    )
+    child_genome_matches_previous = jnp.any(
+        (child.genome_id[:, None] == parent.genome_id[None, :]) & parent.alive[None, :], axis=1
+    )
+    other_slots = ~jnp.eye(capacity, dtype=MASK_DTYPE)
+    duplicate_child_agent = jnp.any(
+        (child.agent_id[:, None] == child.agent_id[None, :])
+        & born[:, None]
+        & born[None, :]
+        & other_slots,
+        axis=1,
+    )
+    duplicate_child_genome = jnp.any(
+        (child.genome_id[:, None] == child.genome_id[None, :])
+        & born[:, None]
+        & born[None, :]
+        & other_slots,
+        axis=1,
+    )
+    mutation_counts_valid = (
+        (mutation.selected_parameter_count >= 0)
+        & (mutation.effective_parameter_count >= 0)
+        & (mutation.selected_weight_count >= 0)
+        & (mutation.selected_bias_count >= 0)
+        & (
+            mutation.selected_parameter_count
+            == mutation.selected_weight_count + mutation.selected_bias_count
+        )
+        & (mutation.effective_parameter_count <= mutation.selected_parameter_count)
+    )
+    mutation_magnitudes_valid = (
+        jnp.isfinite(mutation.sum_abs_delta)
+        & jnp.isfinite(mutation.max_abs_delta)
+        & (mutation.sum_abs_delta >= 0)
+        & (mutation.max_abs_delta >= 0)
+        & (mutation.max_abs_delta <= mutation.sum_abs_delta)
+        & ((mutation.effective_parameter_count != 0) | (mutation.sum_abs_delta == 0))
+        & ((mutation.effective_parameter_count != 0) | (mutation.max_abs_delta == 0))
+    )
+    mutation_summary_valid = mutation_counts_valid & mutation_magnitudes_valid
     valid = (
         born
         & child.alive
+        & ~parent.alive
         & (child.agent_id >= 0)
         & (child.genome_id >= 0)
         & parent_slot_valid
@@ -118,6 +161,11 @@ def validate_genealogy(
         & (child.age == 0)
         & (child.agent_id != parent.agent_id[safe_parent_slots])
         & (child.genome_id != parent.genome_id[safe_parent_slots])
+        & ~child_agent_matches_previous
+        & ~child_genome_matches_previous
+        & ~duplicate_child_agent
+        & ~duplicate_child_genome
+        & mutation_summary_valid
     )
     mutation_activity = (
         (mutation.selected_parameter_count != 0)
@@ -127,7 +175,7 @@ def validate_genealogy(
         | (mutation.sum_abs_delta != 0)
         | (mutation.max_abs_delta != 0)
     )
-    mutation_inconsistent = mutation_activity & ~born
+    mutation_inconsistent = (mutation_activity & ~born) | (born & ~mutation_summary_valid)
     return GenealogyValidationResult(
         valid_birth=valid.astype(MASK_DTYPE),
         invalid_birth_count=jnp.sum(born & ~valid, dtype=COUNT_DTYPE),

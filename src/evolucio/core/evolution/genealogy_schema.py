@@ -32,6 +32,8 @@ def genealogy_schema_payload() -> dict[str, object]:
         },
         "birth_event_batch": {
             "shape": "fixed population capacity C aligned with newborn slots",
+            "active_row_limit": "at most max_births_per_step born rows",
+            "buffer_boundary": "slot-aligned core trace, not the compact PR-25 chunk buffer",
             "fields": [
                 "born",
                 "birth_step",

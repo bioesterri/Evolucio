@@ -112,6 +112,77 @@ def test_inconsistent_genealogy_is_diagnosed_without_repair(reproduction_case):
     assert int(broken.population.lineage_id[child]) == 999
 
 
+def test_child_identity_must_not_collide_with_any_previous_agent(reproduction_case):
+    reproduction, mutation, _ = _results(reproduction_case)
+    child = int(jnp.flatnonzero(reproduction.newborn_mask, size=1)[0])
+    other = 2 if child == 1 else 1
+    before = eqx.tree_at(
+        lambda population: (population.alive, population.agent_id, population.genome_id),
+        reproduction_case["population"],
+        (
+            reproduction_case["population"].alive.at[other].set(True),
+            reproduction_case["population"]
+            .agent_id.at[other]
+            .set(reproduction.population.agent_id[child]),
+            reproduction_case["population"]
+            .genome_id.at[other]
+            .set(reproduction.population.genome_id[child]),
+        ),
+    )
+    validation = validate_genealogy(
+        population_before_reproduction=before,
+        reproduction=reproduction,
+        mutation=mutation,
+        step=reproduction_case["step"],
+    )
+    assert not bool(validation.valid_birth[child])
+    assert int(validation.invalid_birth_count) == 1
+
+
+def test_sibling_id_collisions_are_rejected(reproduction_case):
+    reproduction, mutation, _ = _results(reproduction_case)
+    first_child = int(jnp.flatnonzero(reproduction.newborn_mask, size=1)[0])
+    second_child = 2 if first_child == 1 else 1
+    duplicated_population = jax.tree.map(
+        lambda values: values.at[second_child].set(values[first_child]), reproduction.population
+    )
+    duplicated = eqx.tree_at(
+        lambda result: (result.population, result.newborn_mask, result.parent_slots),
+        reproduction,
+        (
+            duplicated_population,
+            reproduction.newborn_mask.at[second_child].set(True),
+            reproduction.parent_slots.at[second_child].set(0),
+        ),
+    )
+    validation = validate_genealogy(
+        population_before_reproduction=reproduction_case["population"],
+        reproduction=duplicated,
+        mutation=mutation,
+        step=reproduction_case["step"],
+    )
+    assert int(validation.invalid_birth_count) == 2
+    assert not bool(jnp.any(validation.valid_birth))
+
+
+def test_birth_cannot_overwrite_a_previously_live_slot(reproduction_case):
+    reproduction, mutation, _ = _results(reproduction_case)
+    child = int(jnp.flatnonzero(reproduction.newborn_mask, size=1)[0])
+    before = eqx.tree_at(
+        lambda population: population.alive,
+        reproduction_case["population"],
+        reproduction_case["population"].alive.at[child].set(True),
+    )
+    validation = validate_genealogy(
+        population_before_reproduction=before,
+        reproduction=reproduction,
+        mutation=mutation,
+        step=reproduction_case["step"],
+    )
+    assert not bool(validation.valid_birth[child])
+    assert int(validation.invalid_birth_count) == 1
+
+
 def test_mutation_activity_outside_newborn_mask_is_diagnosed(reproduction_case):
     reproduction, mutation, _ = _results(reproduction_case)
     inactive = int(jnp.flatnonzero(~reproduction.newborn_mask, size=1)[0])
@@ -126,6 +197,28 @@ def test_mutation_activity_outside_newborn_mask_is_diagnosed(reproduction_case):
         mutation=inconsistent,
         step=reproduction_case["step"],
     )
+    assert int(validation.mutation_inconsistency_count) == 1
+
+
+def test_internally_inconsistent_mutation_summary_is_diagnosed(reproduction_case):
+    reproduction, mutation, _ = _results(reproduction_case)
+    child = int(jnp.flatnonzero(reproduction.newborn_mask, size=1)[0])
+    inconsistent = eqx.tree_at(
+        lambda result: (result.selected_parameter_count, result.sum_abs_delta),
+        mutation,
+        (
+            mutation.selected_parameter_count.at[child].set(1),
+            mutation.sum_abs_delta.at[child].set(jnp.nan),
+        ),
+    )
+    validation = validate_genealogy(
+        population_before_reproduction=reproduction_case["population"],
+        reproduction=reproduction,
+        mutation=inconsistent,
+        step=reproduction_case["step"],
+    )
+    assert not bool(validation.valid_birth[child])
+    assert int(validation.invalid_birth_count) == 1
     assert int(validation.mutation_inconsistency_count) == 1
 
 

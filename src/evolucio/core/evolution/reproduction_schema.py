@@ -3,8 +3,8 @@
 import hashlib
 import json
 
-REPRODUCTION_RESOLUTION_SCHEMA_NAME = "asexual_atomic_local_birth_fixed_slots_v1"
-REPRODUCTION_RESOLUTION_SCHEMA_VERSION = 1
+REPRODUCTION_RESOLUTION_SCHEMA_NAME = "asexual_atomic_local_birth_fixed_slots_v2"
+REPRODUCTION_RESOLUTION_SCHEMA_VERSION = 2
 
 
 def reproduction_resolution_schema_payload() -> dict[str, object]:
@@ -21,6 +21,7 @@ def reproduction_resolution_schema_payload() -> dict[str, object]:
         "placement": "reproducible_local_choice_derived_from_agent_id",
         "spatial_conflict": "neutral_priority_derived_from_agent_id",
         "population": "fixed_capacity_masked_slots",
+        "birth_count_limit": "at_most_configured_max_births_per_step",
         "slot_assignment": "ascending_free_slots_after_identity_neutral_selection",
         "id_overflow": "atomic_global_rollback",
         "identifiers": "new_agent_id_and_genome_id_no_new_lineage_id",

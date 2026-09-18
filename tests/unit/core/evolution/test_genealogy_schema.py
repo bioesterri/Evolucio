@@ -22,10 +22,13 @@ def test_genealogy_schema_payload_and_frozen_digest() -> None:
     }
     assert payload["population_state"] == {"offspring_count": False}
     assert payload["identifiers"]["core_event_id"] is False
+    assert payload["birth_event_batch"]["active_row_limit"] == (
+        "at most max_births_per_step born rows"
+    )
     assert genealogy_schema_digest() == GENEALOGY_SCHEMA_DIGEST
     assert (
         GENEALOGY_SCHEMA_DIGEST
-        == "9e88a87294e64c2a10afe7fb3e8bc2bc8cc341143c106ec3af64a5b30dbf53a6"
+        == "994df298c0d7bbed2f95f206b50b38fe6fe2ee8b12868591c4e7acd479fea271"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", GENEALOGY_SCHEMA_DIGEST)
 

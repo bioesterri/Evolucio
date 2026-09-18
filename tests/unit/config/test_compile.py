@@ -215,7 +215,7 @@ def test_prng_implementation_versions_compile_signature(config: ExperimentConfig
     assert len(signature.pre_action_viability_schema_digest) == 64
     assert signature.post_action_viability_schema_version == 2
     assert len(signature.post_action_viability_schema_digest) == 64
-    assert signature.reproduction_resolution_schema_version == 1
+    assert signature.reproduction_resolution_schema_version == 2
     assert len(signature.reproduction_resolution_schema_digest) == 64
     assert signature.genealogy_schema_version == 1
     assert len(signature.genealogy_schema_digest) == 64
