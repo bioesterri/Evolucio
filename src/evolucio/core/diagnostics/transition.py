@@ -73,7 +73,10 @@ def check_step_transition_invariants(
     )
     agent_allocation_mismatch = after.ids.next_agent_id - before.ids.next_agent_id != births
     genome_allocation_mismatch = after.ids.next_genome_id - before.ids.next_genome_id != births
-    ranks = jnp.cumsum(events.births.born.astype(COUNT_DTYPE), dtype=COUNT_DTYPE) - 1
+    parent_identity_precedes = events.births.born[None, :] & (
+        events.births.parent_agent_id[None, :] < events.births.parent_agent_id[:, None]
+    )
+    ranks = jnp.sum(parent_identity_precedes, axis=1, dtype=COUNT_DTYPE)
     expected_agent_ids = before.ids.next_agent_id + ranks
     expected_genome_ids = before.ids.next_genome_id + ranks
     agent_allocation_mismatch = agent_allocation_mismatch | jnp.any(
@@ -90,6 +93,48 @@ def check_step_transition_invariants(
         axis=1,
     )
     observed_new_agents = jnp.sum(after_is_new, dtype=COUNT_DTYPE)
+
+    birth_parent_matches = (
+        events.births.parent_agent_id[:, None] == before.population.agent_id[None, :]
+    ) & before.population.alive[None, :]
+    birth_parent_exists = jnp.any(birth_parent_matches, axis=1)
+    birth_parent_slot = jnp.argmax(birth_parent_matches, axis=1)
+    birth_content_mismatch = events.births.born & (
+        ~after_is_new
+        | (events.births.birth_step != after.population.birth_step)
+        | (events.births.child_agent_id != after.population.agent_id)
+        | (events.births.parent_agent_id != after.population.parent_id)
+        | (events.births.lineage_id != after.population.lineage_id)
+        | (events.births.generation != after.population.generation)
+        | (events.births.child_genome_id != after.population.genome_id)
+        | ~jnp.all(events.births.birth_position == after.population.position, axis=1)
+        | (events.births.child_initial_energy != after.population.energy)
+        | ~birth_parent_exists
+        | (events.births.parent_genome_id != before.population.genome_id[birth_parent_slot])
+    )
+    birth_event_mismatches = jnp.sum(
+        events.births.born != after_is_new, dtype=COUNT_DTYPE
+    ) + jnp.sum(birth_content_mismatch, dtype=COUNT_DTYPE)
+
+    removed_before = before.population.alive & ~jnp.any(
+        (before.population.agent_id[:, None] == after.population.agent_id[None, :])
+        & after.population.alive[None, :],
+        axis=1,
+    )
+    death_matches_removed = jnp.any(
+        died[:, None]
+        & (events.deaths.records.agent_id[:, None] == before.population.agent_id[None, :])
+        & removed_before[None, :],
+        axis=1,
+    )
+    removed_has_record = jnp.any(
+        died[None, :]
+        & (before.population.agent_id[:, None] == events.deaths.records.agent_id[None, :]),
+        axis=1,
+    )
+    death_event_mismatches = jnp.sum(died & ~death_matches_removed, dtype=COUNT_DTYPE) + jnp.sum(
+        removed_before & ~removed_has_record, dtype=COUNT_DTYPE
+    )
 
     counts = jnp.zeros((TRANSITION_INVARIANT_CODE_COUNT,), dtype=COUNT_DTYPE)
     counts = counts.at[TransitionInvariantCode.STEP_ADVANCE_MISMATCH].set(
@@ -112,10 +157,10 @@ def check_step_transition_invariants(
         _scalar_count(alive_after != alive_before + births - deaths)
     )
     counts = counts.at[TransitionInvariantCode.BIRTH_EVENT_COUNT_MISMATCH].set(
-        _scalar_count(births != observed_new_agents)
+        birth_event_mismatches + _scalar_count(births != observed_new_agents)
     )
     counts = counts.at[TransitionInvariantCode.DEATH_EVENT_COUNT_MISMATCH].set(
-        _scalar_count(deaths != recorded_deaths)
+        death_event_mismatches + _scalar_count(deaths != recorded_deaths)
     )
     counts = counts.at[TransitionInvariantCode.DEATH_CAUSE_COUNT_MISMATCH].set(
         _scalar_count(terminal_cause_count != deaths)

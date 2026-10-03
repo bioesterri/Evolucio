@@ -5,8 +5,8 @@ import json
 
 from .codes import StateInvariantCode, TransitionInvariantCode
 
-INVARIANT_SCHEMA_NAME = "core_state_transition_invariants_v1"
-INVARIANT_SCHEMA_VERSION = 1
+INVARIANT_SCHEMA_NAME = "core_state_transition_invariants_v2"
+INVARIANT_SCHEMA_VERSION = 2
 
 
 def invariant_schema_payload() -> dict[str, object]:
@@ -42,6 +42,10 @@ def invariant_schema_payload() -> dict[str, object]:
             "identity": (
                 "active agent and genome IDs are currently unique and counters exceed active IDs"
             ),
+            "genealogy": (
+                "descendant parents precede child IDs; active founder lineages are unique"
+            ),
+            "birth_step": "active birth steps are nonnegative and do not exceed the state step",
             "historical_identity_limit": (
                 "current state cannot prove that an ID was never reused historically; "
                 "persistent records must establish that property"
@@ -53,7 +57,8 @@ def invariant_schema_payload() -> dict[str, object]:
                 "alive_after equals alive_before plus recorded births minus recorded deaths"
             ),
             "events_metrics": (
-                "birth/death records, terminal causes, and structural step metrics agree"
+                "birth records match newborn slots, death identities match removed agents, "
+                "terminal causes and structural step metrics agree"
             ),
             "step": "step advances exactly once",
             "rng": "persistent RNG equals exactly one advance_rng application",

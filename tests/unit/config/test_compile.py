@@ -223,7 +223,7 @@ def test_prng_implementation_versions_compile_signature(config: ExperimentConfig
     assert signature.metrics_schema_digest == (
         "d7d337952ee03acbc2824a1994223f3bf6753b1cb064c68e5f3bbeb9212f318d"
     )
-    assert signature.invariant_schema_version == 1
+    assert signature.invariant_schema_version == 2
     assert len(signature.invariant_schema_digest) == 64
     assert "seed" not in {field.name for field in dataclasses.fields(signature)}
 

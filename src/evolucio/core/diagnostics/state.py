@@ -54,7 +54,16 @@ def check_structural_invariants(
         (population.generation < 0)
         | ((population.generation == 0) & (population.parent_id != NULL_ID))
         | ((population.generation > 0) & (population.parent_id < FIRST_ID))
-        | (population.parent_id == population.agent_id)
+        | (
+            (population.generation > 0)
+            & (
+                (population.parent_id >= population.agent_id)
+                | (population.parent_id >= state.ids.next_agent_id)
+            )
+        )
+    )
+    founder_lineage_duplicates = _duplicate_count(
+        population.lineage_id, alive & (population.generation == 0)
     )
     inactive_population_noncanonical = inactive & (
         (population.agent_id != NULL_ID)
@@ -104,13 +113,22 @@ def check_structural_invariants(
     counts = counts.at[StateInvariantCode.ACTIVE_GENOME_ID_DUPLICATE].set(
         _duplicate_count(population.genome_id, alive)
     )
-    counts = counts.at[StateInvariantCode.ACTIVE_GENEALOGY_INVALID].set(_count(genealogy_invalid))
+    counts = counts.at[StateInvariantCode.ACTIVE_GENEALOGY_INVALID].set(
+        _count(genealogy_invalid) + founder_lineage_duplicates
+    )
     counts = counts.at[StateInvariantCode.ACTIVE_POSITION_INVALID].set(_count(alive & ~in_bounds))
     counts = counts.at[StateInvariantCode.ACTIVE_ENERGY_NONFINITE].set(
         _count(alive & ~jnp.isfinite(population.energy))
     )
     counts = counts.at[StateInvariantCode.ACTIVE_AGE_INVALID].set(
-        _count(alive & (population.age < 0))
+        _count(
+            alive
+            & (
+                (population.age < 0)
+                | (population.birth_step < 0)
+                | (population.birth_step > state.step)
+            )
+        )
     )
     counts = counts.at[StateInvariantCode.ACTIVE_GENOME_NONFINITE].set(
         _count(alive & genome_nonfinite)

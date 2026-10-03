@@ -134,6 +134,37 @@ def test_genome_corruptions_are_distinguished(valid_state) -> None:
     assert int(check(inactive).violation_counts[StateInvariantCode.INACTIVE_GENOME_NONZERO]) == 1
 
 
+@pytest.mark.parametrize("birth_step", [-1, 1])
+def test_active_birth_step_must_be_within_state_history(valid_state, birth_step) -> None:
+    corrupted = eqx.tree_at(
+        lambda s: s.population.birth_step,
+        valid_state,
+        valid_state.population.birth_step.at[0].set(birth_step),
+    )
+    assert int(check(corrupted).violation_counts[StateInvariantCode.ACTIVE_AGE_INVALID]) == 1
+
+
+def test_descendant_parent_id_must_precede_child_and_counter(valid_state) -> None:
+    corrupted = eqx.tree_at(
+        lambda s: (s.population.generation, s.population.parent_id),
+        valid_state,
+        (
+            valid_state.population.generation.at[0].set(1),
+            valid_state.population.parent_id.at[0].set(999),
+        ),
+    )
+    assert int(check(corrupted).violation_counts[StateInvariantCode.ACTIVE_GENEALOGY_INVALID]) == 1
+
+
+def test_active_founder_lineages_must_be_unique(valid_state) -> None:
+    corrupted = eqx.tree_at(
+        lambda s: s.population.lineage_id,
+        valid_state,
+        valid_state.population.lineage_id.at[1].set(0),
+    )
+    assert int(check(corrupted).violation_counts[StateInvariantCode.ACTIVE_GENEALOGY_INVALID]) == 1
+
+
 def test_final_viability_is_separate(valid_state) -> None:
     threshold = eqx.tree_at(
         lambda s: s.population.energy,

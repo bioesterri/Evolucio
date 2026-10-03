@@ -143,6 +143,43 @@ def test_death_causes_and_metric_histogram_are_checked(transition_case) -> None:
     assert int(report.violation_counts[TransitionInvariantCode.METRIC_DEATH_CAUSE_MISMATCH]) == 1
 
 
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (lambda e: e.births.parent_agent_id, jnp.asarray([-1, -1, 999], dtype=ID_DTYPE)),
+        (lambda e: e.births.lineage_id, jnp.asarray([-1, -1, 999], dtype=ID_DTYPE)),
+        (
+            lambda e: e.births.birth_position,
+            jnp.asarray([[-1, -1], [-1, -1], [0, 1]], dtype=jnp.int32),
+        ),
+        (lambda e: e.births.child_initial_energy, jnp.asarray([0.0, 0.0, 99.0])),
+    ],
+)
+def test_birth_event_content_must_match_newborn_slot(transition_case, path, value) -> None:
+    report = check(changed(transition_case, "events", path, value))
+    assert int(report.violation_counts[TransitionInvariantCode.BIRTH_EVENT_COUNT_MISMATCH]) > 0
+
+
+def test_death_event_identity_must_identify_a_removed_agent(transition_case) -> None:
+    events = eqx.tree_at(
+        lambda e: (
+            e.deaths.records.died,
+            e.deaths.records.agent_id,
+            e.deaths.records.cause,
+            e.deaths.count,
+        ),
+        transition_case["events"],
+        (
+            jnp.asarray([True, False, False]),
+            jnp.asarray([999, -1, -1], dtype=ID_DTYPE),
+            jnp.asarray([1, 0, 0], dtype=jnp.int8),
+            jnp.asarray(1, dtype=COUNT_DTYPE),
+        ),
+    )
+    report = check(dict(transition_case, events=events))
+    assert int(report.violation_counts[TransitionInvariantCode.DEATH_EVENT_COUNT_MISMATCH]) > 0
+
+
 def test_transition_eager_jit_and_scan(transition_case) -> None:
     eager = check(transition_case)
     compiled = jax.jit(check_step_transition_invariants)(**transition_case)

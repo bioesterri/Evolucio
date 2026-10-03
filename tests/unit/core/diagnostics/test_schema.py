@@ -18,11 +18,11 @@ def test_codes_and_schema_are_frozen() -> None:
     assert [int(code) for code in TransitionInvariantCode] == list(range(16))
     assert STATE_INVARIANT_CODE_COUNT == 19
     assert TRANSITION_INVARIANT_CODE_COUNT == 16
-    assert INVARIANT_SCHEMA_NAME == "core_state_transition_invariants_v1"
-    assert INVARIANT_SCHEMA_VERSION == 1
+    assert INVARIANT_SCHEMA_NAME == "core_state_transition_invariants_v2"
+    assert INVARIANT_SCHEMA_VERSION == 2
     assert invariant_schema_payload()["policy"] == "detect, never repair"
     assert invariant_schema_digest() == INVARIANT_SCHEMA_DIGEST
     assert INVARIANT_SCHEMA_DIGEST == (
-        "3864d23237de0273da59d627e503007820a1c4ada42dc99dd70cb79485bd6d1e"
+        "732d25002a04698e0aedbb629b978d781573dea7a8245261133f7c20f43869b6"
     )
     assert re.fullmatch(r"[0-9a-f]{64}", INVARIANT_SCHEMA_DIGEST)
