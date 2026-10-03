@@ -18,6 +18,7 @@ class MetricsAccumulator(eqx.Module):
 
     steps_accumulated: Array
     births_total: Array
+    birth_rejected_capacity_total: Array
     deaths_total: Array
     deaths_by_cause_total: Array
     resource_consumed_total: Array
@@ -26,6 +27,7 @@ class MetricsAccumulator(eqx.Module):
     movement_energy_cost_total: Array
     feeding_energy_cost_total: Array
     reproduction_energy_cost_total: Array
+    death_energy_removed_total: Array
     movement_success_total: Array
     feeding_success_total: Array
     reproduction_success_total: Array
@@ -42,6 +44,7 @@ def create_empty_metrics_accumulator() -> MetricsAccumulator:
     return MetricsAccumulator(
         steps_accumulated=count,
         births_total=count,
+        birth_rejected_capacity_total=count,
         deaths_total=count,
         deaths_by_cause_total=jnp.zeros((DEATH_CAUSE_COUNT,), dtype=COUNT_DTYPE),
         resource_consumed_total=real,
@@ -50,6 +53,7 @@ def create_empty_metrics_accumulator() -> MetricsAccumulator:
         movement_energy_cost_total=real,
         feeding_energy_cost_total=real,
         reproduction_energy_cost_total=real,
+        death_energy_removed_total=real,
         movement_success_total=count,
         feeding_success_total=count,
         reproduction_success_total=count,
@@ -73,6 +77,7 @@ def update_metrics_accumulator(
     count_pairs = (
         (accumulator.steps_accumulated, jnp.asarray(1, dtype=COUNT_DTYPE)),
         (accumulator.births_total, metrics.birth_count),
+        (accumulator.birth_rejected_capacity_total, metrics.birth_rejected_capacity),
         (accumulator.deaths_total, metrics.death_count),
         (accumulator.deaths_by_cause_total, metrics.deaths_by_cause),
         (accumulator.movement_success_total, metrics.movement_success_count),
@@ -90,8 +95,9 @@ def update_metrics_accumulator(
     return MetricsAccumulator(
         steps_accumulated=sums[0][0],
         births_total=sums[1][0],
-        deaths_total=sums[2][0],
-        deaths_by_cause_total=sums[3][0],
+        birth_rejected_capacity_total=sums[2][0],
+        deaths_total=sums[3][0],
+        deaths_by_cause_total=sums[4][0],
         resource_consumed_total=accumulator.resource_consumed_total + metrics.resource_consumed,
         feeding_energy_gained_total=(
             accumulator.feeding_energy_gained_total + metrics.feeding_energy_gained
@@ -106,11 +112,14 @@ def update_metrics_accumulator(
         reproduction_energy_cost_total=(
             accumulator.reproduction_energy_cost_total + metrics.reproduction_energy_cost
         ),
-        movement_success_total=sums[4][0],
-        feeding_success_total=sums[5][0],
-        reproduction_success_total=sums[6][0],
+        death_energy_removed_total=(
+            accumulator.death_energy_removed_total + metrics.death_energy_removed
+        ),
+        movement_success_total=sums[5][0],
+        feeding_success_total=sums[6][0],
+        reproduction_success_total=sums[7][0],
         death_age_sum=accumulator.death_age_sum + death_age,
-        alive_count_sum=sums[7][0],
+        alive_count_sum=sums[8][0],
         energy_alive_sum=accumulator.energy_alive_sum + metrics.total_energy_alive,
         count_overflow=overflow.astype(MASK_DTYPE),
     )

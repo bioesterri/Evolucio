@@ -14,6 +14,7 @@ from evolucio.core.actions import (
 from evolucio.core.codes import DEATH_CAUSE_COUNT, DeathCauseCode
 from evolucio.core.dtypes import CODE_DTYPE, COUNT_DTYPE, REAL_DTYPE, STEP_DTYPE
 from evolucio.core.energy import ActionEnergyCostResult, PreActionMetabolismResult
+from evolucio.core.evolution import ReproductionResolutionResult
 from evolucio.core.policy import GenomeBatch
 from evolucio.core.state import PopulationState, WorldState
 from evolucio.core.types import Array
@@ -27,6 +28,7 @@ class StepMetrics(eqx.Module):
     step: Array
     alive_count: Array
     birth_count: Array
+    birth_rejected_capacity: Array
     death_count: Array
     deaths_by_cause: Array
     total_energy_alive: Array
@@ -40,6 +42,7 @@ class StepMetrics(eqx.Module):
     movement_energy_cost: Array
     feeding_energy_cost: Array
     reproduction_energy_cost: Array
+    death_energy_removed: Array
     movement_success_count: Array
     feeding_success_count: Array
     reproduction_success_count: Array
@@ -94,6 +97,7 @@ def compute_step_metrics(
     metabolism: PreActionMetabolismResult,
     action_costs: ActionEnergyCostResult,
     movement: MovementResolutionResult,
+    reproduction: ReproductionResolutionResult,
 ) -> StepMetrics:
     """Observe final-state gauges and flows without changing simulation inputs."""
     alive_count = jnp.sum(population.alive, dtype=COUNT_DTYPE)
@@ -129,6 +133,7 @@ def compute_step_metrics(
         step=jnp.asarray(step, dtype=STEP_DTYPE),
         alive_count=alive_count,
         birth_count=birth_count,
+        birth_rejected_capacity=reproduction.no_free_slot_count.astype(COUNT_DTYPE),
         death_count=death_count,
         deaths_by_cause=deaths_by_cause,
         total_energy_alive=total_energy,
@@ -142,6 +147,9 @@ def compute_step_metrics(
         movement_energy_cost=jnp.sum(action_costs.movement_cost_applied, dtype=REAL_DTYPE),
         feeding_energy_cost=jnp.sum(action_costs.feeding_cost_applied, dtype=REAL_DTYPE),
         reproduction_energy_cost=reproduction_cost,
+        death_energy_removed=jnp.sum(
+            jnp.where(death_records.died, death_records.energy, 0), dtype=REAL_DTYPE
+        ),
         movement_success_count=jnp.sum(
             movement.movement_codes == MovementResolutionCode.MOVED, dtype=COUNT_DTYPE
         ),

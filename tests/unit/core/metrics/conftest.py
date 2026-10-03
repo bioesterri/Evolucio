@@ -8,7 +8,8 @@ import pytest
 from evolucio.core.actions import FeedingResolutionResult, MovementResolutionResult
 from evolucio.core.dtypes import CODE_DTYPE, COUNT_DTYPE, ID_DTYPE, INDEX_DTYPE, REAL_DTYPE
 from evolucio.core.energy import ActionEnergyCostResult, PreActionMetabolismResult
-from evolucio.core.evolution import BirthEventBatch
+from evolucio.core.evolution import BirthEventBatch, ReproductionResolutionResult
+from evolucio.core.ids import IdCounters
 from evolucio.core.policy import create_empty_genome_batch
 from evolucio.core.state import PopulationState, WorldState
 from evolucio.core.viability import build_death_records
@@ -121,6 +122,26 @@ def metrics_case() -> dict[str, Any]:
         invalid_movement_input_count=jnp.asarray(0, dtype=COUNT_DTYPE),
         invalid_alive_position_count_after=jnp.asarray(0, dtype=COUNT_DTYPE),
     )
+    reproduction = ReproductionResolutionResult(
+        population=final_population,
+        genomes=create_empty_genome_batch(capacity),
+        world=world,
+        ids=IdCounters(
+            next_agent_id=jnp.asarray(4, dtype=ID_DTYPE),
+            next_genome_id=jnp.asarray(4, dtype=ID_DTYPE),
+            next_lineage_id=jnp.asarray(2, dtype=ID_DTYPE),
+        ),
+        newborn_mask=jnp.asarray([False, False, True, True]),
+        parent_slots=jnp.asarray([-1, -1, 0, 1], dtype=INDEX_DTYPE),
+        birth_positions=jnp.zeros((capacity, 2), dtype=INDEX_DTYPE),
+        reproduction_codes=jnp.zeros(capacity, dtype=CODE_DTYPE),
+        birth_count=jnp.asarray(2, dtype=COUNT_DTYPE),
+        no_birth_position_count=jnp.asarray(0, dtype=COUNT_DTYPE),
+        position_conflict_count=jnp.asarray(0, dtype=COUNT_DTYPE),
+        no_free_slot_count=jnp.asarray(3, dtype=COUNT_DTYPE),
+        invalid_input_count=jnp.asarray(0, dtype=COUNT_DTYPE),
+        id_overflow=jnp.asarray(False),
+    )
     return {
         "population": final_population,
         "genomes": create_empty_genome_batch(capacity),
@@ -132,4 +153,5 @@ def metrics_case() -> dict[str, Any]:
         "metabolism": metabolism,
         "action_costs": action_costs,
         "movement": movement,
+        "reproduction": reproduction,
     }

@@ -27,8 +27,10 @@ def test_empty_then_two_steps_accumulate_and_scan(metrics_case) -> None:
     )
     assert accumulated.steps_accumulated.item() == 2
     assert accumulated.births_total.item() == 4
+    assert accumulated.birth_rejected_capacity_total.item() == 6
     assert accumulated.deaths_total.item() == 4
     assert accumulated.death_age_sum.item() == 24
+    assert accumulated.death_energy_removed_total.item() == 6
 
     def body(carry, _):
         return update_metrics_accumulator(carry, metrics, events), metrics.alive_count

@@ -23,6 +23,7 @@ def compute(case: dict[str, Any]) -> StepMetrics:
         metabolism=case["metabolism"],
         action_costs=case["action_costs"],
         movement=case["movement"],
+        reproduction=case["reproduction"],
     )
 
 
@@ -36,6 +37,7 @@ def test_final_state_gauges_and_step_flows(metrics_case) -> None:
     assert metrics.mean_environment.item() == 0.5
     assert metrics.active_lineage_count.item() == 2
     assert metrics.birth_count.item() == 2
+    assert metrics.birth_rejected_capacity.item() == 3
     assert metrics.death_count.item() == 2
     assert metrics.deaths_by_cause.tolist() == [0, 1, 1, 0, 0, 0]
     assert metrics.mean_age_at_death.item() == 6
@@ -45,6 +47,7 @@ def test_final_state_gauges_and_step_flows(metrics_case) -> None:
     assert metrics.movement_energy_cost.item() == 2
     assert metrics.feeding_energy_cost.item() == 2
     assert metrics.reproduction_energy_cost.item() == 6
+    assert metrics.death_energy_removed.item() == 3
     assert metrics.movement_success_count.item() == 2
     assert metrics.feeding_success_count.item() == 2
     assert metrics.reproduction_success_count.item() == 2

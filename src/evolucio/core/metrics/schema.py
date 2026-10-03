@@ -3,17 +3,18 @@
 import hashlib
 import json
 
-from evolucio.core.codes import DEATH_CAUSE_COUNT
+from evolucio.core.codes import DEATH_CAUSE_COUNT, DeathCauseCode
 
 from .events import DeathPhaseCode
 
-METRICS_SCHEMA_NAME = "step_metrics_events_accumulators_v1"
-METRICS_SCHEMA_VERSION = 1
+METRICS_SCHEMA_NAME = "step_metrics_events_accumulators_v2"
+METRICS_SCHEMA_VERSION = 2
 
 _STEP_FIELDS = (
     "step",
     "alive_count",
     "birth_count",
+    "birth_rejected_capacity",
     "death_count",
     "deaths_by_cause",
     "total_energy_alive",
@@ -27,6 +28,7 @@ _STEP_FIELDS = (
     "movement_energy_cost",
     "feeding_energy_cost",
     "reproduction_energy_cost",
+    "death_energy_removed",
     "movement_success_count",
     "feeding_success_count",
     "reproduction_success_count",
@@ -47,6 +49,7 @@ _FINAL_STATE_FIELDS = (
 _ACCUMULATOR_FIELDS = (
     "steps_accumulated",
     "births_total",
+    "birth_rejected_capacity_total",
     "deaths_total",
     "deaths_by_cause_total",
     "resource_consumed_total",
@@ -55,6 +58,7 @@ _ACCUMULATOR_FIELDS = (
     "movement_energy_cost_total",
     "feeding_energy_cost_total",
     "reproduction_energy_cost_total",
+    "death_energy_removed_total",
     "movement_success_total",
     "feeding_success_total",
     "reproduction_success_total",
@@ -77,6 +81,7 @@ def metrics_schema_payload() -> dict[str, object]:
             for field in _STEP_FIELDS
         },
         "death_phase_codes": [{"name": code.name, "value": int(code)} for code in DeathPhaseCode],
+        "death_cause_codes": [{"name": code.name, "value": int(code)} for code in DeathCauseCode],
         "buffer_shapes": {
             "births": "population_capacity",
             "deaths": "population_capacity",
