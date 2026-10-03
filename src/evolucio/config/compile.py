@@ -16,6 +16,7 @@ from evolucio.core.actions import (
     MOVEMENT_RESOLUTION_SCHEMA_DIGEST,
     MOVEMENT_RESOLUTION_SCHEMA_VERSION,
 )
+from evolucio.core.diagnostics import INVARIANT_SCHEMA_DIGEST, INVARIANT_SCHEMA_VERSION
 from evolucio.core.dtypes import REAL_DTYPE, STEP_DTYPE
 from evolucio.core.energy import (
     ENERGY_ACCOUNTING_SCHEMA_DIGEST,
@@ -54,7 +55,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 17
+COMPILE_SIGNATURE_SCHEMA_VERSION = 18
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -114,6 +115,8 @@ class CompileSignature:
     genealogy_schema_digest: str
     metrics_schema_version: int
     metrics_schema_digest: str
+    invariant_schema_version: int
+    invariant_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -400,6 +403,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         genealogy_schema_digest=GENEALOGY_SCHEMA_DIGEST,
         metrics_schema_version=METRICS_SCHEMA_VERSION,
         metrics_schema_digest=METRICS_SCHEMA_DIGEST,
+        invariant_schema_version=INVARIANT_SCHEMA_VERSION,
+        invariant_schema_digest=INVARIANT_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
