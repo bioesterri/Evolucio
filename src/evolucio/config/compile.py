@@ -29,6 +29,7 @@ from evolucio.core.evolution import (
     REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
     REPRODUCTION_RESOLUTION_SCHEMA_VERSION,
 )
+from evolucio.core.metrics import METRICS_SCHEMA_DIGEST, METRICS_SCHEMA_VERSION
 from evolucio.core.observations.schema import (
     OBSERVATION_SCHEMA_DIGEST,
     OBSERVATION_SIZE,
@@ -53,7 +54,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 16
+COMPILE_SIGNATURE_SCHEMA_VERSION = 17
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -111,6 +112,8 @@ class CompileSignature:
     reproduction_resolution_schema_digest: str
     genealogy_schema_version: int
     genealogy_schema_digest: str
+    metrics_schema_version: int
+    metrics_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -395,6 +398,8 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         reproduction_resolution_schema_digest=REPRODUCTION_RESOLUTION_SCHEMA_DIGEST,
         genealogy_schema_version=GENEALOGY_SCHEMA_VERSION,
         genealogy_schema_digest=GENEALOGY_SCHEMA_DIGEST,
+        metrics_schema_version=METRICS_SCHEMA_VERSION,
+        metrics_schema_digest=METRICS_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
