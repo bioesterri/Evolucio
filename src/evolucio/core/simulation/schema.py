@@ -110,3 +110,50 @@ def simulation_step_schema_digest() -> str:
 
 
 SIMULATION_STEP_SCHEMA_DIGEST = simulation_step_schema_digest()
+
+RUN_CHUNK_SCHEMA_NAME = "compiled_lax_scan_simulation_chunk_v1"
+RUN_CHUNK_SCHEMA_VERSION = 1
+RUN_CHUNK_SCAN_KIND = "lax_scan"
+RUN_CHUNK_UNROLL = 1
+RUN_CHUNK_EARLY_STOP = False
+RUN_CHUNK_OUTPUT_POLICY = "metrics_and_events_only"
+
+
+def run_chunk_schema_payload() -> dict[str, object]:
+    """Return the canonical compiled-chunk execution contract."""
+    return {
+        "name": RUN_CHUNK_SCHEMA_NAME,
+        "version": RUN_CHUNK_SCHEMA_VERSION,
+        "simulation_step_schema_digest": SIMULATION_STEP_SCHEMA_DIGEST,
+        "iterated_unit": "simulation_step",
+        "carry": ["SimulationState", "MetricsAccumulator"],
+        "outputs": ["StepMetrics", "StepEventBuffer"],
+        "xs": None,
+        "length": "fixed_chunk_steps",
+        "temporal_order": "forward",
+        "scan_kind": RUN_CHUNK_SCAN_KIND,
+        "unroll": RUN_CHUNK_UNROLL,
+        "early_stop": RUN_CHUNK_EARLY_STOP,
+        "output_policy": RUN_CHUNK_OUTPUT_POLICY,
+        "state_trajectory": False,
+        "fast_path_diagnostics": False,
+        "compilation": "equinox_filter_jit_over_jax_lax_scan",
+        "chunk_steps": "static_positive_python_int_execution_argument",
+        "chunk_steps_change_may_recompile": True,
+        "chunk_steps_in_scientific_config_hash": False,
+    }
+
+
+def run_chunk_schema_digest() -> str:
+    """Return the canonical SHA-256 digest of the chunk schema."""
+    canonical = json.dumps(
+        run_chunk_schema_payload(),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+RUN_CHUNK_SCHEMA_DIGEST = run_chunk_schema_digest()
