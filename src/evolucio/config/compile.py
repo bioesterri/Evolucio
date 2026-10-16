@@ -45,6 +45,12 @@ from evolucio.core.policy import (
     POLICY_SCHEMA_DIGEST,
 )
 from evolucio.core.rng import PRNG_IMPLEMENTATION
+from evolucio.core.simulation.schema import (
+    RUN_CHUNK_SCHEMA_DIGEST,
+    RUN_CHUNK_SCHEMA_VERSION,
+    SIMULATION_STEP_SCHEMA_DIGEST,
+    SIMULATION_STEP_SCHEMA_VERSION,
+)
 from evolucio.core.viability import (
     POST_ACTION_VIABILITY_SCHEMA_DIGEST,
     POST_ACTION_VIABILITY_SCHEMA_VERSION,
@@ -55,7 +61,7 @@ from evolucio.core.viability import (
 from .freeze import canonical_json_and_hash, freeze_config
 from .models import ExperimentConfig
 
-COMPILE_SIGNATURE_SCHEMA_VERSION = 18
+COMPILE_SIGNATURE_SCHEMA_VERSION = 20
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 _FLOAT32_MAX = 3.4028235e38
@@ -117,6 +123,10 @@ class CompileSignature:
     metrics_schema_digest: str
     invariant_schema_version: int
     invariant_schema_digest: str
+    simulation_step_schema_version: int
+    simulation_step_schema_digest: str
+    run_chunk_schema_version: int
+    run_chunk_schema_digest: str
     genome_schema_version: int
     genome_schema_digest: str
     genome_initialization_name: str
@@ -405,6 +415,10 @@ def build_compile_signature(config: ExperimentConfig) -> CompileSignature:
         metrics_schema_digest=METRICS_SCHEMA_DIGEST,
         invariant_schema_version=INVARIANT_SCHEMA_VERSION,
         invariant_schema_digest=INVARIANT_SCHEMA_DIGEST,
+        simulation_step_schema_version=SIMULATION_STEP_SCHEMA_VERSION,
+        simulation_step_schema_digest=SIMULATION_STEP_SCHEMA_DIGEST,
+        run_chunk_schema_version=RUN_CHUNK_SCHEMA_VERSION,
+        run_chunk_schema_digest=RUN_CHUNK_SCHEMA_DIGEST,
         genome_schema_version=config.genome.schema_version,
         genome_schema_digest=GENOME_SCHEMA_DIGEST,
         genome_initialization_name=config.genome.initialization,
