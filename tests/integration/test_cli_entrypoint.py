@@ -16,17 +16,18 @@ def test_installed_cli(command: list[str]) -> None:
     assert not result.stderr
 
 
-def test_dry_run_does_not_import_device_libraries() -> None:
+@pytest.mark.parametrize("mode", ["smoke", "debug", "experiment", "benchmark"])
+def test_dry_run_does_not_import_device_libraries(mode: str) -> None:
     script = """
 import sys
 from evolucio.cli.main import main
 assert main(['run', 'tests/fixtures/config/valid_v1.json',
-             '--steps', '10', '--chunk-steps', '4', '--dry-run']) == 0
+             '--steps', '10', '--chunk-steps', '4', '--mode', sys.argv[1], '--dry-run']) == 0
 assert 'jax' not in sys.modules
 assert 'equinox' not in sys.modules
 """
     result = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, check=False
+        [sys.executable, "-c", script, mode], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
     assert "chunks: 3" in result.stdout

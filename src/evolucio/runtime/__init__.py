@@ -3,6 +3,19 @@
 from importlib import import_module
 from typing import TYPE_CHECKING
 
+from .modes import (
+    BenchmarkResult,
+    DebugFailure,
+    DebugStepDiagnostic,
+    InvariantDiagnostic,
+    ModeRunResult,
+    RunDiagnosticError,
+    RunMode,
+    RunModePolicy,
+    SmokeReport,
+    get_mode_policy,
+    run_with_mode,
+)
 from .types import ChunkConsumer, HostChunkBatch, RunPlan, RunRuntimeResult
 
 if TYPE_CHECKING:
@@ -61,16 +74,27 @@ __all__ = [
     "RUNTIME_SCHEMA_DIGEST",
     "RUNTIME_SCHEMA_NAME",
     "RUNTIME_SCHEMA_VERSION",
+    "BenchmarkResult",
     "ChunkConsumer",
     "DTOChunkConsumer",
+    "DebugFailure",
+    "DebugStepDiagnostic",
     "HostChunkBatch",
+    "InvariantDiagnostic",
+    "ModeRunResult",
+    "RunDiagnosticError",
+    "RunMode",
+    "RunModePolicy",
     "RunPlan",
     "RunRuntimeResult",
+    "SmokeReport",
     "birth_events_to_dtos",
     "death_events_to_dtos",
+    "get_mode_policy",
     "host_chunk_batch_to_dto",
     "metrics_to_dtos",
     "run_simulation",
+    "run_with_mode",
     "runtime_schema_digest",
     "runtime_schema_payload",
     "simulation_state_to_snapshot",

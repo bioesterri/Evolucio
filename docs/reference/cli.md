@@ -52,3 +52,10 @@ es carreguen quan cal: el dry-run no importa JAX ni Equinox ni inicialitza cap b
 Els errors esperables no mostren traceback. No s'escriu cap resultat persistent,
 manifest, snapshot ni checkpoint, encara que el fitxer contingui intencions de
 persistència: aquest adaptador només valida, inspecciona i executa.
+
+## Modes tècnics
+
+`run --mode smoke|debug|experiment|benchmark` selecciona instrumentació al host.
+El valor per defecte és `experiment`. Consulta [els modes d’execució](run_modes.md)
+per als checks, el warm-up, el timing i la semàntica de `--quiet`. El dry-run
+mostra també el mode i la política sense inicialitzar el backend.
