@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from evolucio import __version__
 from evolucio.config.errors import ConfigError
+from evolucio.runtime.modes import RunDiagnosticError, RunMode
 
 from .config_commands import inspect_config, validate_config
 from .run_command import run_config
@@ -59,11 +60,14 @@ def run(
     path: Path,
     steps: Annotated[int, typer.Option("--steps", min=1)],
     chunk_steps: Annotated[int | None, typer.Option("--chunk-steps", min=1)] = None,
+    mode: Annotated[RunMode, typer.Option("--mode")] = RunMode.EXPERIMENT,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Execute an explicit horizon or show its plan with --dry-run."""
-    output = run_config(path, steps=steps, chunk_steps=chunk_steps, quiet=quiet, dry_run=dry_run)
+    output = run_config(
+        path, steps=steps, chunk_steps=chunk_steps, quiet=quiet, dry_run=dry_run, mode=mode
+    )
     if output:
         typer.echo(output)
 
@@ -78,6 +82,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (ConfigError, ValidationError) as exc:
         print(f"Configuration invalid: {exc}", file=sys.stderr)
         return 2
+    except RunDiagnosticError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     except Exception as exc:
         print(f"Execution failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
