@@ -1,10 +1,13 @@
 """Host contracts for finite, streamed simulation runs."""
 
-from dataclasses import dataclass
-from typing import Protocol
+from __future__ import annotations
 
-from evolucio.core.metrics import MetricsAccumulator, StepEventBuffer, StepMetrics
-from evolucio.core.state import SimulationState
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from evolucio.core.metrics import MetricsAccumulator, StepEventBuffer, StepMetrics
+    from evolucio.core.state import SimulationState
 
 
 @dataclass(frozen=True, slots=True)

@@ -16,6 +16,9 @@ dependencies = [
     "typer>=0.16,<1",
 ]
 
+[project.scripts]
+evolucio = "evolucio.cli.main:main"
+
 [project.optional-dependencies]
 persistence = [
     "mlflow>=3.1,<4",
@@ -90,6 +93,12 @@ fail_under = 90
 root_package = "evolucio"
 exclude_type_checking_imports = true
 include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Simulation layers must not depend on CLI"
+type = "forbidden"
+source_modules = ["evolucio.core", "evolucio.config", "evolucio.runtime", "evolucio.host"]
+forbidden_modules = ["evolucio.cli"]
 
 [[tool.importlinter.contracts]]
 name = "Core must not depend on host configuration"

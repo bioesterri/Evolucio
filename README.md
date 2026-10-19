@@ -26,8 +26,7 @@ uv run python -c "import evolucio"
 ## Qualitat i integració contínua
 
 GitHub Actions executa les mateixes portes de qualitat sobre Linux, Python 3.12 i el backend
-CPU de JAX. La cobertura global mínima és del 90 %. La CI no valida acceleració GPU o TPU i el
-projecte encara no disposa de motor de simulació.
+CPU de JAX. La cobertura global mínima és del 90 %. La CI no valida acceleració GPU o TPU.
 
 ```console
 uv sync --locked --group dev
@@ -63,9 +62,11 @@ els PR posteriors implementin aquestes capes.
 - [Guia de contribució](CONTRIBUTING.md)
 - [Instruccions per a Codex](AGENTS.md)
 - [Configuració d’experiments](docs/configuration.md)
+- [CLI de validació, inspecció i execució](docs/reference/cli.md)
 
 ## Estat d'implementació
 
-El paquet `evolucio` existeix, és instal·lable i encara no inclou motor de simulació, CLI ni
-configuració funcional. El PR-02 incorporarà les primeres proves i la integració contínua; la
-implementació funcional començarà als PR següents.
+El paquet inclou configuració validada, motor de simulació per chunks i DTOs host.
+La CLI `evolucio` permet validar, inspeccionar i executar configuracions amb una
+seed explícita. Consulta la [guia CLI](docs/reference/cli.md) per a les ordres i els
+codis de sortida. L'execució CLI encara no incorpora persistència.
