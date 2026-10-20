@@ -63,6 +63,7 @@ els PR posteriors implementin aquestes capes.
 - [Instruccions per a Codex](AGENTS.md)
 - [Configuració d’experiments](docs/configuration.md)
 - [CLI de validació, inspecció i execució](docs/reference/cli.md)
+- [Lots d’experiments amb paired seeds](docs/reference/experiment_batches.md)
 
 ## Estat d'implementació
 

@@ -59,3 +59,9 @@ persistència: aquest adaptador només valida, inspecciona i executa.
 El valor per defecte és `experiment`. Consulta [els modes d’execució](run_modes.md)
 per als checks, el warm-up, el timing i la semàntica de `--quiet`. El dry-run
 mostra també el mode i la política sense inicialitzar el backend.
+
+## Lots d’experiments
+
+`evolucio batch run` combina opcions repetides `--config CASE_ID=PATH` amb una llista
+explícita `--seeds 11,22,33`. Vegeu [el contracte de lots](experiment_batches.md) per a
+`--dry-run`, `--fail-fast`, la matriu i els codis de sortida.

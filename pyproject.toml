@@ -123,3 +123,9 @@ name = "Core must not depend on host DTOs"
 type = "forbidden"
 source_modules = ["evolucio.core"]
 forbidden_modules = ["evolucio.host"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on experimental orchestration"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.experiments"]
