@@ -13,6 +13,7 @@ from evolucio import __version__
 from evolucio.config.errors import ConfigError
 from evolucio.runtime.modes import RunDiagnosticError, RunMode
 
+from .batch_command import batch_app
 from .config_commands import inspect_config, validate_config
 from .run_command import run_config
 
@@ -23,6 +24,7 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="Validate and inspect normalized configurations.")
 app.add_typer(config_app, name="config")
+app.add_typer(batch_app, name="batch")
 
 
 class OutputFormat(StrEnum):
