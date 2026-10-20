@@ -3,9 +3,12 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import typer
+
 from evolucio.config import FrozenConfig
 from evolucio.config.errors import ConfigError
 from evolucio.host import ChunkTelemetryDTO, StepMetricsDTO
+from evolucio.persistence.local import DEFAULT_RUNS_ROOT, LocalRunRecorder
 from evolucio.runtime import RunMode, RunPlan, get_mode_policy
 
 from .config_commands import load_frozen
@@ -35,6 +38,7 @@ def run_config(
     quiet: bool,
     dry_run: bool,
     mode: RunMode = RunMode.EXPERIMENT,
+    output_root: Path | None = None,
 ) -> str:
     """Prepare a plan or execute through PR-30 and the PR-31 DTO adapter."""
     policy = get_mode_policy(mode)
@@ -65,34 +69,67 @@ def run_config(
                 "remainder": remainder,
             }
         )
-    return _execute(frozen, plan=plan, quiet=quiet, mode=mode)
+    return _execute(frozen, plan=plan, quiet=quiet, mode=mode, output_root=output_root)
 
 
-def _execute(frozen: FrozenConfig, *, plan: RunPlan, quiet: bool, mode: RunMode) -> str:
+def _execute(
+    frozen: FrozenConfig,
+    *,
+    plan: RunPlan,
+    quiet: bool,
+    mode: RunMode,
+    output_root: Path | None = None,
+) -> str:
     """Import device-facing APIs only after validation and dry-run planning."""
     from evolucio.config.compile import ConfigCompilationError, compile_config
-    from evolucio.core.metrics import create_empty_metrics_accumulator
-    from evolucio.runtime import DTOChunkConsumer, run_with_mode
-    from evolucio.runtime.initialization import InitializationError, initialize_simulation
+    from evolucio.runtime import DTOChunkConsumer
+    from evolucio.runtime.recorded_run import run_recorded_simulation
 
     try:
         compiled = compile_config(frozen.config)
-        state = initialize_simulation(compiled.core, seed=frozen.config.seed)
-    except (ConfigCompilationError, InitializationError) as exc:
+    except ConfigCompilationError as exc:
         raise ConfigError(str(exc)) from exc
     consumer = CliRunSummaryConsumer()
-    result = run_with_mode(
-        mode=mode,
-        state=state,
-        accumulator=create_empty_metrics_accumulator(),
-        config=compiled.core,
-        plan=plan,
-        consumer=DTOChunkConsumer(consumer),
-    )
+    recorder: LocalRunRecorder | None = None
+
+    def created(value: LocalRunRecorder) -> None:
+        nonlocal recorder
+        recorder = value
+        if not quiet:
+            typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
+
+    try:
+        recorded = run_recorded_simulation(
+            config=frozen.config,
+            compiled=compiled,
+            plan=plan,
+            mode=mode,
+            output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
+            consumer=DTOChunkConsumer(consumer),
+            on_created=created,
+        )
+    except Exception as exc:
+        if recorder is not None:
+            typer.echo(
+                text_fields(
+                    {
+                        "status": recorder.manifest.status.value,
+                        "run_id": recorder.run_id,
+                        "manifest": str(recorder.run_dir / "manifest.json"),
+                    }
+                ),
+                err=True,
+            )
+        for note in getattr(exc, "__notes__", ()):
+            typer.echo(note, err=True)
+        raise
+    result = recorded.result
+    location: dict[str, object] = {"manifest": str(recorded.run_dir / "manifest.json")}
     if result.benchmark is not None:
         benchmark = result.benchmark
         return text_fields(
             {
+                **location,
                 "mode": result.mode.value,
                 "status": "completed",
                 "warmup": "completed",
@@ -110,6 +147,7 @@ def _execute(frozen: FrozenConfig, *, plan: RunPlan, quiet: bool, mode: RunMode)
     if latest is None:
         raise RuntimeError("runtime completed without metrics")
     summary: dict[str, object] = {
+        **location,
         "status": "completed",
         "steps_executed": result.runtime.steps_executed,
         "final_step": result.runtime.final_step,

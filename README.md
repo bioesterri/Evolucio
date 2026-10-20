@@ -64,6 +64,7 @@ els PR posteriors implementin aquestes capes.
 - [Configuració d’experiments](docs/configuration.md)
 - [CLI de validació, inspecció i execució](docs/reference/cli.md)
 - [Lots d’experiments amb paired seeds](docs/reference/experiment_batches.md)
+- [Registres locals de runs i verificació d’artefactes](docs/reference/local_run_records.md)
 
 ## Estat d'implementació
 
