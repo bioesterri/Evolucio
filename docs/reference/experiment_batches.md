@@ -145,3 +145,11 @@ les observacions per seed; no es calculen mitjanes, diferències A-B, rankings n
 L’execució és seqüencial. Sense estadística inferencial, sweeps automàtics, generació
 aleatòria de seeds, paral·lelisme, persistència, IDs persistents, checkpoint/resume ni
 aturada anticipada. L’anàlisi posterior amb Polars queda fora d’aquest PR.
+
+## Registre local opcional (PR-35)
+
+L’API accepta `run_batch(..., output_root=Path("runs"))`: cada case/seed rep un UUID i
+manifest propis. La CLI batch l’activa per defecte i admet `--output-root`. No hi ha un
+manifest de run compartit per tot el batch. Vegeu [registres locals](local_run_records.md).
+Aquesta extensió substitueix la limitació de manca de persistència local del contracte inicial;
+no afegeix persistència massiva ni modifica el pla, les seeds o els hashes científics.

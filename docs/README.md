@@ -30,6 +30,7 @@ Aquesta pàgina és només un índex. No resumeix ni substitueix els documents d
 - [CLI de validació, inspecció i execució](reference/cli.md)
 - [Modes smoke, debug, experiment i benchmark](reference/run_modes.md)
 - [Lots d’experiments i conjunts de llavors](reference/experiment_batches.md)
+- [Registres locals de runs i artefactes](reference/local_run_records.md)
 - [JSON Schema de configuració 2.0](schemas/experiment-config-v2.0.json)
 
 ## Referència del nucli

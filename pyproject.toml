@@ -97,7 +97,7 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "Simulation layers must not depend on CLI"
 type = "forbidden"
-source_modules = ["evolucio.core", "evolucio.config", "evolucio.runtime", "evolucio.host"]
+source_modules = ["evolucio.core", "evolucio.config", "evolucio.runtime", "evolucio.host", "evolucio.persistence"]
 forbidden_modules = ["evolucio.cli"]
 
 [[tool.importlinter.contracts]]
@@ -129,3 +129,15 @@ name = "Core must not depend on experimental orchestration"
 type = "forbidden"
 source_modules = ["evolucio.core"]
 forbidden_modules = ["evolucio.experiments"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on persistence"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.persistence"]
+
+[[tool.importlinter.contracts]]
+name = "Local artifacts must not import device libraries"
+type = "forbidden"
+source_modules = ["evolucio.persistence.local.artifacts"]
+forbidden_modules = ["jax", "equinox", "evolucio.core"]

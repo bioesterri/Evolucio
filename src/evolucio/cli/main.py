@@ -13,6 +13,7 @@ from evolucio import __version__
 from evolucio.config.errors import ConfigError
 from evolucio.runtime.modes import RunDiagnosticError, RunMode
 
+from .artifact_commands import artifacts_app
 from .batch_command import batch_app
 from .config_commands import inspect_config, validate_config
 from .run_command import run_config
@@ -25,6 +26,7 @@ app = typer.Typer(
 config_app = typer.Typer(help="Validate and inspect normalized configurations.")
 app.add_typer(config_app, name="config")
 app.add_typer(batch_app, name="batch")
+app.add_typer(artifacts_app, name="artifacts")
 
 
 class OutputFormat(StrEnum):
@@ -65,10 +67,19 @@ def run(
     mode: Annotated[RunMode, typer.Option("--mode")] = RunMode.EXPERIMENT,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    output_root: Annotated[
+        Path | None, typer.Option("--output-root", help="Local run root (default: runs). ")
+    ] = None,
 ) -> None:
     """Execute an explicit horizon or show its plan with --dry-run."""
     output = run_config(
-        path, steps=steps, chunk_steps=chunk_steps, quiet=quiet, dry_run=dry_run, mode=mode
+        path,
+        steps=steps,
+        chunk_steps=chunk_steps,
+        quiet=quiet,
+        dry_run=dry_run,
+        mode=mode,
+        output_root=output_root,
     )
     if output:
         typer.echo(output)

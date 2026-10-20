@@ -112,6 +112,8 @@ class BatchRunResult:
     compile_signature: str
     error_type: str | None = None
     error_message: str | None = None
+    run_id: str | None = None
+    run_dir: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

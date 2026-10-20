@@ -65,3 +65,12 @@ mostra també el mode i la política sense inicialitzar el backend.
 `evolucio batch run` combina opcions repetides `--config CASE_ID=PATH` amb una llista
 explícita `--seeds 11,22,33`. Vegeu [el contracte de lots](experiment_batches.md) per a
 `--dry-run`, `--fail-fast`, la matriu i els codis de sortida.
+
+## Registre local de runs
+
+Les execucions reals de `run` creen UUID, configuració congelada i manifest sota `runs/`.
+`--output-root PATH` permet canviar l’arrel. El dry-run continua sense escriptures.
+Una fallada d’inicialització posterior a la creació del run és tècnica (codi 1) i conserva
+manifest failed; els errors de parseig/configuració previs continuen sent codi 2.
+Consulteu [registres locals](local_run_records.md) per a `artifacts inspect/verify`,
+els hashes, lifecycle i la integració amb batch.

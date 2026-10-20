@@ -12,6 +12,7 @@ def summary(text):
     return {
         name: json.loads(value)
         for name, value in (line.split(": ", 1) for line in text.splitlines())
+        if name not in ("run_id", "run_dir", "manifest")
     }
 
 
@@ -110,7 +111,7 @@ def test_runtime_error(config_path, monkeypatch, capsys):
     assert main(["run", str(config_path), "--steps", "1"]) == 1
     output = capsys.readouterr()
     assert "RuntimeError: test failure" in output.err
-    assert not output.out
+    assert "run_id:" in output.out
 
 
 def test_known_initialization_error(config_path, monkeypatch, capsys):
@@ -120,7 +121,7 @@ def test_known_initialization_error(config_path, monkeypatch, capsys):
         "evolucio.runtime.initialization.initialize_simulation",
         Mock(side_effect=InitializationError("founder overflow")),
     )
-    assert main(["run", str(config_path), "--steps", "1"]) == 2
+    assert main(["run", str(config_path), "--steps", "1"]) == 1
     assert "founder overflow" in capsys.readouterr().err
 
 
@@ -128,7 +129,7 @@ def test_missing_telemetry(config_path, monkeypatch, capsys):
     monkeypatch.setattr("evolucio.runtime.initialization.initialize_simulation", Mock())
     monkeypatch.setattr("evolucio.runtime.run_simulation", Mock())
     assert main(["run", str(config_path), "--steps", "1"]) == 1
-    assert "without metrics" in capsys.readouterr().err
+    assert 'status: "failed"' in capsys.readouterr().err
 
 
 def test_consumer_retains_only_latest_record():

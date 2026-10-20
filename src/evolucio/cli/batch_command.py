@@ -19,6 +19,7 @@ from evolucio.experiments import (
     preflight_batch,
     run_batch,
 )
+from evolucio.persistence.local import DEFAULT_RUNS_ROOT
 from evolucio.runtime.modes import RunMode
 
 batch_app = typer.Typer(help="Execute explicit configurations with paired master seeds.")
@@ -62,6 +63,7 @@ def batch_run(
     mode: Annotated[RunMode, typer.Option("--mode")] = RunMode.EXPERIMENT,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+    output_root: Annotated[Path | None, typer.Option("--output-root")] = None,
 ) -> None:
     """Run the case by seed matrix sequentially, or inspect it without simulation."""
     try:
@@ -82,10 +84,16 @@ def batch_run(
     def progress(run: BatchRunResult) -> None:
         typer.echo(
             f"[{run.ordinal}/{plan.run_count}] {run.case_id} seed={run.seed} ... {run.status.value}"
+            f" run_id={run.run_id} run_dir={run.run_dir}"
         )
 
     try:
-        result = run_batch(plan=plan, on_preflight=_show_matrix, on_result=progress)
+        result = run_batch(
+            plan=plan,
+            on_preflight=_show_matrix,
+            on_result=progress,
+            output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
+        )
     except BatchExecutionError as exc:
         _show_summary(exc.runs, exc.requested_run_count)
         raise typer.Exit(1) from exc
