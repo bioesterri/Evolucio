@@ -160,6 +160,7 @@ def create_local_run(
     run_id: str | None = None,
     compile_signature: str | None = None,
     schemas: RunSchemas | None = None,
+    initial_step: int = 0,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
 ) -> LocalRunRecorder:
@@ -192,7 +193,7 @@ def create_local_run(
         total_steps=plan.total_steps,
         chunk_steps=plan.chunk_steps,
         mode=mode,
-        initial_step=0,
+        initial_step=initial_step,
         final_step=None,
         steps_executed=0,
         code_version=version_info.code_version_info(),

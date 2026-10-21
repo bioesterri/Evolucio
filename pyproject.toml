@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2.11,<3",
     "pyyaml>=6.0,<7",
     "typer>=0.16,<1",
+    "zarr>=3.0,<4",
 ]
 
 [project.scripts]
@@ -154,3 +155,10 @@ name = "Host DTOs must not depend on persistence"
 type = "forbidden"
 source_modules = ["evolucio.host"]
 forbidden_modules = ["evolucio.persistence"]
+
+[[tool.importlinter.contracts]]
+name = "Zarr analytical snapshots and scheduling must not import device libraries"
+type = "forbidden"
+source_modules = ["evolucio.persistence.zarr.snapshot", "evolucio.persistence.zarr.schedule", "evolucio.persistence.zarr.schemas"]
+forbidden_modules = ["jax", "equinox", "evolucio.core"]
+allow_indirect_imports = true
