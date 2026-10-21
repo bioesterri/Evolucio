@@ -20,12 +20,16 @@ from evolucio.persistence.local import (
     create_local_run,
 )
 from evolucio.persistence.parquet.schemas import DEFAULT_PARQUET_POLICY, ParquetPersistencePolicy
+from evolucio.persistence.zarr.schemas import DEFAULT_ZARR_POLICY, ZarrCapturePolicy
 
 from .modes import ModeRunResult, RunDiagnosticError, RunMode
 from .types import ChunkConsumer, HostChunkBatch, RunPlan
 
 if TYPE_CHECKING:
     from evolucio.config.compile import CompiledConfig, CoreConfig
+    from evolucio.persistence.zarr.checkpoint import CheckpointRestore
+
+    from .capture_runner import RunCaptures
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +84,8 @@ class RecordedRunResult:
 def execute_recorded_simulation(
     *,
     recorder: LocalRunRecorder,
+    capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
+    restored: CheckpointRestore | None = None,
     parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
     config: CoreConfig,
     plan: RunPlan,
@@ -106,12 +112,37 @@ def execute_recorded_simulation(
     from .dto_conversion import DTOChunkConsumer
 
     parquet: ParquetRunConsumer | None = None
+    captures: RunCaptures | None = None
     try:
         parquet = ParquetRunConsumer(recorder, parquet_policy)
+        if capture_policy.enabled:
+            from .capture_runner import RunCaptures
+
+            captures = RunCaptures(recorder, config, capture_policy)
+        if restored is not None:
+            recorder.write_json_artifact(
+                relative_path="artifacts/checkpoint_source.json",
+                name="checkpoint_source",
+                kind="checkpoint_provenance",
+                payload={
+                    "source_run_id": restored.run_id,
+                    "source_checkpoint_step": restored.state_step,
+                    "source_checkpoint_hash": restored.checkpoint_sha256,
+                },
+            )
         if on_created is not None:
             on_created(recorder)
-        state = initialize_simulation(config, seed=recorder.manifest.seed)
-        accumulator = create_empty_metrics_accumulator()
+        if restored is None:
+            state = initialize_simulation(config, seed=recorder.manifest.seed)
+            accumulator = create_empty_metrics_accumulator()
+        else:
+            if (
+                restored.config_hash != recorder.manifest.config_hash
+                or restored.compile_signature != recorder.manifest.compile_signature
+                or restored.state_step != recorder.manifest.initial_step
+            ):
+                raise ValueError("restored carry does not match the recorded continuation")
+            state, accumulator = restored.state, restored.accumulator
         sink = consumer if consumer_factory is None else consumer_factory()
         parquet_sink = DTOChunkConsumer(parquet)
         original_sink = sink
@@ -122,15 +153,30 @@ def execute_recorded_simulation(
                 original_sink(batch)
 
         recorder.mark_running()
-        outcome = run_with_mode(
-            mode=mode,
-            state=state,
-            accumulator=accumulator,
-            config=config,
-            plan=plan,
-            consumer=composed,
-        )
+        if captures is None:
+            outcome = run_with_mode(
+                mode=mode,
+                state=state,
+                accumulator=accumulator,
+                config=config,
+                plan=plan,
+                consumer=composed,
+            )
+        else:
+            from .capture_runner import run_with_captures
+
+            outcome = run_with_captures(
+                mode=mode,
+                state=state,
+                accumulator=accumulator,
+                config=config,
+                plan=plan,
+                consumer=composed,
+                captures=captures,
+            )
         summary = summarize_run(outcome)
+        if captures is not None:
+            captures.writer.finalize()
         parquet_summary = parquet.finalize()
         recorder.mark_completed(
             summary=asdict(summary) | asdict(parquet_summary),
@@ -139,6 +185,11 @@ def execute_recorded_simulation(
         )
         return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
     except Exception as exc:
+        if captures is not None and not captures.writer.closed:
+            try:
+                captures.writer.finalize(complete=False)
+            except Exception as capture_error:
+                exc.add_note(f"Could not finalize partial Zarr index: {capture_error}")
         if parquet is not None and not parquet.closed:
             try:
                 parquet.finalize_partial()
@@ -163,6 +214,8 @@ def execute_recorded_simulation(
 def run_recorded_simulation(
     *,
     config: ExperimentConfig,
+    capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
+    source_checkpoint: Path | None = None,
     parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
     plan: RunPlan,
     mode: RunMode = RunMode.EXPERIMENT,
@@ -181,6 +234,15 @@ def run_recorded_simulation(
     prepared = compile_config(config) if compiled is None else compiled
     if prepared.config_hash != freeze_config(config).config_hash:
         raise ValueError("compiled configuration does not match the frozen host configuration")
+    restored = None
+    if source_checkpoint is not None:
+        from evolucio.persistence.zarr.checkpoint import load_checkpoint
+
+        restored = load_checkpoint(
+            checkpoint_path=source_checkpoint,
+            expected_config_hash=prepared.config_hash,
+            expected_compile_signature=compile_signature_digest(prepared.compile_signature),
+        )
     recorder = create_local_run(
         config=config,
         plan=plan,
@@ -194,11 +256,14 @@ def run_recorded_simulation(
             prepared.compile_signature.simulation_step_schema_digest,
             prepared.compile_signature.metrics_schema_digest,
         ),
+        initial_step=0 if restored is None else restored.state_step,
         case_id=case_id,
         batch_ordinal=batch_ordinal,
     )
     return execute_recorded_simulation(
         recorder=recorder,
+        capture_policy=capture_policy,
+        restored=restored,
         parquet_policy=parquet_policy,
         config=prepared.core,
         plan=plan,

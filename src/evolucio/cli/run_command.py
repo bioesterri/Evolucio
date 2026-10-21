@@ -9,6 +9,8 @@ from evolucio.config import FrozenConfig
 from evolucio.config.errors import ConfigError
 from evolucio.host import ChunkTelemetryDTO, StepMetricsDTO
 from evolucio.persistence.local import DEFAULT_RUNS_ROOT, LocalRunRecorder
+from evolucio.persistence.zarr.schedule import expected_capture_steps, next_chunk_length
+from evolucio.persistence.zarr.schemas import DEFAULT_ZARR_POLICY, ZarrCapturePolicy
 from evolucio.runtime import RunMode, RunPlan, get_mode_policy
 
 from .config_commands import load_frozen
@@ -39,6 +41,7 @@ def run_config(
     dry_run: bool,
     mode: RunMode = RunMode.EXPERIMENT,
     output_root: Path | None = None,
+    capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
 ) -> str:
     """Prepare a plan or execute through PR-30 and the PR-31 DTO adapter."""
     policy = get_mode_policy(mode)
@@ -49,8 +52,40 @@ def run_config(
     )
     if dry_run:
         full_chunks, remainder = divmod(plan.total_steps, plan.chunk_steps)
+        chunks = full_chunks + int(remainder > 0)
+        capture_plan: dict[str, object] = {}
+        if capture_policy.enabled:
+            position = 0
+            lengths: list[int] = []
+            while position < plan.total_steps:
+                length = next_chunk_length(
+                    state_step=position,
+                    remaining_steps=plan.total_steps - position,
+                    chunk_steps=plan.chunk_steps,
+                    policy=capture_policy,
+                )
+                lengths.append(length)
+                position += length
+            chunks = len(lengths)
+            full_chunks = lengths.count(plan.chunk_steps)
+            remainder = lengths[-1] if lengths[-1] != plan.chunk_steps else 0
+            capture_plan["planned_chunk_lengths"] = lengths
         return text_fields(
             {
+                "checkpoint_every": capture_policy.checkpoint_interval,
+                "snapshot_every": capture_policy.snapshot_interval,
+                "expected_checkpoint_steps": expected_capture_steps(
+                    initial_step=0,
+                    total_steps=steps,
+                    interval=capture_policy.checkpoint_interval,
+                    on_completion=capture_policy.checkpoint_on_completion,
+                ),
+                "expected_snapshot_steps": expected_capture_steps(
+                    initial_step=0,
+                    total_steps=steps,
+                    interval=capture_policy.snapshot_interval,
+                    on_completion=capture_policy.snapshot_on_completion,
+                ),
                 "mode": mode.value,
                 "diagnostics_policy": {
                     "per_step": policy.per_step_diagnostics,
@@ -64,12 +99,20 @@ def run_config(
                 "seed": frozen.config.seed,
                 "total_steps": plan.total_steps,
                 "chunk_steps": plan.chunk_steps,
-                "chunks": full_chunks + int(remainder > 0),
+                "chunks": chunks,
+                **capture_plan,
                 "full_chunks": full_chunks,
                 "remainder": remainder,
             }
         )
-    return _execute(frozen, plan=plan, quiet=quiet, mode=mode, output_root=output_root)
+    return _execute(
+        frozen,
+        plan=plan,
+        quiet=quiet,
+        mode=mode,
+        output_root=output_root,
+        capture_policy=capture_policy,
+    )
 
 
 def _execute(
@@ -79,6 +122,7 @@ def _execute(
     quiet: bool,
     mode: RunMode,
     output_root: Path | None = None,
+    capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
 ) -> str:
     """Import device-facing APIs only after validation and dry-run planning."""
     from evolucio.config.compile import ConfigCompilationError, compile_config
@@ -102,6 +146,7 @@ def _execute(
         recorded = run_recorded_simulation(
             config=frozen.config,
             compiled=compiled,
+            capture_policy=capture_policy,
             plan=plan,
             mode=mode,
             output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,

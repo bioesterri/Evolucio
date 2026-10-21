@@ -1219,6 +1219,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typer" },
+    { name = "zarr" },
 ]
 
 [package.optional-dependencies]
@@ -1264,6 +1265,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "sqlalchemy", marker = "extra == 'persistence'", specifier = ">=2.0,<3" },
     { name = "typer", specifier = ">=0.16,<1" },
+    { name = "zarr", specifier = ">=3.0,<4" },
     { name = "zarr", marker = "extra == 'persistence'", specifier = ">=3.0,<4" },
 ]
 provides-extras = ["persistence", "analysis", "visualization"]

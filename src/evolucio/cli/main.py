@@ -15,6 +15,7 @@ from evolucio.runtime.modes import RunDiagnosticError, RunMode
 
 from .artifact_commands import artifacts_app
 from .batch_command import batch_app
+from .capture_commands import checkpoint_app, snapshot_app
 from .config_commands import inspect_config, validate_config
 from .run_command import run_config
 
@@ -23,6 +24,8 @@ app = typer.Typer(
     invoke_without_command=True,
     no_args_is_help=True,
 )
+app.add_typer(checkpoint_app, name="checkpoint")
+app.add_typer(snapshot_app, name="snapshot")
 config_app = typer.Typer(help="Validate and inspect normalized configurations.")
 app.add_typer(config_app, name="config")
 app.add_typer(batch_app, name="batch")
@@ -67,11 +70,27 @@ def run(
     mode: Annotated[RunMode, typer.Option("--mode")] = RunMode.EXPERIMENT,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    checkpoint_every: Annotated[int | None, typer.Option("--checkpoint-every", min=1)] = None,
+    snapshot_every: Annotated[int | None, typer.Option("--snapshot-every", min=1)] = None,
+    checkpoint_on_completion: Annotated[bool, typer.Option("--checkpoint-on-completion")] = False,
+    snapshot_on_completion: Annotated[bool, typer.Option("--snapshot-on-completion")] = False,
+    keep_last_checkpoints: Annotated[
+        int | None, typer.Option("--keep-last-checkpoints", min=1)
+    ] = None,
     output_root: Annotated[
         Path | None, typer.Option("--output-root", help="Local run root (default: runs). ")
     ] = None,
 ) -> None:
     """Execute an explicit horizon or show its plan with --dry-run."""
+    from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
+
+    capture_policy = ZarrCapturePolicy(
+        checkpoint_every,
+        snapshot_every,
+        checkpoint_on_completion,
+        snapshot_on_completion,
+        keep_last_checkpoints,
+    )
     output = run_config(
         path,
         steps=steps,
@@ -80,6 +99,7 @@ def run(
         dry_run=dry_run,
         mode=mode,
         output_root=output_root,
+        capture_policy=capture_policy,
     )
     if output:
         typer.echo(output)

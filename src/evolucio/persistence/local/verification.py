@@ -19,6 +19,7 @@ class LocalRunVerification:
     hash_mismatches: tuple[str, ...]
     invalid_paths: tuple[str, ...]
     parquet_errors: tuple[str, ...] = ()
+    zarr_errors: tuple[str, ...] = ()
 
 
 def verify_local_run(run_dir: Path) -> LocalRunVerification:
@@ -69,10 +70,25 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
                     *report.consistency_errors,
                 )
             )
+    zarr_errors: list[str] = []
+    if any(record.kind == "zarr_artifact_index" for record in manifest.artifacts):
+        from evolucio.persistence.zarr.integrity import verify_zarr_artifacts
+
+        report_zarr = verify_zarr_artifacts(run_dir)
+        missing.extend(report_zarr.missing_stores)
+        mismatches.extend(report_zarr.hash_mismatches)
+        zarr_errors.extend(
+            (
+                *report_zarr.orphan_stores,
+                *report_zarr.schema_errors,
+                *report_zarr.compatibility_errors,
+            )
+        )
     return LocalRunVerification(
-        not (missing or mismatches or invalid or parquet_errors),
+        not (missing or mismatches or invalid or parquet_errors or zarr_errors),
         tuple(missing),
         tuple(mismatches),
         tuple(invalid),
         tuple(parquet_errors),
+        tuple(zarr_errors),
     )
