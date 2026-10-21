@@ -11,6 +11,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "equinox>=0.13,<0.14",
     "jax>=0.7,<0.8",
+    "polars>=1.31,<2",
     "pydantic>=2.11,<3",
     "pyyaml>=6.0,<7",
     "typer>=0.16,<1",
@@ -141,3 +142,15 @@ name = "Local artifacts must not import device libraries"
 type = "forbidden"
 source_modules = ["evolucio.persistence.local.artifacts"]
 forbidden_modules = ["jax", "equinox", "evolucio.core"]
+
+[[tool.importlinter.contracts]]
+name = "Parquet must use host DTOs only"
+type = "forbidden"
+source_modules = ["evolucio.persistence.parquet.frames", "evolucio.persistence.parquet.schemas"]
+forbidden_modules = ["evolucio.core", "evolucio.runtime", "jax", "equinox"]
+
+[[tool.importlinter.contracts]]
+name = "Host DTOs must not depend on persistence"
+type = "forbidden"
+source_modules = ["evolucio.host"]
+forbidden_modules = ["evolucio.persistence"]

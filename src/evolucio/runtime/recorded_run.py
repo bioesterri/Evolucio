@@ -19,9 +19,10 @@ from evolucio.persistence.local import (
     RunStatus,
     create_local_run,
 )
+from evolucio.persistence.parquet.schemas import DEFAULT_PARQUET_POLICY, ParquetPersistencePolicy
 
 from .modes import ModeRunResult, RunDiagnosticError, RunMode
-from .types import ChunkConsumer, RunPlan
+from .types import ChunkConsumer, HostChunkBatch, RunPlan
 
 if TYPE_CHECKING:
     from evolucio.config.compile import CompiledConfig, CoreConfig
@@ -79,6 +80,7 @@ class RecordedRunResult:
 def execute_recorded_simulation(
     *,
     recorder: LocalRunRecorder,
+    parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
     config: CoreConfig,
     plan: RunPlan,
     mode: RunMode,
@@ -99,12 +101,26 @@ def execute_recorded_simulation(
         or recorder.manifest.mode != mode
     ):
         raise ValueError("recorder and runtime plan/mode do not match")
+    from evolucio.persistence.parquet import ParquetRunConsumer
+
+    from .dto_conversion import DTOChunkConsumer
+
+    parquet: ParquetRunConsumer | None = None
     try:
+        parquet = ParquetRunConsumer(recorder, parquet_policy)
         if on_created is not None:
             on_created(recorder)
         state = initialize_simulation(config, seed=recorder.manifest.seed)
         accumulator = create_empty_metrics_accumulator()
         sink = consumer if consumer_factory is None else consumer_factory()
+        parquet_sink = DTOChunkConsumer(parquet)
+        original_sink = sink
+
+        def composed(batch: HostChunkBatch) -> None:
+            parquet_sink(batch)
+            if original_sink is not None:
+                original_sink(batch)
+
         recorder.mark_running()
         outcome = run_with_mode(
             mode=mode,
@@ -112,16 +128,22 @@ def execute_recorded_simulation(
             accumulator=accumulator,
             config=config,
             plan=plan,
-            consumer=sink,
+            consumer=composed,
         )
         summary = summarize_run(outcome)
+        parquet_summary = parquet.finalize()
         recorder.mark_completed(
-            summary=asdict(summary),
+            summary=asdict(summary) | asdict(parquet_summary),
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
         )
         return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
     except Exception as exc:
+        if parquet is not None and not parquet.closed:
+            try:
+                parquet.finalize_partial()
+            except Exception as partial_error:
+                exc.add_note(f"Could not finalize partial Parquet: {partial_error}")
         try:
             recorder.mark_failed(
                 RunErrorRecord(
@@ -141,6 +163,7 @@ def execute_recorded_simulation(
 def run_recorded_simulation(
     *,
     config: ExperimentConfig,
+    parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
     plan: RunPlan,
     mode: RunMode = RunMode.EXPERIMENT,
     output_root: Path = DEFAULT_RUNS_ROOT,
@@ -176,6 +199,7 @@ def run_recorded_simulation(
     )
     return execute_recorded_simulation(
         recorder=recorder,
+        parquet_policy=parquet_policy,
         config=prepared.core,
         plan=plan,
         mode=mode,

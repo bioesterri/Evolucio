@@ -21,6 +21,24 @@ def _inspect_or_verify(run_dir: Path, *, inspect: bool) -> None:
         raise typer.Exit(2) from exc
     if inspect:
         typer.echo(json_text(manifest_to_payload(manifest)))
+        if verification.ok and any(
+            record.kind == "parquet_dataset_index" for record in manifest.artifacts
+        ):
+            from evolucio.persistence.parquet.index import load_index
+
+            index = load_index(run_dir)
+            typer.echo(
+                json_text(
+                    {
+                        "parquet": {
+                            name: {"rows": dataset.row_count, "parts": dataset.part_count}
+                            for name, dataset in index.datasets.items()
+                        },
+                        "metrics_interval": index.policy.metrics_interval,
+                        "complete": index.complete,
+                    }
+                )
+            )
     typer.echo(json_text(asdict(verification)))
     if not verification.ok:
         raise typer.Exit(1)

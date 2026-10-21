@@ -50,7 +50,11 @@ def test_audit_survives_loss_of_python_objects(tmp_path, monkeypatch, mode):
     )
     assert manifest.compile_signature
     assert manifest.finished_at_utc and manifest.error is None
-    assert {a.relative_path for a in manifest.artifacts} == {"config.json", "summary.json"}
+    assert {a.relative_path for a in manifest.artifacts} == {
+        "config.json",
+        "summary.json",
+        "artifacts/parquet/datasets.json",
+    }
     for record in manifest.artifacts:
         assert record.sha256 == sha256_file(directory / record.relative_path)
         assert record.byte_size == (directory / record.relative_path).stat().st_size
