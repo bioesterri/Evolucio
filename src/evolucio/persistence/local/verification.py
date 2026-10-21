@@ -18,6 +18,7 @@ class LocalRunVerification:
     missing_artifacts: tuple[str, ...]
     hash_mismatches: tuple[str, ...]
     invalid_paths: tuple[str, ...]
+    parquet_errors: tuple[str, ...] = ()
 
 
 def verify_local_run(run_dir: Path) -> LocalRunVerification:
@@ -53,6 +54,25 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
                     mismatches.append(relative)
             except (ConfigError, ValidationError):
                 mismatches.append(relative)
+    parquet_errors: list[str] = []
+    if any(record.kind == "parquet_dataset_index" for record in manifest.artifacts):
+        from evolucio.persistence.parquet.verify import verify_parquet_datasets
+
+        report = verify_parquet_datasets(run_dir)
+        if not report.ok:
+            missing.extend(report.missing_parts)
+            mismatches.extend(report.hash_mismatches)
+            parquet_errors.extend(
+                (
+                    *report.schema_mismatches,
+                    *report.orphan_parts,
+                    *report.consistency_errors,
+                )
+            )
     return LocalRunVerification(
-        not (missing or mismatches or invalid), tuple(missing), tuple(mismatches), tuple(invalid)
+        not (missing or mismatches or invalid or parquet_errors),
+        tuple(missing),
+        tuple(mismatches),
+        tuple(invalid),
+        tuple(parquet_errors),
     )
