@@ -11,13 +11,19 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "equinox>=0.13,<0.14",
     "jax>=0.7,<0.8",
+    "polars>=1.31,<2",
     "pydantic>=2.11,<3",
     "pyyaml>=6.0,<7",
     "typer>=0.16,<1",
+    "zarr>=3.0,<4",
 ]
+
+[project.scripts]
+evolucio = "evolucio.cli.main:main"
 
 [project.optional-dependencies]
 persistence = [
+    "alembic>=1.16,<2",
     "mlflow>=3.1,<4",
     "psycopg[binary]>=3.2,<4",
     "pyarrow>=20,<22",
@@ -35,12 +41,15 @@ visualization = [
 
 [dependency-groups]
 dev = [
+    "alembic>=1.16,<2",
     "coverage>=7.9,<8",
     "hypothesis>=6.135,<7",
     "import-linter>=2.3,<3",
+    "psycopg[binary]>=3.2,<4",
     "pyright>=1.1.402,<2",
     "pytest>=8.4,<9",
     "ruff>=0.12,<1",
+    "sqlalchemy>=2.0,<3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -89,9 +98,71 @@ fail_under = 90
 [tool.importlinter]
 root_package = "evolucio"
 exclude_type_checking_imports = true
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Simulation layers must not depend on CLI"
+type = "forbidden"
+source_modules = ["evolucio.core", "evolucio.config", "evolucio.runtime", "evolucio.host", "evolucio.persistence"]
+forbidden_modules = ["evolucio.cli"]
 
 [[tool.importlinter.contracts]]
 name = "Core must not depend on host configuration"
 type = "forbidden"
 source_modules = ["evolucio.core"]
 forbidden_modules = ["evolucio.config"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on host runtime"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.runtime"]
+
+[[tool.importlinter.contracts]]
+name = "Host DTOs must be independent of simulation and device libraries"
+type = "forbidden"
+source_modules = ["evolucio.host"]
+forbidden_modules = ["evolucio.core", "evolucio.runtime", "jax", "equinox"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on host DTOs"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.host"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on experimental orchestration"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.experiments"]
+
+[[tool.importlinter.contracts]]
+name = "Core must not depend on persistence"
+type = "forbidden"
+source_modules = ["evolucio.core"]
+forbidden_modules = ["evolucio.persistence"]
+
+[[tool.importlinter.contracts]]
+name = "Local artifacts must not import device libraries"
+type = "forbidden"
+source_modules = ["evolucio.persistence.local.artifacts"]
+forbidden_modules = ["jax", "equinox", "evolucio.core"]
+
+[[tool.importlinter.contracts]]
+name = "Parquet must use host DTOs only"
+type = "forbidden"
+source_modules = ["evolucio.persistence.parquet.frames", "evolucio.persistence.parquet.schemas"]
+forbidden_modules = ["evolucio.core", "evolucio.runtime", "jax", "equinox"]
+
+[[tool.importlinter.contracts]]
+name = "Host DTOs must not depend on persistence"
+type = "forbidden"
+source_modules = ["evolucio.host"]
+forbidden_modules = ["evolucio.persistence"]
+
+[[tool.importlinter.contracts]]
+name = "Zarr analytical snapshots and scheduling must not import device libraries"
+type = "forbidden"
+source_modules = ["evolucio.persistence.zarr.snapshot", "evolucio.persistence.zarr.schedule", "evolucio.persistence.zarr.schemas"]
+forbidden_modules = ["jax", "equinox", "evolucio.core"]
+allow_indirect_imports = true

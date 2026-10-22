@@ -1,0 +1,34 @@
+{
+  "fixture_version": 1,
+  "seed": 1729,
+  "steps": 8,
+  "config_hash": "fdb7dc3523d9a12bce73804fb647a0ea2f8deb03705013e7eea786b8d24e96ac",
+  "contract_digests": {
+    "simulation_step": "430357452f03ba96181d5c790e66f4c8ca9ef97322c7caf5a43d4384a06184cf",
+    "run_chunk": "f448c61cc4de4415d9bb865c54d5588380e87c59f7e11ad240840a5ef7cdf4d9",
+    "metrics": "d7d337952ee03acbc2824a1994223f3bf6753b1cb064c68e5f3bbeb9212f318d"
+  },
+  "expected": {
+    "final_step": 8,
+    "alive_count": 4,
+    "births_total": 2,
+    "deaths_total": 1,
+    "deaths_by_cause": [0, 1, 0, 0, 0, 0],
+    "final_total_energy": 84.22249603271484,
+    "final_total_resources": 214.41012573242188,
+    "active_lineage_count": 2,
+    "next_agent_id": 5,
+    "next_genome_id": 5,
+    "next_lineage_id": 3
+  },
+  "checkpoints": [
+    {"step": 0, "alive_count": 4, "birth_count": 1, "death_count": 0, "total_energy_alive": 81.83000183105469, "total_resources": 178.0, "active_lineage_count": 3, "genetic_parameter_variance": 0.006785269360989332},
+    {"step": 1, "alive_count": 4, "birth_count": 1, "death_count": 1, "total_energy_alive": 83.45999908447266, "total_resources": 185.10000610351562, "active_lineage_count": 2, "genetic_parameter_variance": 0.004261557012796402},
+    {"step": 3, "alive_count": 4, "birth_count": 0, "death_count": 0, "total_energy_alive": 84.90249633789062, "total_resources": 199.95938110351562, "active_lineage_count": 2, "genetic_parameter_variance": 0.004261557012796402},
+    {"step": 7, "alive_count": 4, "birth_count": 0, "death_count": 0, "total_energy_alive": 84.22249603271484, "total_resources": 214.41012573242188, "active_lineage_count": 2, "genetic_parameter_variance": 0.004261557012796402}
+  ],
+  "genealogy": [
+    {"birth_step": 0, "child_agent_id": 3, "parent_agent_id": 0, "lineage_id": 0, "generation": 1, "child_genome_id": 3, "parent_genome_id": 0, "mutation_selected_count": 81, "mutation_effective_count": 81, "mutation_sum_abs_delta": 3.4050328731536865, "mutation_max_abs_delta": 0.17239972949028015},
+    {"birth_step": 1, "child_agent_id": 4, "parent_agent_id": 0, "lineage_id": 0, "generation": 1, "child_genome_id": 4, "parent_genome_id": 0, "mutation_selected_count": 76, "mutation_effective_count": 76, "mutation_sum_abs_delta": 2.8821873664855957, "mutation_max_abs_delta": 0.1260393261909485}
+  ]
+}
