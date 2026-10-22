@@ -81,3 +81,33 @@ jobs:
           /tmp/evolucio-wheel-venv/bin/python -c 'import evolucio'
           /tmp/evolucio-wheel-venv/bin/python -c "from importlib.metadata import version; assert version('projecte-evolucio') == '$expected_version'"
           /tmp/evolucio-wheel-venv/bin/python -c "from importlib.metadata import files; assert any(str(path).endswith('evolucio/py.typed') for path in files('projecte-evolucio'))"
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: evolucio
+          POSTGRES_PASSWORD: evolucio-test
+          POSTGRES_DB: evolucio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evolucio -d evolucio_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      EVOLUCIO_TEST_DATABASE_URL: postgresql+psycopg://evolucio:evolucio-test@localhost:5432/evolucio_test
+      EVOLUCIO_DATABASE_URL: postgresql+psycopg://evolucio:evolucio-test@localhost:5432/evolucio_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v9.0.0
+      - run: uv sync --locked --group dev --extra persistence
+      - run: uv run pytest tests/integration/postgres
+      - run: uv run alembic current

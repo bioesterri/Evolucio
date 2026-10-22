@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 import typer
 from pydantic import ValidationError
@@ -17,6 +18,7 @@ from .artifact_commands import artifacts_app
 from .batch_command import batch_app
 from .capture_commands import checkpoint_app, snapshot_app
 from .config_commands import inspect_config, validate_config
+from .database_commands import database_app, experiment_app
 from .run_command import run_config
 
 app = typer.Typer(
@@ -30,6 +32,8 @@ config_app = typer.Typer(help="Validate and inspect normalized configurations.")
 app.add_typer(config_app, name="config")
 app.add_typer(batch_app, name="batch")
 app.add_typer(artifacts_app, name="artifacts")
+app.add_typer(database_app, name="db")
+app.add_typer(experiment_app, name="experiment")
 
 
 class OutputFormat(StrEnum):
@@ -80,6 +84,7 @@ def run(
     output_root: Annotated[
         Path | None, typer.Option("--output-root", help="Local run root (default: runs). ")
     ] = None,
+    experiment_id: Annotated[UUID | None, typer.Option("--experiment-id")] = None,
 ) -> None:
     """Execute an explicit horizon or show its plan with --dry-run."""
     from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
@@ -100,6 +105,7 @@ def run(
         mode=mode,
         output_root=output_root,
         capture_policy=capture_policy,
+        experiment_id=experiment_id,
     )
     if output:
         typer.echo(output)
