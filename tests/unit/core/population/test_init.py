@@ -30,8 +30,7 @@ from evolucio.core.population import (
     initialize_population,
 )
 from evolucio.core.population.init import _build_initial_alive_mask
-from evolucio.core.spatial import compute_occupancy
-from evolucio.core.world import initialize_world
+from evolucio.core.world import compute_occupancy, initialize_world
 
 
 @pytest.fixture
