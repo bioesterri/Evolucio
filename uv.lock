@@ -1228,6 +1228,7 @@ analysis = [
     { name = "pyarrow" },
 ]
 persistence = [
+    { name = "alembic" },
     { name = "mlflow" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyarrow" },
@@ -1241,16 +1242,20 @@ visualization = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "alembic" },
     { name = "coverage" },
     { name = "hypothesis" },
     { name = "import-linter" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", marker = "extra == 'persistence'", specifier = ">=1.16,<2" },
     { name = "equinox", specifier = ">=0.13,<0.14" },
     { name = "imageio", marker = "extra == 'visualization'", specifier = ">=2.37,<3" },
     { name = "jax", specifier = ">=0.7,<0.8" },
@@ -1272,12 +1277,15 @@ provides-extras = ["persistence", "analysis", "visualization"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "alembic", specifier = ">=1.16,<2" },
     { name = "coverage", specifier = ">=7.9,<8" },
     { name = "hypothesis", specifier = ">=6.135,<7" },
     { name = "import-linter", specifier = ">=2.3,<3" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pyright", specifier = ">=1.1.402,<2" },
     { name = "pytest", specifier = ">=8.4,<9" },
     { name = "ruff", specifier = ">=0.12,<1" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3" },
 ]
 
 [[package]]

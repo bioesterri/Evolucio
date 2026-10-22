@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID
 
 import typer
 
@@ -42,6 +43,7 @@ def run_config(
     mode: RunMode = RunMode.EXPERIMENT,
     output_root: Path | None = None,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
+    experiment_id: UUID | None = None,
 ) -> str:
     """Prepare a plan or execute through PR-30 and the PR-31 DTO adapter."""
     policy = get_mode_policy(mode)
@@ -112,6 +114,7 @@ def run_config(
         mode=mode,
         output_root=output_root,
         capture_policy=capture_policy,
+        experiment_id=experiment_id,
     )
 
 
@@ -123,6 +126,7 @@ def _execute(
     mode: RunMode,
     output_root: Path | None = None,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
+    experiment_id: UUID | None = None,
 ) -> str:
     """Import device-facing APIs only after validation and dry-run planning."""
     from evolucio.config.compile import ConfigCompilationError, compile_config
@@ -135,10 +139,43 @@ def _execute(
         raise ConfigError(str(exc)) from exc
     consumer = CliRunSummaryConsumer()
     recorder: LocalRunRecorder | None = None
+    registry = None
+    database_engine = None
+    if experiment_id is not None:
+        from evolucio.persistence.postgres import (
+            PostgresRegistry,
+            create_registry_engine,
+            create_session_factory,
+        )
+
+        database_engine = create_registry_engine()
+        registry = PostgresRegistry(create_session_factory(database_engine))
+        if registry.get_experiment(experiment_id) is None:
+            database_engine.dispose()
+            raise ValueError(f"unknown experiment_id: {experiment_id}")
 
     def created(value: LocalRunRecorder) -> None:
         nonlocal recorder
         recorder = value
+        if registry is not None:
+            import json
+
+            from evolucio.config.versions import CONFIG_SCHEMA_VERSION
+
+            config_record = next(
+                record
+                for record in value.manifest.artifacts
+                if record.relative_path == "config.json"
+            )
+            registry.create_run(
+                manifest=value.manifest,
+                config_json=json.loads((value.run_dir / "config.json").read_text()),
+                config_schema_version=int(CONFIG_SCHEMA_VERSION.split(".", maxsplit=1)[0]),
+                config_artifact_sha256=config_record.sha256,
+                experiment_id=experiment_id,
+                local_run_path=str(value.run_dir),
+            )
+            registry.mark_run_running(UUID(value.run_id))
         if not quiet:
             typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
 
@@ -154,6 +191,15 @@ def _execute(
             on_created=created,
         )
     except Exception as exc:
+        if registry is not None and recorder is not None:
+            try:
+                registry.mark_run_failed(
+                    UUID(recorder.run_id),
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:4096],
+                )
+            except Exception as database_error:
+                exc.add_note(f"Could not mark PostgreSQL run failed: {database_error}")
         if recorder is not None:
             typer.echo(
                 text_fields(
@@ -168,6 +214,26 @@ def _execute(
         for note in getattr(exc, "__notes__", ()):
             typer.echo(note, err=True)
         raise
+    if registry is not None:
+        from evolucio.persistence.postgres import RunSummaryRecord, sync_run_artifacts
+
+        sync_run_artifacts(recorded.run_dir, registry)
+        summary_record = recorded.summary
+        registry.mark_run_completed(
+            UUID(recorded.manifest.run_id),
+            summary=RunSummaryRecord(
+                summary_record.alive_count,
+                summary_record.births_total,
+                summary_record.deaths_total,
+                summary_record.active_lineage_count,
+                summary_record.final_total_energy,
+                summary_record.final_total_resources,
+            ),
+            final_step=summary_record.final_step,
+            steps_executed=summary_record.steps_executed,
+        )
+        if database_engine is not None:
+            database_engine.dispose()
     result = recorded.result
     location: dict[str, object] = {"manifest": str(recorded.run_dir / "manifest.json")}
     if result.benchmark is not None:
