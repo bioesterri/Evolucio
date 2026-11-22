@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from .errors import DatabaseSchemaMismatchError, DatabaseUnavailableError
 
 DATABASE_URL_ENV = "EVOLUCIO_DATABASE_URL"
-ALEMBIC_INI = Path(__file__).parents[4] / "alembic.ini"
+BUNDLED_ALEMBIC_INI = Path(__file__).with_name("alembic.ini")
 POSTGRES_URL_PREFIX = "postgresql+psycopg://"
 
 
@@ -39,7 +39,10 @@ def create_registry_engine(database_url: str | None = None) -> Engine:
     url = database_url or database_url_from_environment()
     if not url.startswith(POSTGRES_URL_PREFIX):
         raise DatabaseUnavailableError("the registry requires PostgreSQL; SQLite is unsupported")
-    return create_engine(url, pool_pre_ping=True)
+    try:
+        return create_engine(url, pool_pre_ping=True, hide_parameters=True)
+    except (SQLAlchemyError, ValueError) as exc:
+        raise DatabaseUnavailableError("invalid PostgreSQL registry configuration") from exc
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
@@ -55,19 +58,27 @@ def check_database_connection(engine: Engine) -> None:
 
 
 def _alembic_config(database_url: str | None = None) -> Config:
-    config = Config(str(ALEMBIC_INI))
+    ini_path = (
+        BUNDLED_ALEMBIC_INI
+        if BUNDLED_ALEMBIC_INI.is_file()
+        else Path(__file__).parents[4] / "alembic.ini"
+    )
+    config = Config(str(ini_path))
     if database_url is not None:
         config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     return config
 
 
 def database_status(engine: Engine) -> DatabaseStatus:
-    config = _alembic_config(str(engine.url))
+    config = _alembic_config()
     head = ScriptDirectory.from_config(config).get_current_head()
     if head is None:
         raise DatabaseSchemaMismatchError("Alembic does not define a head revision")
-    with engine.connect() as connection:
-        current = MigrationContext.configure(connection).get_current_revision()
+    try:
+        with engine.connect() as connection:
+            current = MigrationContext.configure(connection).get_current_revision()
+    except SQLAlchemyError as exc:
+        raise DatabaseUnavailableError("could not read PostgreSQL schema revision") from exc
     return DatabaseStatus(current, head, current == head)
 
 
