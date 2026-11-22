@@ -1,7 +1,9 @@
 """Batch CLI: explicit matrix before execution and one completion line per run."""
 
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 import typer
 
@@ -64,6 +66,7 @@ def batch_run(
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
     output_root: Annotated[Path | None, typer.Option("--output-root")] = None,
+    experiment_id: Annotated[UUID | None, typer.Option("--experiment-id")] = None,
 ) -> None:
     """Run the case by seed matrix sequentially, or inspect it without simulation."""
     try:
@@ -87,13 +90,20 @@ def batch_run(
             f" run_id={run.run_id} run_dir={run.run_dir}"
         )
 
+    registration = nullcontext()
+    if experiment_id is not None:
+        from evolucio.persistence.postgres.recording import register_experiment_runs
+
+        registration = register_experiment_runs(experiment_id)
     try:
-        result = run_batch(
-            plan=plan,
-            on_preflight=_show_matrix,
-            on_result=progress,
-            output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
-        )
+        with registration as observer:
+            result = run_batch(
+                plan=plan,
+                on_preflight=_show_matrix,
+                on_result=progress,
+                output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
+                observer=observer,
+            )
     except BatchExecutionError as exc:
         _show_summary(exc.runs, exc.requested_run_count)
         raise typer.Exit(1) from exc

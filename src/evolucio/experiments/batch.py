@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from evolucio.config.compile import CompiledConfig
     from evolucio.persistence.local import LocalRunRecorder
     from evolucio.runtime.modes import ModeRunResult
+    from evolucio.runtime.recorded_run import RecordedRunObserver
 
 
 def _summarize(result: ModeRunResult) -> tuple[int, int, int, int]:
@@ -56,6 +57,7 @@ def _execute_spec(
     signature: str,
     consumer_factory: ConsumerFactory | None,
     recorder: LocalRunRecorder | None = None,
+    observer: RecordedRunObserver | None = None,
 ) -> BatchRunResult:
     """Keep all device carries local to this run, including failure paths."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -82,6 +84,7 @@ def _execute_spec(
             plan=RunPlan(spec.total_steps, spec.chunk_steps),
             mode=spec.mode,
             consumer_factory=None if consumer_factory is None else lambda: consumer_factory(spec),
+            observer=observer,
         )
         outcome = recorded.result
     alive, births, deaths, lineages = _summarize(outcome)
@@ -112,6 +115,7 @@ def run_batch(
     output_root: Path | None = None,
     on_preflight: Callable[[BatchPreflight, tuple[BatchRunSpec, ...]], None] | None = None,
     on_result: Callable[[BatchRunResult], None] | None = None,
+    observer: RecordedRunObserver | None = None,
 ) -> BatchResult:
     """Validate everything first, then execute fresh independent runs in order.
 
@@ -120,6 +124,8 @@ def run_batch(
     Observer callbacks propagate their own exceptions; they are orchestration,
     whereas a per-run consumer failure belongs to that run.
     """
+    if observer is not None and output_root is None:
+        raise ValueError("a recorded batch requires an output root")
     prepared = prepare_batch(plan)
     from evolucio.config.compile import (
         ConfigCompilationError,
@@ -161,7 +167,9 @@ def run_batch(
                     case_id=spec.case_id,
                     batch_ordinal=spec.ordinal,
                 )
-            result = _execute_spec(spec, frozen, compiled, signature, consumer_factory, recorder)
+            result = _execute_spec(
+                spec, frozen, compiled, signature, consumer_factory, recorder, observer
+            )
         except Exception as exc:
             result = BatchRunResult(
                 ordinal=spec.ordinal,

@@ -1,5 +1,6 @@
 """Local recording lifecycle, independent of simulation execution."""
 
+from collections.abc import Callable
 from dataclasses import asdict, replace
 from pathlib import Path
 from uuid import uuid4
@@ -66,6 +67,7 @@ class LocalRunRecorder:
         summary: dict[str, object],
         steps_executed: int,
         final_step: int,
+        before_publish: Callable[[RunManifest], None] | None = None,
     ) -> None:
         if self.manifest.status != RunStatus.RUNNING:
             raise ValueError("only a running run can complete")
@@ -86,16 +88,18 @@ class LocalRunRecorder:
         self._registry.write_json_artifact(
             relative_path="summary.json", payload=payload, name="summary", kind="summary"
         )
-        self._save(
-            replace(
-                self.manifest,
-                status=RunStatus.COMPLETED,
-                finished_at_utc=utc_now(),
-                steps_executed=steps_executed,
-                final_step=final_step,
-                artifacts=self._registry.records,
-            )
+        completed = replace(
+            self.manifest,
+            status=RunStatus.COMPLETED,
+            finished_at_utc=utc_now(),
+            steps_executed=steps_executed,
+            final_step=final_step,
+            artifacts=self._registry.records,
         )
+        if before_publish is not None:
+            self._save(replace(self.manifest, artifacts=completed.artifacts))
+            before_publish(completed)
+        self._save(completed)
 
     def mark_failed(self, error: RunErrorRecord) -> None:
         self._require_open()

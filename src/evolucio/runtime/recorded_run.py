@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from evolucio.config import ExperimentConfig
 from evolucio.config.versions import CONFIG_SCHEMA_VERSION
@@ -42,6 +42,17 @@ class RunSummary:
     active_lineage_count: int
     final_total_energy: float
     final_total_resources: float
+
+
+class RecordedRunObserver(Protocol):
+    """Host lifecycle hooks for optional registry adapters."""
+
+    def created(self, recorder: LocalRunRecorder) -> None: ...
+    def running(self, recorder: LocalRunRecorder) -> None: ...
+    def completing(
+        self, recorder: LocalRunRecorder, manifest: RunManifest, summary: RunSummary
+    ) -> None: ...
+    def failed(self, recorder: LocalRunRecorder, error: Exception) -> None: ...
 
 
 def summarize_run(result: ModeRunResult) -> RunSummary:
@@ -93,6 +104,7 @@ def execute_recorded_simulation(
     consumer: ChunkConsumer | None = None,
     consumer_factory: Callable[[], ChunkConsumer | None] | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
+    observer: RecordedRunObserver | None = None,
 ) -> RecordedRunResult:
     """Keep initialization and execution failures auditable, preserving exceptions."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -114,6 +126,8 @@ def execute_recorded_simulation(
     parquet: ParquetRunConsumer | None = None
     captures: RunCaptures | None = None
     try:
+        if observer is not None:
+            observer.created(recorder)
         parquet = ParquetRunConsumer(recorder, parquet_policy)
         if capture_policy.enabled:
             from .capture_runner import RunCaptures
@@ -153,6 +167,8 @@ def execute_recorded_simulation(
                 original_sink(batch)
 
         recorder.mark_running()
+        if observer is not None:
+            observer.running(recorder)
         if captures is None:
             outcome = run_with_mode(
                 mode=mode,
@@ -178,10 +194,16 @@ def execute_recorded_simulation(
         if captures is not None:
             captures.writer.finalize()
         parquet_summary = parquet.finalize()
+
+        def publish_completion(manifest: RunManifest) -> None:
+            if observer is not None:
+                observer.completing(recorder, manifest, summary)
+
         recorder.mark_completed(
             summary=asdict(summary) | asdict(parquet_summary),
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
+            before_publish=None if observer is None else publish_completion,
         )
         return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
     except Exception as exc:
@@ -208,6 +230,11 @@ def execute_recorded_simulation(
                 f"Could not record failure at {recorder.run_dir / 'manifest.json'}: "
                 f"{type(recording_error).__name__}: {str(recording_error)[:512]}"
             )
+        if observer is not None:
+            try:
+                observer.failed(recorder, exc)
+            except Exception as registry_error:
+                exc.add_note(f"Could not record registry failure: {registry_error}")
         raise
 
 
@@ -223,6 +250,7 @@ def run_recorded_simulation(
     consumer: ChunkConsumer | None = None,
     run_id: str | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
+    observer: RecordedRunObserver | None = None,
     compiled: CompiledConfig | None = None,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
@@ -270,4 +298,5 @@ def run_recorded_simulation(
         mode=mode,
         consumer=consumer,
         on_created=on_created,
+        observer=observer,
     )

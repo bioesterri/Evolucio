@@ -55,6 +55,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/evolucio"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"alembic.ini" = "evolucio/persistence/postgres/alembic.ini"
+"alembic" = "evolucio/persistence/postgres/alembic"
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

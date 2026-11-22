@@ -1,5 +1,6 @@
 """Host orchestration and bounded retention of run summary metrics."""
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -139,67 +140,32 @@ def _execute(
         raise ConfigError(str(exc)) from exc
     consumer = CliRunSummaryConsumer()
     recorder: LocalRunRecorder | None = None
-    registry = None
-    database_engine = None
+    registration = nullcontext()
     if experiment_id is not None:
-        from evolucio.persistence.postgres import (
-            PostgresRegistry,
-            create_registry_engine,
-            create_session_factory,
-        )
+        from evolucio.persistence.postgres.recording import register_experiment_runs
 
-        database_engine = create_registry_engine()
-        registry = PostgresRegistry(create_session_factory(database_engine))
-        if registry.get_experiment(experiment_id) is None:
-            database_engine.dispose()
-            raise ValueError(f"unknown experiment_id: {experiment_id}")
+        registration = register_experiment_runs(experiment_id)
 
     def created(value: LocalRunRecorder) -> None:
         nonlocal recorder
         recorder = value
-        if registry is not None:
-            import json
-
-            from evolucio.config.versions import CONFIG_SCHEMA_VERSION
-
-            config_record = next(
-                record
-                for record in value.manifest.artifacts
-                if record.relative_path == "config.json"
-            )
-            registry.create_run(
-                manifest=value.manifest,
-                config_json=json.loads((value.run_dir / "config.json").read_text()),
-                config_schema_version=int(CONFIG_SCHEMA_VERSION.split(".", maxsplit=1)[0]),
-                config_artifact_sha256=config_record.sha256,
-                experiment_id=experiment_id,
-                local_run_path=str(value.run_dir),
-            )
-            registry.mark_run_running(UUID(value.run_id))
         if not quiet:
             typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
 
     try:
-        recorded = run_recorded_simulation(
-            config=frozen.config,
-            compiled=compiled,
-            capture_policy=capture_policy,
-            plan=plan,
-            mode=mode,
-            output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
-            consumer=DTOChunkConsumer(consumer),
-            on_created=created,
-        )
+        with registration as observer:
+            recorded = run_recorded_simulation(
+                config=frozen.config,
+                compiled=compiled,
+                capture_policy=capture_policy,
+                plan=plan,
+                mode=mode,
+                output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
+                consumer=DTOChunkConsumer(consumer),
+                on_created=created,
+                observer=observer,
+            )
     except Exception as exc:
-        if registry is not None and recorder is not None:
-            try:
-                registry.mark_run_failed(
-                    UUID(recorder.run_id),
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:4096],
-                )
-            except Exception as database_error:
-                exc.add_note(f"Could not mark PostgreSQL run failed: {database_error}")
         if recorder is not None:
             typer.echo(
                 text_fields(
@@ -214,26 +180,6 @@ def _execute(
         for note in getattr(exc, "__notes__", ()):
             typer.echo(note, err=True)
         raise
-    if registry is not None:
-        from evolucio.persistence.postgres import RunSummaryRecord, sync_run_artifacts
-
-        sync_run_artifacts(recorded.run_dir, registry)
-        summary_record = recorded.summary
-        registry.mark_run_completed(
-            UUID(recorded.manifest.run_id),
-            summary=RunSummaryRecord(
-                summary_record.alive_count,
-                summary_record.births_total,
-                summary_record.deaths_total,
-                summary_record.active_lineage_count,
-                summary_record.final_total_energy,
-                summary_record.final_total_resources,
-            ),
-            final_step=summary_record.final_step,
-            steps_executed=summary_record.steps_executed,
-        )
-        if database_engine is not None:
-            database_engine.dispose()
     result = recorded.result
     location: dict[str, object] = {"manifest": str(recorded.run_dir / "manifest.json")}
     if result.benchmark is not None:

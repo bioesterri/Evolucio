@@ -50,6 +50,7 @@ jobs:
         run: git diff --check "${{ github.event.before }}" "${{ github.sha }}" --
 
   test-build:
+    needs: postgres-integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,7 +64,11 @@ jobs:
           cache-dependency-glob: uv.lock
       - run: uv sync --locked --group dev
       - run: uv run coverage erase
-      - run: uv run coverage run -m pytest
+      - run: uv run coverage run --parallel-mode -m pytest --ignore=tests/integration/postgres
+      - uses: actions/download-artifact@v4
+        with:
+          name: postgres-coverage
+      - run: uv run coverage combine
       - run: uv run coverage report
       - run: uv run coverage xml
       - run: uv run python -c "import evolucio"
@@ -109,5 +114,11 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v9.0.0
       - run: uv sync --locked --group dev --extra persistence
-      - run: uv run pytest tests/integration/postgres
+      - run: uv run coverage run --data-file=.coverage.postgres -m pytest tests/integration/postgres
       - run: uv run alembic current
+      - uses: actions/upload-artifact@v4
+        with:
+          name: postgres-coverage
+          path: .coverage.postgres
+          include-hidden-files: true
+          if-no-files-found: error

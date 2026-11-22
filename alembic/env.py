@@ -12,8 +12,10 @@ config = context.config
 if config.config_file_name:
     fileConfig(config.config_file_name)
 url = os.environ.get("EVOLUCIO_DATABASE_URL")
-if url:
+if url and not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+if not config.get_main_option("sqlalchemy.url"):
+    raise RuntimeError("EVOLUCIO_DATABASE_URL is not configured")
 target_metadata = Base.metadata
 
 

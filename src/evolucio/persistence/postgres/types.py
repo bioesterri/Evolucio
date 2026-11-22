@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from evolucio.persistence.local.artifacts import ArtifactRecord
+
+from .models import DatasetIndexModel, StateCaptureModel
+
 
 @dataclass(frozen=True, slots=True)
 class ExperimentRecord:
@@ -50,3 +54,11 @@ class ReconciliationReport:
     missing_locally: tuple[str, ...]
     hash_mismatches: tuple[str, ...]
     metadata_mismatches: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RunIndexes:
+    config_hash: str
+    artifacts: tuple[ArtifactRecord, ...]
+    datasets: tuple[DatasetIndexModel, ...]
+    captures: tuple[StateCaptureModel, ...]

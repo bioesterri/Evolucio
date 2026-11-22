@@ -1,19 +1,27 @@
 """Transactional repository for experiments, runs and artifact indexes."""
 
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
 from sqlalchemy import Select, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from evolucio.config.freeze import canonical_json_and_hash
-from evolucio.persistence.local.artifacts import ArtifactRecord, validate_sha256
+from evolucio.persistence.local.artifacts import (
+    ArtifactRecord,
+    validate_relative_path,
+    validate_sha256,
+)
 from evolucio.persistence.local.manifest import RunManifest, RunStatus
+from evolucio.persistence.parquet.index import INDEX_PATH as PARQUET_INDEX_PATH
 
 from .errors import (
     ArtifactIndexConflictError,
+    DatabaseUnavailableError,
     InvalidRunTransitionError,
     RegistryIntegrityError,
     RunAlreadyExistsError,
@@ -27,11 +35,17 @@ from .models import (
     RunSummaryModel,
     StateCaptureModel,
 )
-from .types import ComparisonRun, ExperimentRecord, RunSummaryRecord
+from .types import ComparisonRun, ExperimentRecord, RunIndexes, RunSummaryRecord
 
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.utcoffset() is None:
+        raise ValueError("registry timestamps must include a timezone")
+    return value.astimezone(UTC)
 
 
 def _timestamp(value: str | None) -> datetime | None:
@@ -54,6 +68,18 @@ class PostgresRegistry:
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._sessions = session_factory
+
+    @contextmanager
+    def _session(self, *, write: bool = False) -> Generator[Session]:
+        try:
+            with self._sessions.begin() if write else self._sessions() as session:
+                yield session
+        except (OperationalError, InterfaceError) as exc:
+            raise DatabaseUnavailableError("PostgreSQL registry connection failed") from exc
+        except IntegrityError as exc:
+            raise RegistryIntegrityError("PostgreSQL relational constraint failed") from exc
+        except SQLAlchemyError as exc:
+            raise RegistryIntegrityError("PostgreSQL registry operation failed") from exc
 
     def create_experiment(
         self,
@@ -80,20 +106,17 @@ class PostgresRegistry:
             created_at=now,
             updated_at=now,
         )
-        try:
-            with self._sessions.begin() as session:
-                session.add(model)
-        except IntegrityError as exc:
-            raise RegistryIntegrityError("experiment violates relational constraints") from exc
+        with self._session(write=True) as session:
+            session.add(model)
         return self._experiment_record(model)
 
     def get_experiment(self, experiment_id: UUID) -> ExperimentRecord | None:
-        with self._sessions() as session:
+        with self._session() as session:
             model = session.get(ExperimentModel, experiment_id)
             return None if model is None else self._experiment_record(model)
 
     def list_experiments(self) -> tuple[ExperimentRecord, ...]:
-        with self._sessions() as session:
+        with self._session() as session:
             models = session.scalars(select(ExperimentModel).order_by(ExperimentModel.created_at))
             return tuple(self._experiment_record(model) for model in models)
 
@@ -111,6 +134,13 @@ class PostgresRegistry:
         if manifest.status is not RunStatus.CREATED:
             raise ValueError("only a created manifest can be registered")
         validate_sha256(config_artifact_sha256)
+        config_artifact = next(
+            artifact
+            for artifact in manifest.artifacts
+            if artifact.relative_path == manifest.config_artifact
+        )
+        if config_artifact.sha256 != config_artifact_sha256:
+            raise RegistryIntegrityError("config artifact digest differs from the manifest")
         _, snapshot_hash = canonical_json_and_hash(config_json)
         if snapshot_hash != manifest.config_hash:
             raise RegistryIntegrityError("config snapshot differs from run config_hash")
@@ -125,7 +155,7 @@ class PostgresRegistry:
             created_at=_now(),
         )
         try:
-            with self._sessions.begin() as session:
+            with self._session(write=True) as session:
                 if (
                     experiment_id is not None
                     and session.get(ExperimentModel, experiment_id) is None
@@ -137,16 +167,27 @@ class PostgresRegistry:
                 session.add(run)
                 session.flush()
                 session.add(snapshot)
-        except IntegrityError as exc:
-            with self._sessions() as session:
-                if session.get(RunModel, run.run_id) is not None:
-                    raise RunAlreadyExistsError(f"run {manifest.run_id} already exists") from exc
-            raise RegistryIntegrityError("atomic run/config insertion failed") from exc
+        except RegistryIntegrityError as exc:
+            if isinstance(exc.__cause__, IntegrityError):
+                with self._session() as session:
+                    if session.get(RunModel, run.run_id) is not None:
+                        raise RunAlreadyExistsError(
+                            f"run {manifest.run_id} already exists"
+                        ) from exc
+            raise
         return run
 
     def get_run(self, run_id: UUID) -> RunModel | None:
-        with self._sessions() as session:
+        with self._session() as session:
             return session.get(RunModel, run_id)
+
+    def get_config_snapshot(self, run_id: UUID) -> ConfigSnapshotModel | None:
+        with self._session() as session:
+            return session.get(ConfigSnapshotModel, run_id)
+
+    def get_run_summary(self, run_id: UUID) -> RunSummaryModel | None:
+        with self._session() as session:
+            return session.get(RunSummaryModel, run_id)
 
     def list_runs(
         self,
@@ -165,11 +206,16 @@ class PostgresRegistry:
         ):
             if criterion is not None:
                 query = query.where(criterion)
-        with self._sessions() as session:
+        with self._session() as session:
             return tuple(session.scalars(query.order_by(RunModel.created_at)))
 
     def mark_run_running(self, run_id: UUID, *, started_at: datetime | None = None) -> None:
-        self._transition(run_id, "created", "running", started_at=started_at or _now())
+        self._transition(
+            run_id,
+            "created",
+            "running",
+            started_at=_as_utc(started_at) if started_at is not None else _now(),
+        )
 
     def mark_run_failed(
         self,
@@ -179,14 +225,18 @@ class PostgresRegistry:
         error_message: str,
         error_step: int | None = None,
         finished_at: datetime | None = None,
+        indexes: RunIndexes | None = None,
     ) -> None:
         if not error_type:
             raise ValueError("error_type must be nonempty")
-        with self._sessions.begin() as session:
+        with self._session(write=True) as session:
             run = self._required_run(session, run_id)
             if run.status not in {"created", "running"}:
                 raise InvalidRunTransitionError(f"cannot fail run in status {run.status}")
-            run.status, run.finished_at = "failed", finished_at or _now()
+            if indexes is not None:
+                self._sync_indexes(session, run, indexes)
+            run.status = "failed"
+            run.finished_at = _as_utc(finished_at) if finished_at is not None else _now()
             run.error_type, run.error_message, run.error_step = (
                 error_type,
                 error_message,
@@ -201,14 +251,17 @@ class PostgresRegistry:
         final_step: int,
         steps_executed: int,
         finished_at: datetime | None = None,
+        indexes: RunIndexes | None = None,
     ) -> None:
         """Atomically install one immutable summary and close the run lifecycle."""
-        with self._sessions.begin() as session:
+        with self._session(write=True) as session:
             run = self._required_run(session, run_id)
             if run.status != "running":
                 raise InvalidRunTransitionError(f"cannot complete run in status {run.status}")
             if session.get(RunSummaryModel, run_id) is not None:
                 raise RegistryIntegrityError("run summary is immutable")
+            if indexes is not None:
+                self._sync_indexes(session, run, indexes)
             artifact_paths = set(
                 session.scalars(
                     select(ArtifactModel.relative_path).where(ArtifactModel.run_id == run_id)
@@ -222,7 +275,11 @@ class PostgresRegistry:
                     )
                 )
             )
-            if not {"config.json", "summary.json"} <= artifact_paths or dataset_kinds != {
+            if not {
+                "config.json",
+                "summary.json",
+                PARQUET_INDEX_PATH,
+            } <= artifact_paths or dataset_kinds != {
                 "metrics",
                 "births",
                 "deaths",
@@ -244,99 +301,162 @@ class PostgresRegistry:
                     created_at=_now(),
                 )
             )
-            run.status, run.finished_at = "completed", finished_at or _now()
+            run.status = "completed"
+            run.finished_at = _as_utc(finished_at) if finished_at is not None else _now()
             run.final_step, run.steps_executed = final_step, steps_executed
 
     def index_artifact(self, run_id: UUID, artifact: ArtifactRecord) -> None:
-        with self._sessions.begin() as session:
-            existing = session.scalar(
-                select(ArtifactModel).where(
-                    ArtifactModel.run_id == run_id,
-                    ArtifactModel.relative_path == artifact.relative_path,
-                )
+        with self._session(write=True) as session:
+            self._required_run(session, run_id)
+            self._index_artifact(session, run_id, artifact)
+
+    @staticmethod
+    def _index_artifact(session: Session, run_id: UUID, artifact: ArtifactRecord) -> None:
+        existing = session.scalar(
+            select(ArtifactModel).where(
+                ArtifactModel.run_id == run_id,
+                ArtifactModel.relative_path == artifact.relative_path,
             )
-            if existing is not None:
-                if existing.sha256 != artifact.sha256 or existing.byte_size != artifact.byte_size:
-                    raise ArtifactIndexConflictError(artifact.relative_path)
-                return
-            session.add(
-                ArtifactModel(
-                    artifact_id=uuid4(),
-                    run_id=run_id,
-                    name=artifact.name,
-                    kind=artifact.kind,
-                    relative_path=artifact.relative_path,
-                    media_type=artifact.media_type,
-                    byte_size=artifact.byte_size,
-                    sha256=artifact.sha256,
-                    schema_name=None,
-                    schema_version=None,
-                    created_at=_now(),
-                )
+        )
+        if existing is not None:
+            if any(
+                getattr(existing, field) != getattr(artifact, field)
+                for field in ("sha256", "byte_size", "name", "kind", "media_type")
+            ):
+                raise ArtifactIndexConflictError(artifact.relative_path)
+            return
+        session.add(
+            ArtifactModel(
+                artifact_id=uuid4(),
+                run_id=run_id,
+                name=artifact.name,
+                kind=artifact.kind,
+                relative_path=artifact.relative_path,
+                media_type=artifact.media_type,
+                byte_size=artifact.byte_size,
+                sha256=artifact.sha256,
+                schema_name=None,
+                schema_version=None,
+                created_at=_now(),
             )
+        )
 
     def list_artifacts(self, run_id: UUID) -> tuple[ArtifactModel, ...]:
-        with self._sessions() as session:
+        with self._session() as session:
             return tuple(
                 session.scalars(select(ArtifactModel).where(ArtifactModel.run_id == run_id))
             )
 
     def list_datasets(self, run_id: UUID) -> tuple[DatasetIndexModel, ...]:
-        with self._sessions() as session:
+        with self._session() as session:
             return tuple(
                 session.scalars(select(DatasetIndexModel).where(DatasetIndexModel.run_id == run_id))
             )
 
     def list_state_captures(self, run_id: UUID) -> tuple[StateCaptureModel, ...]:
-        with self._sessions() as session:
+        with self._session() as session:
             return tuple(
                 session.scalars(select(StateCaptureModel).where(StateCaptureModel.run_id == run_id))
             )
 
     def index_dataset(self, record: DatasetIndexModel) -> None:
-        with self._sessions.begin() as session:
-            existing = session.scalar(
-                select(DatasetIndexModel).where(
-                    DatasetIndexModel.run_id == record.run_id,
-                    DatasetIndexModel.dataset_kind == record.dataset_kind,
-                )
+        with self._session(write=True) as session:
+            self._required_run(session, record.run_id)
+            self._index_dataset(session, record)
+
+    @staticmethod
+    def _index_dataset(session: Session, record: DatasetIndexModel) -> None:
+        validate_sha256(record.index_sha256)
+        validate_relative_path(record.relative_path)
+        record.created_at = _as_utc(record.created_at)
+        existing = session.scalar(
+            select(DatasetIndexModel).where(
+                DatasetIndexModel.run_id == record.run_id,
+                DatasetIndexModel.dataset_kind == record.dataset_kind,
             )
-            if existing is not None:
-                if existing.index_sha256 != record.index_sha256 or any(
-                    getattr(existing, field) != getattr(record, field)
-                    for field in (
-                        "relative_path",
-                        "row_count",
-                        "part_count",
-                        "min_step",
-                        "max_step",
-                        "complete",
-                    )
-                ):
-                    raise ArtifactIndexConflictError(f"dataset:{record.dataset_kind}")
-                return
-            session.add(record)
+        )
+        if existing is not None:
+            if existing.index_sha256 != record.index_sha256 or any(
+                getattr(existing, field) != getattr(record, field)
+                for field in (
+                    "relative_path",
+                    "storage_format",
+                    "schema_name",
+                    "schema_version",
+                    "row_count",
+                    "part_count",
+                    "min_step",
+                    "max_step",
+                    "complete",
+                )
+            ):
+                raise ArtifactIndexConflictError(f"dataset:{record.dataset_kind}")
+            return
+        session.add(record)
 
     def index_state_capture(self, record: StateCaptureModel) -> None:
-        with self._sessions.begin() as session:
-            existing = session.scalar(
-                select(StateCaptureModel).where(
-                    StateCaptureModel.run_id == record.run_id,
-                    StateCaptureModel.capture_kind == record.capture_kind,
-                    StateCaptureModel.state_step == record.state_step,
-                )
+        with self._session(write=True) as session:
+            self._required_run(session, record.run_id)
+            self._index_state_capture(session, record)
+
+    @staticmethod
+    def _index_state_capture(session: Session, record: StateCaptureModel) -> None:
+        validate_sha256(record.sha256)
+        validate_relative_path(record.relative_path)
+        record.created_at = _as_utc(record.created_at)
+        existing = session.scalar(
+            select(StateCaptureModel).where(
+                StateCaptureModel.run_id == record.run_id,
+                StateCaptureModel.capture_kind == record.capture_kind,
+                StateCaptureModel.state_step == record.state_step,
             )
-            if existing is not None:
-                if (
-                    existing.sha256 != record.sha256
-                    or existing.relative_path != record.relative_path
-                ):
-                    raise ArtifactIndexConflictError(record.relative_path)
-                return
-            session.add(record)
+        )
+        if existing is not None:
+            if any(
+                getattr(existing, field) != getattr(record, field)
+                for field in (
+                    "sha256",
+                    "relative_path",
+                    "schema_name",
+                    "schema_version",
+                    "byte_size",
+                )
+            ):
+                raise ArtifactIndexConflictError(record.relative_path)
+            return
+        session.add(record)
+
+    def sync_indexes(self, run_id: UUID, indexes: RunIndexes) -> None:
+        with self._session(write=True) as session:
+            self._sync_indexes(session, self._required_run(session, run_id), indexes)
+
+    def _sync_indexes(self, session: Session, run: RunModel, indexes: RunIndexes) -> None:
+        snapshot = session.get(ConfigSnapshotModel, run.run_id)
+        if (
+            snapshot is None
+            or snapshot.config_hash != run.config_hash
+            or run.config_hash != indexes.config_hash
+            or canonical_json_and_hash(snapshot.config_json)[1] != run.config_hash
+        ):
+            raise RegistryIntegrityError("local run identity/config differs from PostgreSQL")
+        for artifact in indexes.artifacts:
+            if (
+                artifact.relative_path == snapshot.artifact_relative_path
+                and artifact.sha256 != snapshot.artifact_sha256
+            ):
+                raise ArtifactIndexConflictError(artifact.relative_path)
+            self._index_artifact(session, run.run_id, artifact)
+        for dataset in indexes.datasets:
+            if dataset.run_id != run.run_id:
+                raise RegistryIntegrityError("dataset belongs to a different run")
+            self._index_dataset(session, dataset)
+        for capture in indexes.captures:
+            if capture.run_id != run.run_id:
+                raise RegistryIntegrityError("state capture belongs to a different run")
+            self._index_state_capture(session, capture)
 
     def list_runs_for_comparison(self, experiment_id: UUID) -> tuple[ComparisonRun, ...]:
-        with self._sessions() as session:
+        with self._session() as session:
             rows = session.execute(
                 select(RunModel, RunSummaryModel)
                 .outerjoin(RunSummaryModel)
@@ -371,7 +491,7 @@ class PostgresRegistry:
             return tuple(result)
 
     def _transition(self, run_id: UUID, before: str, after: str, **values: object) -> None:
-        with self._sessions.begin() as session:
+        with self._session(write=True) as session:
             run = self._required_run(session, run_id)
             if run.status != before:
                 raise InvalidRunTransitionError(f"cannot transition {run.status} to {after}")
@@ -381,7 +501,7 @@ class PostgresRegistry:
 
     @staticmethod
     def _required_run(session: Session, run_id: UUID) -> RunModel:
-        run = session.get(RunModel, run_id)
+        run = session.get(RunModel, run_id, with_for_update=True)
         if run is None:
             raise RegistryIntegrityError(f"unknown run {run_id}")
         return run
