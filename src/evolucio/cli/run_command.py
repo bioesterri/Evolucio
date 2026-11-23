@@ -1,5 +1,6 @@
 """Host orchestration and bounded retention of run summary metrics."""
 
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -131,7 +132,7 @@ def _execute(
     """Import device-facing APIs only after validation and dry-run planning."""
     from evolucio.config.compile import ConfigCompilationError, compile_config
     from evolucio.runtime import DTOChunkConsumer
-    from evolucio.runtime.recorded_run import run_recorded_simulation
+    from evolucio.runtime.recorded_run import RunSummary, run_recorded_simulation
 
     try:
         compiled = compile_config(frozen.config)
@@ -179,6 +180,29 @@ def _execute(
         if not quiet:
             typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
 
+    def finalizing(
+        value: LocalRunRecorder,
+        summary: RunSummary,
+    ) -> AbstractContextManager[None]:
+        if registry is None:
+            return nullcontext()
+        from evolucio.persistence.postgres import RunSummaryRecord
+
+        return registry.complete_recorded_run(
+            UUID(value.run_id),
+            value.run_dir,
+            summary=RunSummaryRecord(
+                summary.alive_count,
+                summary.births_total,
+                summary.deaths_total,
+                summary.active_lineage_count,
+                summary.final_total_energy,
+                summary.final_total_resources,
+            ),
+            final_step=summary.final_step,
+            steps_executed=summary.steps_executed,
+        )
+
     try:
         recorded = run_recorded_simulation(
             config=frozen.config,
@@ -189,6 +213,7 @@ def _execute(
             output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
             consumer=DTOChunkConsumer(consumer),
             on_created=created,
+            on_finalizing=finalizing if registry is not None else None,
         )
     except Exception as exc:
         if registry is not None and recorder is not None:
@@ -214,24 +239,7 @@ def _execute(
         for note in getattr(exc, "__notes__", ()):
             typer.echo(note, err=True)
         raise
-    if registry is not None:
-        from evolucio.persistence.postgres import RunSummaryRecord, sync_run_artifacts
-
-        sync_run_artifacts(recorded.run_dir, registry)
-        summary_record = recorded.summary
-        registry.mark_run_completed(
-            UUID(recorded.manifest.run_id),
-            summary=RunSummaryRecord(
-                summary_record.alive_count,
-                summary_record.births_total,
-                summary_record.deaths_total,
-                summary_record.active_lineage_count,
-                summary_record.final_total_energy,
-                summary_record.final_total_resources,
-            ),
-            final_step=summary_record.final_step,
-            steps_executed=summary_record.steps_executed,
-        )
+    finally:
         if database_engine is not None:
             database_engine.dispose()
     result = recorded.result

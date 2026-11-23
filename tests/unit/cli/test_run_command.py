@@ -103,9 +103,6 @@ def test_quiet(config_path, capsys):
 
 def test_runtime_error(config_path, monkeypatch, capsys):
     monkeypatch.setattr(
-        "evolucio.runtime.initialization.initialize_simulation", Mock(return_value=object())
-    )
-    monkeypatch.setattr(
         "evolucio.runtime.run_simulation", Mock(side_effect=RuntimeError("test failure"))
     )
     assert main(["run", str(config_path), "--steps", "1"]) == 1
@@ -126,7 +123,6 @@ def test_known_initialization_error(config_path, monkeypatch, capsys):
 
 
 def test_missing_telemetry(config_path, monkeypatch, capsys):
-    monkeypatch.setattr("evolucio.runtime.initialization.initialize_simulation", Mock())
     monkeypatch.setattr("evolucio.runtime.run_simulation", Mock())
     assert main(["run", str(config_path), "--steps", "1"]) == 1
     assert 'status: "failed"' in capsys.readouterr().err

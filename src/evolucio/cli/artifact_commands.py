@@ -1,5 +1,6 @@
 """Read-only inspection and integrity checks for recorded local runs."""
 
+import json
 from dataclasses import asdict
 from pathlib import Path
 
@@ -21,6 +22,20 @@ def _inspect_or_verify(run_dir: Path, *, inspect: bool) -> None:
         raise typer.Exit(2) from exc
     if inspect:
         typer.echo(json_text(manifest_to_payload(manifest)))
+        if verification.ok and any(record.kind == "summary" for record in manifest.artifacts):
+            summary = json.loads((run_dir / "summary.json").read_text())
+            counts = {
+                name: summary[name]
+                for name in (
+                    "agents_total",
+                    "lineages_total",
+                    "highlighted_genomes",
+                    "analysis_status",
+                )
+                if name in summary
+            }
+            if counts:
+                typer.echo(json_text(counts))
         if verification.ok and any(
             record.kind == "parquet_dataset_index" for record in manifest.artifacts
         ):

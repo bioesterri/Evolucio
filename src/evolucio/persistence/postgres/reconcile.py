@@ -1,5 +1,6 @@
 """Explicit, idempotent synchronization and read-only reconciliation."""
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid5
@@ -20,7 +21,12 @@ from .types import ReconciliationReport
 _IDENTITY_NAMESPACE = UUID("a828559c-5709-4ecf-981b-84ec2853c0e4")
 
 
-def sync_run_artifacts(run_dir: Path, registry: PostgresRegistry) -> None:
+def sync_run_artifacts(
+    run_dir: Path,
+    registry: PostgresRegistry,
+    *,
+    before_indexing: Callable[[], None] | None = None,
+) -> None:
     """Index verified local metadata without modifying local bytes or replacing hashes."""
     verification = verify_local_run(run_dir)
     if not verification.ok:
@@ -30,6 +36,8 @@ def sync_run_artifacts(run_dir: Path, registry: PostgresRegistry) -> None:
     run = registry.get_run(run_id)
     if run is None or run.config_hash != manifest.config_hash:
         raise RegistryIntegrityError("local run identity/config is absent or differs in PostgreSQL")
+    if before_indexing is not None:
+        before_indexing()
     for artifact in manifest.artifacts:
         registry.index_artifact(run_id, artifact)
 

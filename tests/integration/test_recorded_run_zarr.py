@@ -5,9 +5,12 @@ from unittest.mock import patch
 
 import equinox as eqx
 import jax
+import polars as pl
 import pytest
+from polars.testing import assert_frame_equal
 from typer.testing import CliRunner
 
+from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
 from evolucio.cli.main import app
 from evolucio.config import load_config
 from evolucio.persistence.local import load_run_manifest, verify_local_run
@@ -40,8 +43,10 @@ def test_recorded_captures_coexist_with_parquet_and_new_run_continuation(tmp_pat
         "summary",
         "parquet_dataset_index",
         "zarr_artifact_index",
+        "analysis_parquet",
+        "highlighted_genome_index",
     }
-    assert len(whole.manifest.artifacts) == 4
+    assert len(whole.manifest.artifacts) == 8
     path = whole.run_dir / index.checkpoints[0].relative_path
     assert load_checkpoint(checkpoint_path=path).state_step == 10
     shutil.rmtree(whole.run_dir / "artifacts/zarr/snapshots")
@@ -66,6 +71,11 @@ def test_recorded_captures_coexist_with_parquet_and_new_run_continuation(tmp_pat
         "source_checkpoint_step": 10,
         "source_checkpoint_hash": index.checkpoints[0].sha256,
     }
+    for relative in (AGENTS_PATH, LINEAGES_PATH):
+        assert_frame_equal(
+            pl.read_parquet(continuation.run_dir / relative).drop("run_id"),
+            pl.read_parquet(whole.run_dir / relative).drop("run_id"),
+        )
     assert_pytree_equivalent(continuation.result.runtime.state, whole.result.runtime.state)
     assert_pytree_equivalent(
         continuation.result.runtime.accumulator, whole.result.runtime.accumulator

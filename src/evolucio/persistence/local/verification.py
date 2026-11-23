@@ -20,6 +20,7 @@ class LocalRunVerification:
     invalid_paths: tuple[str, ...]
     parquet_errors: tuple[str, ...] = ()
     zarr_errors: tuple[str, ...] = ()
+    genome_errors: tuple[str, ...] = ()
 
 
 def verify_local_run(run_dir: Path) -> LocalRunVerification:
@@ -84,11 +85,19 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
                 *report_zarr.compatibility_errors,
             )
         )
+    genome_errors: tuple[str, ...] = ()
+    if any(record.kind == "highlighted_genome_index" for record in manifest.artifacts):
+        from evolucio.persistence.genomes import read_genome_index, verify_genome_store
+
+        genome_errors = verify_genome_store(run_dir).errors
+        if not genome_errors and read_genome_index(run_dir).run_id != manifest.run_id:
+            genome_errors = ("genome index run ID differs from manifest",)
     return LocalRunVerification(
-        not (missing or mismatches or invalid or parquet_errors or zarr_errors),
+        not (missing or mismatches or invalid or parquet_errors or zarr_errors or genome_errors),
         tuple(missing),
         tuple(mismatches),
         tuple(invalid),
         tuple(parquet_errors),
         tuple(zarr_errors),
+        genome_errors,
     )

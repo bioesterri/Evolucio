@@ -1,5 +1,6 @@
 """Local recording lifecycle, independent of simulation execution."""
 
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import asdict, replace
 from pathlib import Path
 from uuid import uuid4
@@ -66,6 +67,7 @@ class LocalRunRecorder:
         summary: dict[str, object],
         steps_executed: int,
         final_step: int,
+        completion_transaction: AbstractContextManager[None] | None = None,
     ) -> None:
         if self.manifest.status != RunStatus.RUNNING:
             raise ValueError("only a running run can complete")
@@ -83,9 +85,10 @@ class LocalRunRecorder:
             "steps_executed": steps_executed,
             "final_step": final_step,
         }
-        self._registry.write_json_artifact(
-            relative_path="summary.json", payload=payload, name="summary", kind="summary"
-        )
+        with completion_transaction if completion_transaction is not None else nullcontext():
+            self.write_json_artifact(
+                relative_path="summary.json", payload=payload, name="summary", kind="summary"
+            )
         self._save(
             replace(
                 self.manifest,
@@ -99,6 +102,7 @@ class LocalRunRecorder:
 
     def mark_failed(self, error: RunErrorRecord) -> None:
         self._require_open()
+        self._registry.discard_provisional_summaries()
         self._registry.write_json_artifact(
             relative_path="error.json", payload=asdict(error), name="error", kind="error"
         )

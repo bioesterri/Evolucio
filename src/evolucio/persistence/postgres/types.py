@@ -1,8 +1,14 @@
 """Host-side value objects for the PostgreSQL registry."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from .models import GenomeHighlightModel, GenomeRegistryModel
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,3 +56,9 @@ class ReconciliationReport:
     missing_locally: tuple[str, ...]
     hash_mismatches: tuple[str, ...]
     metadata_mismatches: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GenomeHighlights:
+    genome: GenomeRegistryModel
+    highlights: tuple[GenomeHighlightModel, ...]

@@ -54,6 +54,10 @@ def test_audit_survives_loss_of_python_objects(tmp_path, monkeypatch, mode):
         "config.json",
         "summary.json",
         "artifacts/parquet/datasets.json",
+        "artifacts/analysis/founders.parquet",
+        "artifacts/analysis/agent_summary.parquet",
+        "artifacts/analysis/lineage_summary.parquet",
+        "artifacts/genomes/index.json",
     }
     for record in manifest.artifacts:
         assert record.sha256 == sha256_file(directory / record.relative_path)

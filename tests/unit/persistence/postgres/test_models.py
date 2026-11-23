@@ -15,6 +15,10 @@ def test_relational_tables_and_jsonb_are_declared():
         "artifact",
         "dataset_index",
         "state_capture",
+        "agent_summary",
+        "lineage_summary",
+        "genome_registry",
+        "genome_highlight",
     }
     assert isinstance(ConfigSnapshotModel.__table__.c.config_json.type, JSONB)
 
