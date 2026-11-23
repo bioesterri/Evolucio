@@ -4,12 +4,14 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    CHAR,
     BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
     Double,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -193,3 +195,145 @@ class StateCaptureModel(Base):
     byte_size: Mapped[int] = mapped_column(BigInteger)
     sha256: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AgentSummaryModel(Base):
+    __tablename__ = "agent_summary"
+    __table_args__ = (
+        CheckConstraint(
+            "generation >= 0 AND birth_step >= 0 AND final_age >= 0 "
+            "AND direct_offspring_count >= 0",
+            name="ck_agent_summary_nonnegative",
+        ),
+        CheckConstraint(
+            "(alive_at_end AND death_step IS NULL AND death_cause_code IS NULL "
+            "AND death_phase_code IS NULL) OR (NOT alive_at_end AND death_step IS NOT NULL)",
+            name="ck_agent_summary_death",
+        ),
+        CheckConstraint(
+            "(parent_agent_id IS NULL) = (generation = 0)", name="ck_agent_summary_founder"
+        ),
+        UniqueConstraint(
+            "run_id", "agent_id", "genome_id", name="uq_agent_summary_genome_identity"
+        ),
+        Index("ix_agent_summary_lineage_id", "run_id", "lineage_id"),
+        Index("ix_agent_summary_parent_agent_id", "run_id", "parent_agent_id"),
+        Index("ix_agent_summary_genome_id", "run_id", "genome_id"),
+        Index("ix_agent_summary_alive_at_end", "run_id", "alive_at_end"),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id", ondelete="CASCADE"), primary_key=True
+    )
+    agent_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    parent_agent_id: Mapped[int | None] = mapped_column(BigInteger)
+    lineage_id: Mapped[int] = mapped_column(BigInteger)
+    genome_id: Mapped[int] = mapped_column(BigInteger)
+    generation: Mapped[int] = mapped_column(BigInteger)
+    birth_step: Mapped[int] = mapped_column(BigInteger)
+    death_step: Mapped[int | None] = mapped_column(BigInteger)
+    final_age: Mapped[int] = mapped_column(BigInteger)
+    final_energy: Mapped[float] = mapped_column(Double)
+    alive_at_end: Mapped[bool] = mapped_column(Boolean)
+    death_cause_code: Mapped[int | None] = mapped_column(Integer)
+    death_phase_code: Mapped[int | None] = mapped_column(Integer)
+    direct_offspring_count: Mapped[int] = mapped_column(BigInteger)
+
+
+class LineageSummaryModel(Base):
+    __tablename__ = "lineage_summary"
+    __table_args__ = (
+        CheckConstraint(
+            "total_agents >= 1 AND total_descendants = total_agents - 1 "
+            "AND births_total = total_descendants AND deaths_total >= 0 AND alive_final >= 0 "
+            "AND deaths_total + alive_final = total_agents",
+            name="ck_lineage_summary_counts",
+        ),
+        CheckConstraint(
+            "max_generation >= 0 AND duration_steps >= 0 "
+            "AND final_population_fraction BETWEEN 0 AND 1",
+            name="ck_lineage_summary_ranges",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id", ondelete="CASCADE"), primary_key=True
+    )
+    lineage_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    founder_agent_id: Mapped[int] = mapped_column(BigInteger)
+    founder_genome_id: Mapped[int] = mapped_column(BigInteger)
+    total_agents: Mapped[int] = mapped_column(BigInteger)
+    total_descendants: Mapped[int] = mapped_column(BigInteger)
+    births_total: Mapped[int] = mapped_column(BigInteger)
+    deaths_total: Mapped[int] = mapped_column(BigInteger)
+    alive_final: Mapped[int] = mapped_column(BigInteger)
+    max_generation: Mapped[int] = mapped_column(BigInteger)
+    founder_birth_step: Mapped[int] = mapped_column(BigInteger)
+    last_birth_step: Mapped[int | None] = mapped_column(BigInteger)
+    extinction_step: Mapped[int | None] = mapped_column(BigInteger)
+    duration_steps: Mapped[int] = mapped_column(BigInteger)
+    final_population_fraction: Mapped[float] = mapped_column(Double)
+    mutation_selected_total: Mapped[int] = mapped_column(BigInteger)
+    mutation_effective_total: Mapped[int] = mapped_column(BigInteger)
+    mutation_abs_delta_total: Mapped[float] = mapped_column(Double)
+    reproductive_leader_agent_id: Mapped[int] = mapped_column(BigInteger)
+    reproductive_leader_offspring: Mapped[int] = mapped_column(BigInteger)
+    survival_leader_agent_id: Mapped[int] = mapped_column(BigInteger)
+    survival_leader_age: Mapped[int] = mapped_column(BigInteger)
+
+
+class GenomeRegistryModel(Base):
+    __tablename__ = "genome_registry"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["run_id", "agent_id", "genome_id"],
+            ["agent_summary.run_id", "agent_summary.agent_id", "agent_summary.genome_id"],
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "genome_hash ~ '^[a-f0-9]{64}$' AND artifact_sha256 ~ '^[a-f0-9]{64}$'",
+            name="ck_genome_registry_hashes",
+        ),
+        CheckConstraint(
+            "generation >= 0 AND parameter_count > 0 AND byte_size > 0 "
+            "AND policy_schema_version > 0",
+            name="ck_genome_registry_ranges",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id", ondelete="CASCADE"), primary_key=True
+    )
+    genome_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    genome_hash: Mapped[str] = mapped_column(CHAR(64))
+    agent_id: Mapped[int] = mapped_column(BigInteger)
+    parent_genome_id: Mapped[int | None] = mapped_column(BigInteger)
+    lineage_id: Mapped[int] = mapped_column(BigInteger)
+    generation: Mapped[int] = mapped_column(BigInteger)
+    parameter_count: Mapped[int] = mapped_column(Integer)
+    relative_path: Mapped[str] = mapped_column(Text)
+    artifact_sha256: Mapped[str] = mapped_column(CHAR(64))
+    byte_size: Mapped[int] = mapped_column(BigInteger)
+    policy_schema_name: Mapped[str] = mapped_column(Text)
+    policy_schema_version: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GenomeHighlightModel(Base):
+    __tablename__ = "genome_highlight"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["run_id", "genome_id"],
+            ["genome_registry.run_id", "genome_registry.genome_id"],
+            ondelete="CASCADE",
+        ),
+        CheckConstraint(
+            "reason IN ('founder', 'final_lineage_representative') AND selected_step >= 0",
+            name="ck_genome_highlight_reason_step",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    genome_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    reason: Mapped[str] = mapped_column(Text, primary_key=True)
+    selected_step: Mapped[int] = mapped_column(BigInteger)

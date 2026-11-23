@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from uuid import UUID
 
+from evolucio.analysis.summaries import AGENTS_PATH
 from evolucio.persistence.local import LocalRunRecorder, RunManifest
 from evolucio.runtime.recorded_run import RunSummary
 
@@ -65,6 +66,11 @@ class PostgresRunObserver:
             steps_executed=summary.steps_executed,
             finished_at=datetime.fromisoformat(manifest.finished_at_utc),
             indexes=indexes,
+            analysis_run_dir=(
+                recorder.run_dir
+                if any(artifact.relative_path == AGENTS_PATH for artifact in indexes.artifacts)
+                else None
+            ),
         )
 
     def failed(self, recorder: LocalRunRecorder, error: Exception) -> None:

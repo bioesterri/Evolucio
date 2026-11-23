@@ -97,6 +97,7 @@ def execute_recorded_simulation(
     recorder: LocalRunRecorder,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
     restored: CheckpointRestore | None = None,
+    checkpoint_source_run: Path | None = None,
     parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
     config: CoreConfig,
     plan: RunPlan,
@@ -119,12 +120,15 @@ def execute_recorded_simulation(
         or recorder.manifest.mode != mode
     ):
         raise ValueError("recorder and runtime plan/mode do not match")
+    from evolucio.analysis.summaries import FOUNDERS_PATH
     from evolucio.persistence.parquet import ParquetRunConsumer
 
+    from .analysis_capture import AnalysisCapture
     from .dto_conversion import DTOChunkConsumer
 
     parquet: ParquetRunConsumer | None = None
     captures: RunCaptures | None = None
+    analysis: AnalysisCapture | None = None
     try:
         if observer is not None:
             observer.created(recorder)
@@ -157,6 +161,17 @@ def execute_recorded_simulation(
             ):
                 raise ValueError("restored carry does not match the recorded continuation")
             state, accumulator = restored.state, restored.accumulator
+        if restored is None or restored.state_step == 0:
+            analysis = AnalysisCapture.start(recorder, state)
+        elif (
+            checkpoint_source_run is not None and (checkpoint_source_run / FOUNDERS_PATH).is_file()
+        ):
+            analysis = AnalysisCapture.resume(
+                recorder,
+                checkpoint_source_run,
+                restored.run_id,
+                restored.state_step,
+            )
         sink = consumer if consumer_factory is None else consumer_factory()
         parquet_sink = DTOChunkConsumer(parquet)
         original_sink = sink
@@ -177,6 +192,7 @@ def execute_recorded_simulation(
                 config=config,
                 plan=plan,
                 consumer=composed,
+                benchmark_consumer=parquet_sink,
             )
         else:
             from .capture_runner import run_with_captures
@@ -187,20 +203,30 @@ def execute_recorded_simulation(
                 accumulator=accumulator,
                 config=config,
                 plan=plan,
-                consumer=composed,
+                consumer=parquet_sink if mode is RunMode.BENCHMARK else composed,
                 captures=captures,
             )
-        summary = summarize_run(outcome)
         if captures is not None:
             captures.writer.finalize()
         parquet_summary = parquet.finalize()
+        summary = summarize_run(outcome)
+        analysis_summary: dict[str, object] = (
+            {"analysis_status": "unavailable_pre_checkpoint_history"}
+            if analysis is None
+            else analysis.finalize(
+                outcome.runtime.state,
+                summary.final_step,
+                births_total=summary.births_total,
+                deaths_total=summary.deaths_total,
+            )
+        )
 
         def publish_completion(manifest: RunManifest) -> None:
             if observer is not None:
                 observer.completing(recorder, manifest, summary)
 
         recorder.mark_completed(
-            summary=asdict(summary) | asdict(parquet_summary),
+            summary=asdict(summary) | asdict(parquet_summary) | analysis_summary,
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
             before_publish=None if observer is None else publish_completion,
@@ -217,6 +243,13 @@ def execute_recorded_simulation(
                 parquet.finalize_partial()
             except Exception as partial_error:
                 exc.add_note(f"Could not finalize partial Parquet: {partial_error}")
+        if analysis is not None and not any(
+            artifact.kind == "highlighted_genome_index" for artifact in recorder.manifest.artifacts
+        ):
+            try:
+                analysis.register_index()
+            except Exception as index_error:
+                exc.add_note(f"Could not register the genome index: {index_error}")
         try:
             recorder.mark_failed(
                 RunErrorRecord(
@@ -292,6 +325,18 @@ def run_recorded_simulation(
         recorder=recorder,
         capture_policy=capture_policy,
         restored=restored,
+        checkpoint_source_run=(
+            None
+            if source_checkpoint is None
+            else next(
+                (
+                    parent
+                    for parent in source_checkpoint.resolve().parents
+                    if (parent / "manifest.json").is_file()
+                ),
+                None,
+            )
+        ),
         parquet_policy=parquet_policy,
         config=prepared.core,
         plan=plan,

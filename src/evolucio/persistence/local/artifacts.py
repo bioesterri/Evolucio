@@ -116,6 +116,18 @@ class LocalArtifactRegistry:
     def records(self) -> tuple[ArtifactRecord, ...]:
         return self._records
 
+    def discard_provisional_summaries(self) -> None:
+        paths = {
+            "summary.json",
+            "artifacts/analysis/agent_summary.parquet",
+            "artifacts/analysis/lineage_summary.parquet",
+        }
+        for relative in paths:
+            artifact_path(self.run_dir, relative).unlink(missing_ok=True)
+        self._records = tuple(
+            record for record in self._records if record.relative_path not in paths
+        )
+
     def register_existing_artifact(
         self,
         *,

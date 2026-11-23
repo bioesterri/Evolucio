@@ -12,7 +12,7 @@ from evolucio.core.simulation import run_chunk
 
 from .modes import BenchmarkResult, ModeRunResult, RunMode
 from .runner import run_simulation
-from .types import RunPlan
+from .types import ChunkConsumer, HostChunkBatch, RunPlan
 
 if TYPE_CHECKING:
     from evolucio.config.compile import CoreConfig
@@ -26,6 +26,7 @@ def run_benchmark(
     accumulator: MetricsAccumulator,
     config: CoreConfig,
     plan: RunPlan,
+    telemetry_consumer: ChunkConsumer | None = None,
 ) -> ModeRunResult:
     """Measure host + kernel + required host boundary, without DTO consumers."""
     full_chunks, remainder = divmod(plan.total_steps, plan.chunk_steps)
@@ -36,12 +37,25 @@ def run_benchmark(
         del warmup
     jax.block_until_ready((state, accumulator))  # pyright: ignore[reportUnknownMemberType]
     device = next(iter(state.step.devices()))
+    recording_seconds = 0.0
+
+    def record(batch: HostChunkBatch) -> None:
+        nonlocal recording_seconds
+        if telemetry_consumer is not None:
+            recording_start = perf_counter()
+            telemetry_consumer(batch)
+            recording_seconds += perf_counter() - recording_start
+
     start = perf_counter()
     runtime = run_simulation(
-        state=state, accumulator=accumulator, config=config, plan=plan, consumer=None
+        state=state,
+        accumulator=accumulator,
+        config=config,
+        plan=plan,
+        consumer=record if telemetry_consumer is not None else None,
     )
     jax.block_until_ready((runtime.state, runtime.accumulator))  # pyright: ignore[reportUnknownMemberType]
-    elapsed = perf_counter() - start
+    elapsed = perf_counter() - start - recording_seconds
     if not isfinite(elapsed) or elapsed <= 0:
         raise RuntimeError("benchmark elapsed_seconds must be finite and strictly positive")
     return ModeRunResult(

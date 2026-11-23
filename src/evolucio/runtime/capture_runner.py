@@ -102,6 +102,7 @@ def run_with_captures(
             config=config,
             plan=RunPlan(length, length),
             consumer=reindexed,
+            benchmark_consumer=reindexed,
         )
         if first is None:
             first = last

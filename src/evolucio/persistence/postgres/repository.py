@@ -3,10 +3,11 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Protocol
+from pathlib import Path
+from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -27,15 +28,19 @@ from .errors import (
     RunAlreadyExistsError,
 )
 from .models import (
+    AgentSummaryModel,
     ArtifactModel,
     ConfigSnapshotModel,
     DatasetIndexModel,
     ExperimentModel,
+    GenomeHighlightModel,
+    GenomeRegistryModel,
+    LineageSummaryModel,
     RunModel,
     RunSummaryModel,
     StateCaptureModel,
 )
-from .types import ComparisonRun, ExperimentRecord, RunIndexes, RunSummaryRecord
+from .types import ComparisonRun, ExperimentRecord, GenomeHighlights, RunIndexes, RunSummaryRecord
 
 
 def _now() -> datetime:
@@ -252,6 +257,7 @@ class PostgresRegistry:
         steps_executed: int,
         finished_at: datetime | None = None,
         indexes: RunIndexes | None = None,
+        analysis_run_dir: Path | None = None,
     ) -> None:
         """Atomically install one immutable summary and close the run lifecycle."""
         with self._session(write=True) as session:
@@ -288,6 +294,10 @@ class PostgresRegistry:
                 raise RegistryIntegrityError(
                     "completed run requires verified summary/config and complete dataset indexes"
                 )
+            if analysis_run_dir is not None:
+                from .analysis import insert_run_analysis
+
+                insert_run_analysis(session, run_id, analysis_run_dir)
             session.add(
                 RunSummaryModel(
                     run_id=run_id,
@@ -489,6 +499,118 @@ class PostgresRegistry:
                     )
                 )
             return tuple(result)
+
+    def get_agent_summary(self, run_id: UUID, agent_id: int) -> AgentSummaryModel | None:
+        with self._sessions() as session:
+            return session.get(AgentSummaryModel, (run_id, agent_id))
+
+    def list_agents_by_lineage(
+        self, run_id: UUID, lineage_id: int
+    ) -> tuple[AgentSummaryModel, ...]:
+        with self._sessions() as session:
+            return tuple(
+                session.scalars(
+                    select(AgentSummaryModel)
+                    .where(
+                        AgentSummaryModel.run_id == run_id,
+                        AgentSummaryModel.lineage_id == lineage_id,
+                    )
+                    .order_by(AgentSummaryModel.agent_id)
+                )
+            )
+
+    def get_lineage_summary(self, run_id: UUID, lineage_id: int) -> LineageSummaryModel | None:
+        with self._sessions() as session:
+            return session.get(LineageSummaryModel, (run_id, lineage_id))
+
+    def list_lineages(
+        self,
+        run_id: UUID,
+        *,
+        order_by: Literal[
+            "lineage_id", "total_descendants", "alive_final", "max_generation"
+        ] = "lineage_id",
+    ) -> tuple[LineageSummaryModel, ...]:
+        order = {
+            "lineage_id": LineageSummaryModel.lineage_id,
+            "total_descendants": LineageSummaryModel.total_descendants.desc(),
+            "alive_final": LineageSummaryModel.alive_final.desc(),
+            "max_generation": LineageSummaryModel.max_generation.desc(),
+        }[order_by]
+        with self._sessions() as session:
+            return tuple(
+                session.scalars(
+                    select(LineageSummaryModel)
+                    .where(LineageSummaryModel.run_id == run_id)
+                    .order_by(order, LineageSummaryModel.lineage_id)
+                )
+            )
+
+    def get_highlighted_genomes(
+        self,
+        run_id: UUID,
+    ) -> tuple[GenomeHighlights, ...]:
+        return self._highlight_rows(run_id, None)
+
+    def get_genomes_by_reason(
+        self,
+        run_id: UUID,
+        reason: str,
+    ) -> tuple[GenomeHighlights, ...]:
+        return self._highlight_rows(run_id, reason)
+
+    def _highlight_rows(
+        self,
+        run_id: UUID,
+        reason: str | None,
+    ) -> tuple[GenomeHighlights, ...]:
+        query = (
+            select(GenomeRegistryModel, GenomeHighlightModel)
+            .join(
+                GenomeHighlightModel,
+            )
+            .where(GenomeRegistryModel.run_id == run_id)
+        )
+        if reason is not None:
+            query = query.where(GenomeHighlightModel.reason == reason)
+        with self._sessions() as session:
+            rows = session.execute(
+                query.order_by(GenomeRegistryModel.genome_id, GenomeHighlightModel.reason),
+            ).tuples()
+            grouped: dict[int, tuple[GenomeRegistryModel, list[GenomeHighlightModel]]] = {}
+            for genome, highlight in rows:
+                grouped.setdefault(genome.genome_id, (genome, []))[1].append(highlight)
+            return tuple(
+                GenomeHighlights(genome, tuple(highlights))
+                for genome, highlights in grouped.values()
+            )
+
+    def lineage_outcomes_for_experiment(
+        self,
+        experiment_id: UUID,
+    ) -> tuple[tuple[UUID, str | None, int, int, int | None, int | None], ...]:
+        with self._sessions() as session:
+            rows = session.execute(
+                select(
+                    RunModel.run_id,
+                    RunModel.case_id,
+                    RunModel.seed,
+                    func.count(LineageSummaryModel.lineage_id),
+                    func.max(LineageSummaryModel.max_generation),
+                    func.max(LineageSummaryModel.total_agents),
+                )
+                .outerjoin(LineageSummaryModel)
+                .where(
+                    RunModel.experiment_id == experiment_id,
+                    RunModel.status == "completed",
+                )
+                .group_by(RunModel.run_id)
+                .order_by(RunModel.case_id, RunModel.seed, RunModel.run_id)
+            )
+            return tuple(
+                (run_id, case_id, seed, count, generation, size)
+                for run_id, case_id, seed, count, generation, size in rows
+            )
 
     def _transition(self, run_id: UUID, before: str, after: str, **values: object) -> None:
         with self._session(write=True) as session:

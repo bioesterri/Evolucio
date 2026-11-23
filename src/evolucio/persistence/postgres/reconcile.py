@@ -111,6 +111,7 @@ def reconcile_run(run_dir: Path, registry: PostgresRegistry) -> ReconciliationRe
         *verification.invalid_paths,
         *verification.parquet_errors,
         *verification.zarr_errors,
+        *verification.genome_errors,
     }
 
     def compare(

@@ -1,12 +1,21 @@
 """Host-side value objects for the PostgreSQL registry."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from evolucio.persistence.local.artifacts import ArtifactRecord
+if TYPE_CHECKING:
+    from evolucio.persistence.local.artifacts import ArtifactRecord
 
-from .models import DatasetIndexModel, StateCaptureModel
+    from .models import (
+        DatasetIndexModel,
+        GenomeHighlightModel,
+        GenomeRegistryModel,
+        StateCaptureModel,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +63,12 @@ class ReconciliationReport:
     missing_locally: tuple[str, ...]
     hash_mismatches: tuple[str, ...]
     metadata_mismatches: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GenomeHighlights:
+    genome: GenomeRegistryModel
+    highlights: tuple[GenomeHighlightModel, ...]
 
 
 @dataclass(frozen=True, slots=True)

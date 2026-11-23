@@ -18,7 +18,13 @@ from .registry import (
     upgrade_database,
 )
 from .repository import ExperimentRepository, PostgresRegistry, RunRepository
-from .types import ComparisonRun, ExperimentRecord, ReconciliationReport, RunSummaryRecord
+from .types import (
+    ComparisonRun,
+    ExperimentRecord,
+    GenomeHighlights,
+    ReconciliationReport,
+    RunSummaryRecord,
+)
 
 __all__ = [
     "ArtifactIndexConflictError",
@@ -28,6 +34,7 @@ __all__ = [
     "DatabaseUnavailableError",
     "ExperimentRecord",
     "ExperimentRepository",
+    "GenomeHighlights",
     "InvalidRunTransitionError",
     "PostgresRegistry",
     "ReconciliationReport",

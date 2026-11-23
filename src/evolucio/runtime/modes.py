@@ -157,6 +157,7 @@ def run_with_mode(
     config: CoreConfig,
     plan: RunPlan,
     consumer: ChunkConsumer | None = None,
+    benchmark_consumer: ChunkConsumer | None = None,
 ) -> ModeRunResult:
     """Dispatch instrumentation centrally without changing config or horizon."""
     policy = get_mode_policy(mode)
@@ -169,7 +170,13 @@ def run_with_mode(
     if policy.measure_runtime:
         from .benchmark import run_benchmark
 
-        return run_benchmark(state=state, accumulator=accumulator, config=config, plan=plan)
+        return run_benchmark(
+            state=state,
+            accumulator=accumulator,
+            config=config,
+            plan=plan,
+            telemetry_consumer=benchmark_consumer,
+        )
     if policy.initial_invariant_check or policy.final_invariant_check:
         from .diagnostics import run_smoke
 

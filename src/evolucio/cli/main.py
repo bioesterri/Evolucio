@@ -19,6 +19,7 @@ from .batch_command import batch_app
 from .capture_commands import checkpoint_app, snapshot_app
 from .config_commands import inspect_config, validate_config
 from .database_commands import database_app, experiment_app
+from .genome_commands import genome_app
 from .run_command import run_config
 
 app = typer.Typer(
@@ -32,6 +33,7 @@ config_app = typer.Typer(help="Validate and inspect normalized configurations.")
 app.add_typer(config_app, name="config")
 app.add_typer(batch_app, name="batch")
 app.add_typer(artifacts_app, name="artifacts")
+app.add_typer(genome_app, name="genome")
 app.add_typer(database_app, name="db")
 app.add_typer(experiment_app, name="experiment")
 
@@ -114,7 +116,10 @@ def run(
 def main(argv: Sequence[str] | None = None) -> int:
     """Run commands with results on stdout and errors on stderr."""
     try:
-        app(args=None if argv is None else list(argv), prog_name="evolucio")
+        arguments = list(sys.argv[1:] if argv is None else argv)
+        if arguments[:2] == ["run", "inspect"]:
+            arguments[0] = "artifacts"
+        app(args=arguments, prog_name="evolucio")
         return 0
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1

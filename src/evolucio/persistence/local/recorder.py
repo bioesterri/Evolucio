@@ -103,6 +103,7 @@ class LocalRunRecorder:
 
     def mark_failed(self, error: RunErrorRecord) -> None:
         self._require_open()
+        self._registry.discard_provisional_summaries()
         self._registry.write_json_artifact(
             relative_path="error.json", payload=asdict(error), name="error", kind="error"
         )
