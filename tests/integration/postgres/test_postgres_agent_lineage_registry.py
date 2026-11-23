@@ -6,6 +6,7 @@ from uuid import UUID
 import polars as pl
 import pytest
 from sqlalchemy import Engine, select
+from sqlalchemy.orm import Session
 
 from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
 from evolucio.cli.run_command import run_config
@@ -13,18 +14,14 @@ from evolucio.persistence.genomes import GenomeHighlightReason, read_genome_inde
 from evolucio.persistence.local import RunStatus, load_run_manifest
 from evolucio.persistence.postgres import (
     PostgresRegistry,
-    RunSummaryRecord,
     create_session_factory,
     reconcile_run,
 )
+from evolucio.persistence.postgres import analysis as postgres_analysis
 from evolucio.persistence.postgres.models import AgentSummaryModel, ArtifactModel
 from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
 from evolucio.runtime import initialization
-from tests.integration.postgres import conftest as postgres_fixtures
 from tests.zarr_helpers import checkpoint_host_config, checkpoint_scenario
-
-database_url = postgres_fixtures.database_url
-migrated_engine = postgres_fixtures.migrated_engine
 
 
 def test_registry_roundtrip_and_atomic_failure(
@@ -92,26 +89,13 @@ def test_registry_roundtrip_and_atomic_failure(
         lineages["total_agents"].max(),
     )
 
-    original = PostgresRegistry.mark_run_completed
+    original = postgres_analysis.insert_run_analysis
 
-    def fail(
-        registry: PostgresRegistry,
-        run_id: UUID,
-        *,
-        summary: RunSummaryRecord,
-        final_step: int,
-        steps_executed: int,
-    ) -> None:
-        original(
-            registry,
-            run_id,
-            summary=summary,
-            final_step=final_step,
-            steps_executed=steps_executed,
-        )
+    def fail(session: Session, run_id: UUID, run_dir: Path) -> None:
+        original(session, run_id, run_dir)
         raise RuntimeError("forced analysis transaction failure")
 
-    monkeypatch.setattr(PostgresRegistry, "mark_run_completed", fail)
+    monkeypatch.setattr(postgres_analysis, "insert_run_analysis", fail)
     with pytest.raises(RuntimeError, match="forced analysis transaction failure"):
         record(tmp_path / "failed")
     failed_dir = next((tmp_path / "failed").iterdir())
@@ -124,7 +108,11 @@ def test_registry_roundtrip_and_atomic_failure(
     assert not (failed_dir / LINEAGES_PATH).exists()
     assert not (failed_dir / "summary.json").exists()
     assert registry.get_highlighted_genomes(failed_run_id) == ()
-    assert not reconcile_run(failed_dir, registry).ok
+    assert reconcile_run(failed_dir, registry).ok
     with sessions() as session:
         assert session.scalar(select(AgentSummaryModel).filter_by(run_id=failed_run_id)) is None
-        assert session.scalar(select(ArtifactModel).filter_by(run_id=failed_run_id)) is None
+        paths = set(
+            session.scalars(select(ArtifactModel.relative_path).filter_by(run_id=failed_run_id))
+        )
+        assert "error.json" in paths
+        assert not {AGENTS_PATH, LINEAGES_PATH, "summary.json"} & paths

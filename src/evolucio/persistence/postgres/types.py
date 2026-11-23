@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from .models import GenomeHighlightModel, GenomeRegistryModel
+    from evolucio.persistence.local.artifacts import ArtifactRecord
+
+    from .models import (
+        DatasetIndexModel,
+        GenomeHighlightModel,
+        GenomeRegistryModel,
+        StateCaptureModel,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,3 +69,11 @@ class ReconciliationReport:
 class GenomeHighlights:
     genome: GenomeRegistryModel
     highlights: tuple[GenomeHighlightModel, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RunIndexes:
+    config_hash: str
+    artifacts: tuple[ArtifactRecord, ...]
+    datasets: tuple[DatasetIndexModel, ...]
+    captures: tuple[StateCaptureModel, ...]

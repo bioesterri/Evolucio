@@ -101,9 +101,9 @@ El flux amb `--experiment-id` verifica els artefactes locals abans
 d’indexar-los. Els inserts per lots, els índexs i la transició a
 `completed` es confirmen en una única transacció SQL. Els runs només
 locals poden completar i produir tots els artefactes sense PostgreSQL.
-El fitxer `summary.json` s’escriu després dels inserts i la
-sincronització inicial. El manifest local es publica com a
-`completed` quan es confirma la transacció SQL. Els dos sistemes
+El fitxer provisional `summary.json` forma part dels artefactes que
+es verifiquen abans de la transacció SQL. El manifest local es publica
+com a `completed` quan es confirma la transacció. Els dos sistemes
 tenen commits independents.
 
 `PostgresRegistry` pot consultar un agent o llinatge, llistar agents

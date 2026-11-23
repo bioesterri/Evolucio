@@ -8,7 +8,7 @@ from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from evolucio.config.freeze import canonical_json_and_hash
@@ -40,7 +40,7 @@ from .models import (
     RunSummaryModel,
     StateCaptureModel,
 )
-from .types import ComparisonRun, ExperimentRecord, GenomeHighlights, RunSummaryRecord
+from .types import ComparisonRun, ExperimentRecord, GenomeHighlights, RunIndexes, RunSummaryRecord
 
 
 def _now() -> datetime:
@@ -257,6 +257,7 @@ class PostgresRegistry:
         steps_executed: int,
         finished_at: datetime | None = None,
         indexes: RunIndexes | None = None,
+        analysis_run_dir: Path | None = None,
     ) -> None:
         """Atomically install one immutable summary and close the run lifecycle."""
         with self._session(write=True) as session:
@@ -293,6 +294,10 @@ class PostgresRegistry:
                 raise RegistryIntegrityError(
                     "completed run requires verified summary/config and complete dataset indexes"
                 )
+            if analysis_run_dir is not None:
+                from .analysis import insert_run_analysis
+
+                insert_run_analysis(session, run_id, analysis_run_dir)
             session.add(
                 RunSummaryModel(
                     run_id=run_id,
@@ -309,55 +314,6 @@ class PostgresRegistry:
             run.status = "completed"
             run.finished_at = _as_utc(finished_at) if finished_at is not None else _now()
             run.final_step, run.steps_executed = final_step, steps_executed
-
-    @contextmanager
-    def complete_recorded_run(
-        self,
-        run_id: UUID,
-        run_dir: Path,
-        *,
-        summary: RunSummaryRecord,
-        final_step: int,
-        steps_executed: int,
-    ) -> Generator[None]:
-        """Index one verified run, yielding for the local summary to be written."""
-        from evolucio.analysis.summaries import AGENTS_PATH
-        from evolucio.persistence.local.manifest import load_run_manifest
-
-        from .analysis import insert_run_analysis
-        from .reconcile import sync_run_artifacts
-
-        def index_analysis() -> None:
-            if any(record.relative_path == AGENTS_PATH for record in manifest.artifacts):
-                insert_run_analysis(session, run_id, run_dir)
-
-        with self._sessions.begin() as session:
-            run = session.get(RunModel, run_id, with_for_update=True)
-            if run is None or run.status != "running":
-                raise InvalidRunTransitionError(f"run {run_id} is not running")
-            manifest = load_run_manifest(run_dir / "manifest.json")
-            if manifest.run_id != str(run_id):
-                raise RegistryIntegrityError("local manifest belongs to another run")
-            # Existing index methods commit their savepoints into this outer transaction.
-            transaction_registry = PostgresRegistry(
-                sessionmaker(
-                    bind=session.connection(),
-                    join_transaction_mode="create_savepoint",
-                )
-            )
-            sync_run_artifacts(run_dir, transaction_registry, before_indexing=index_analysis)
-            yield
-            updated = load_run_manifest(run_dir / "manifest.json")
-            summary_artifact = next(
-                record for record in updated.artifacts if record.relative_path == "summary.json"
-            )
-            transaction_registry.index_artifact(run_id, summary_artifact)
-            transaction_registry.mark_run_completed(
-                run_id,
-                summary=summary,
-                final_step=final_step,
-                steps_executed=steps_executed,
-            )
 
     def index_artifact(self, run_id: UUID, artifact: ArtifactRecord) -> None:
         with self._session(write=True) as session:

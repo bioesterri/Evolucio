@@ -26,8 +26,6 @@ from .modes import ModeRunResult, RunDiagnosticError, RunMode
 from .types import ChunkConsumer, HostChunkBatch, RunPlan
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
-
     from evolucio.config.compile import CompiledConfig, CoreConfig
     from evolucio.persistence.zarr.checkpoint import CheckpointRestore
 
@@ -107,8 +105,7 @@ def execute_recorded_simulation(
     consumer: ChunkConsumer | None = None,
     consumer_factory: Callable[[], ChunkConsumer | None] | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
-    on_finalizing: Callable[[LocalRunRecorder, RunSummary], AbstractContextManager[None]]
-    | None = None,
+    observer: RecordedRunObserver | None = None,
 ) -> RecordedRunResult:
     """Keep initialization and execution failures auditable, preserving exceptions."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -223,13 +220,16 @@ def execute_recorded_simulation(
                 deaths_total=summary.deaths_total,
             )
         )
+
+        def publish_completion(manifest: RunManifest) -> None:
+            if observer is not None:
+                observer.completing(recorder, manifest, summary)
+
         recorder.mark_completed(
             summary=asdict(summary) | asdict(parquet_summary) | analysis_summary,
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
-            completion_transaction=(
-                None if on_finalizing is None else on_finalizing(recorder, summary)
-            ),
+            before_publish=None if observer is None else publish_completion,
         )
         return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
     except Exception as exc:
@@ -283,8 +283,7 @@ def run_recorded_simulation(
     consumer: ChunkConsumer | None = None,
     run_id: str | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
-    on_finalizing: Callable[[LocalRunRecorder, RunSummary], AbstractContextManager[None]]
-    | None = None,
+    observer: RecordedRunObserver | None = None,
     compiled: CompiledConfig | None = None,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
@@ -344,5 +343,5 @@ def run_recorded_simulation(
         mode=mode,
         consumer=consumer,
         on_created=on_created,
-        on_finalizing=on_finalizing,
+        observer=observer,
     )
