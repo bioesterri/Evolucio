@@ -140,43 +140,15 @@ def _execute(
         raise ConfigError(str(exc)) from exc
     consumer = CliRunSummaryConsumer()
     recorder: LocalRunRecorder | None = None
-    registry = None
-    database_engine = None
+    registration = nullcontext()
     if experiment_id is not None:
-        from evolucio.persistence.postgres import (
-            PostgresRegistry,
-            create_registry_engine,
-            create_session_factory,
-        )
+        from evolucio.persistence.postgres.recording import register_experiment_runs
 
-        database_engine = create_registry_engine()
-        registry = PostgresRegistry(create_session_factory(database_engine))
-        if registry.get_experiment(experiment_id) is None:
-            database_engine.dispose()
-            raise ValueError(f"unknown experiment_id: {experiment_id}")
+        registration = register_experiment_runs(experiment_id)
 
     def created(value: LocalRunRecorder) -> None:
         nonlocal recorder
         recorder = value
-        if registry is not None:
-            import json
-
-            from evolucio.config.versions import CONFIG_SCHEMA_VERSION
-
-            config_record = next(
-                record
-                for record in value.manifest.artifacts
-                if record.relative_path == "config.json"
-            )
-            registry.create_run(
-                manifest=value.manifest,
-                config_json=json.loads((value.run_dir / "config.json").read_text()),
-                config_schema_version=int(CONFIG_SCHEMA_VERSION.split(".", maxsplit=1)[0]),
-                config_artifact_sha256=config_record.sha256,
-                experiment_id=experiment_id,
-                local_run_path=str(value.run_dir),
-            )
-            registry.mark_run_running(UUID(value.run_id))
         if not quiet:
             typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
 
@@ -216,15 +188,6 @@ def _execute(
             on_finalizing=finalizing if registry is not None else None,
         )
     except Exception as exc:
-        if registry is not None and recorder is not None:
-            try:
-                registry.mark_run_failed(
-                    UUID(recorder.run_id),
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:4096],
-                )
-            except Exception as database_error:
-                exc.add_note(f"Could not mark PostgreSQL run failed: {database_error}")
         if recorder is not None:
             typer.echo(
                 text_fields(

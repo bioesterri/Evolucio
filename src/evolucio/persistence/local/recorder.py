@@ -99,6 +99,10 @@ class LocalRunRecorder:
                 artifacts=self._registry.records,
             )
         )
+        if before_publish is not None:
+            self._save(replace(self.manifest, artifacts=completed.artifacts))
+            before_publish(completed)
+        self._save(completed)
 
     def mark_failed(self, error: RunErrorRecord) -> None:
         self._require_open()

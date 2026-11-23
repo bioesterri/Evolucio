@@ -155,11 +155,12 @@ class DatasetIndexModel(Base):
     __table_args__ = (
         UniqueConstraint("run_id", "dataset_kind", name="uq_dataset_run_kind"),
         Index("ix_dataset_kind", "dataset_kind"),
+        Index("ix_dataset_run_id", "run_id"),
     )
 
     dataset_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
     run_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("run.run_id", ondelete="CASCADE"), index=True
+        PGUUID(as_uuid=True), ForeignKey("run.run_id", ondelete="CASCADE")
     )
     dataset_kind: Mapped[str] = mapped_column(Text)
     storage_format: Mapped[str] = mapped_column(Text)
