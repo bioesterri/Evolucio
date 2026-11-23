@@ -29,7 +29,6 @@ def test_registry_roundtrip_and_atomic_failure(
     migrated_engine: Engine,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("EVOLUCIO_DATABASE_URL", migrated_engine.url.render_as_string())
     state, _ = checkpoint_scenario()
     monkeypatch.setattr(initialization, "initialize_simulation", lambda *_a, **_kw: state)
     config_path = tmp_path / "config.json"
