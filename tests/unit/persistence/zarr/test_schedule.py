@@ -34,7 +34,12 @@ def test_policy_and_final_deduplication():
         "checkpoint_on_completion",
         "snapshot_on_completion",
         "keep_last_checkpoints",
+        "checkpoint_on_stop",
     }
+    assert ZarrCapturePolicy().checkpoint_on_stop is True
+    assert ZarrCapturePolicy(checkpoint_on_stop=False).checkpoint_on_stop is False
+    with pytest.raises(ValueError):
+        ZarrCapturePolicy(checkpoint_on_stop=1)
 
 
 def test_exact_boundary_planning():
