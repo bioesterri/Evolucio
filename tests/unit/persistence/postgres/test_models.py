@@ -19,6 +19,8 @@ def test_relational_tables_and_jsonb_are_declared():
         "lineage_summary",
         "genome_registry",
         "genome_highlight",
+        "mlflow_experiment_binding",
+        "mlflow_run_binding",
     }
     assert isinstance(ConfigSnapshotModel.__table__.c.config_json.type, JSONB)
 

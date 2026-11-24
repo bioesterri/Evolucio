@@ -41,6 +41,7 @@ visualization = [
 
 [dependency-groups]
 dev = [
+    "mlflow>=3.1,<4",
     "alembic>=1.16,<2",
     "coverage>=7.9,<8",
     "hypothesis>=6.135,<7",

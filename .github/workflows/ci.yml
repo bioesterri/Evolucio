@@ -64,7 +64,10 @@ jobs:
           cache-dependency-glob: uv.lock
       - run: uv sync --locked --group dev
       - run: uv run coverage erase
-      - run: uv run coverage run --parallel-mode -m pytest --ignore=tests/integration/postgres
+      - run: >-
+          uv run coverage run --parallel-mode -m pytest
+          --ignore=tests/integration/postgres
+          --ignore-glob='tests/integration/test_mlflow_*.py'
       - uses: actions/download-artifact@v4
         with:
           name: postgres-coverage
@@ -114,7 +117,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v9.0.0
       - run: uv sync --locked --group dev --extra persistence
-      - run: uv run coverage run --data-file=.coverage.postgres -m pytest tests/integration/postgres
+      - run: uv run coverage run --data-file=.coverage.postgres -m pytest tests/integration/postgres tests/integration/test_mlflow_*.py
       - run: uv run alembic current
       - uses: actions/upload-artifact@v4
         with:

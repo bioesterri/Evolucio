@@ -20,6 +20,7 @@ from .capture_commands import checkpoint_app, snapshot_app
 from .config_commands import inspect_config, validate_config
 from .database_commands import database_app, experiment_app
 from .genome_commands import genome_app
+from .mlflow_command import MlflowFlag, MlflowInterval, MlflowRequired, mlflow_app
 from .run_command import run_config
 
 app = typer.Typer(
@@ -27,6 +28,7 @@ app = typer.Typer(
     invoke_without_command=True,
     no_args_is_help=True,
 )
+app.add_typer(mlflow_app, name="mlflow")
 app.add_typer(checkpoint_app, name="checkpoint")
 app.add_typer(snapshot_app, name="snapshot")
 config_app = typer.Typer(help="Validate and inspect normalized configurations.")
@@ -87,6 +89,9 @@ def run(
         Path | None, typer.Option("--output-root", help="Local run root (default: runs). ")
     ] = None,
     experiment_id: Annotated[UUID | None, typer.Option("--experiment-id")] = None,
+    mlflow: MlflowFlag = False,
+    mlflow_required: MlflowRequired = True,
+    mlflow_metrics_interval: MlflowInterval = 1,
 ) -> None:
     """Execute an explicit horizon or show its plan with --dry-run."""
     from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
@@ -108,6 +113,9 @@ def run(
         output_root=output_root,
         capture_policy=capture_policy,
         experiment_id=experiment_id,
+        mlflow=mlflow,
+        mlflow_required=mlflow_required,
+        mlflow_metrics_interval=mlflow_metrics_interval,
     )
     if output:
         typer.echo(output)
