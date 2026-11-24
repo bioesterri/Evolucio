@@ -35,6 +35,10 @@ def verified_run_indexes(run_dir: Path) -> tuple[RunManifest, RunIndexes]:
 
 def sync_run_artifacts(run_dir: Path, registry: PostgresRegistry) -> None:
     """Index verified local metadata atomically without changing local bytes."""
+    manifest = load_run_manifest(run_dir / "manifest.json")
+    if manifest.status.value == "stopped":
+        # A corrupt artifact cannot erase the independently confirmed lifecycle transition.
+        registry.mark_run_stopped(manifest)
     manifest, indexes = verified_run_indexes(run_dir)
     if manifest.status.value == "stopped":
         registry.mark_run_stopped(manifest, indexes=indexes)

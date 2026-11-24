@@ -727,7 +727,14 @@ class PostgresRegistry:
     def lineage_outcomes_for_experiment(
         self,
         experiment_id: UUID,
+        *,
+        selected_runs: frozenset[UUID] = frozenset(),
     ) -> tuple[tuple[UUID, str | None, int, int, int | None, int | None], ...]:
+        completed_ids = [
+            run.run_id
+            for run in self.list_runs_for_comparison(experiment_id, selected_runs=selected_runs)
+            if run.status == "completed"
+        ]
         with self._sessions() as session:
             rows = session.execute(
                 select(
@@ -740,8 +747,7 @@ class PostgresRegistry:
                 )
                 .outerjoin(LineageSummaryModel)
                 .where(
-                    RunModel.experiment_id == experiment_id,
-                    RunModel.status == "completed",
+                    RunModel.run_id.in_(completed_ids),
                 )
                 .group_by(RunModel.run_id)
                 .order_by(RunModel.case_id, RunModel.seed, RunModel.run_id)

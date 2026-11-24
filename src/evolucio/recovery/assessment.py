@@ -198,7 +198,7 @@ def inspect_owned(run_dir: Path, ownership: WriterStatus) -> RecoveryAssessment:
             verify_history(run_dir, manifest, telemetry, restored)
             if not incompatibilities:
                 recoverable.append(step)
-        except (OSError, ValueError, pl.exceptions.PolarsError) as exc:
+        except (OSError, ValueError, KeyError, TypeError, pl.exceptions.PolarsError) as exc:
             errors.append(f"checkpoint {step}: {exc}")
     committed_step: int | None = None
     if telemetry is not None and telemetry.chunks:

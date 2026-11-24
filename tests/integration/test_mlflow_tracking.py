@@ -269,3 +269,33 @@ def test_recovery_tracking_replays_canonical_prefix(
     ) == [0, 1, 2, 3, 4]
     assert client.get_run(source.mlflow_run_id).info.status == "KILLED"
     assert reconcile_mlflow_run(recovered.run_dir, registry, client=client).ok
+
+    from evolucio.persistence.postgres.errors import RegistryIntegrityError
+    from evolucio.tracking.mlflow.sync import sync_run_to_mlflow
+
+    def unavailable(*_args: object, **_kwargs: object) -> MlflowClient:
+        raise RuntimeError("MLflow temporarily unavailable")
+
+    with monkeypatch.context() as outage:
+        outage.setattr("evolucio.tracking.mlflow.live.create_tracking_client", unavailable)
+        outage.setattr("evolucio.tracking.mlflow.sync.create_tracking_client", unavailable)
+        tracker = MlflowRunTracker(registry, experiment_id, MlflowTrackingPolicy(required=False))
+        second = resume(
+            original.run_dir,
+            observer=PostgresRunObserver(registry, experiment_id),
+            tracking=tracker,
+        )
+    assert isinstance(second, RecordedRunResult) and second.manifest.status is RunStatus.COMPLETED
+    assert tracker.state and tracker.state.sync_status is SyncStatus.FAILED
+    assert (
+        sync_run_to_mlflow(second.run_dir, registry, client=client).sync_status is SyncStatus.SYNCED
+    )
+    with pytest.raises(RegistryIntegrityError, match="select one completed continuation"):
+        registry.list_runs_for_comparison(experiment_id)
+    assert {
+        row.run_id
+        for row in registry.list_runs_for_comparison(
+            experiment_id, selected_runs=frozenset({UUID(second.manifest.run_id)})
+        )
+        if row.status == "completed"
+    } == {UUID(second.manifest.run_id)}

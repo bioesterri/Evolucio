@@ -154,6 +154,20 @@ def reconcile(run_dir: Path) -> RecoveryAssessment:
         recorder = LocalRunRecorder.open_existing(run_dir)
         assessment = inspect_owned(run_dir, ownership)
         if recorder.manifest.status is RunStatus.RUNNING:
+            from evolucio.persistence.local.artifacts import artifact_path
+            from evolucio.persistence.parquet.index import INDEX_PATH as PARQUET_INDEX_PATH
+            from evolucio.persistence.parquet.verify import verify_parquet_datasets
+            from evolucio.persistence.zarr.index import INDEX_PATH as ZARR_INDEX_PATH
+            from evolucio.persistence.zarr.integrity import verify_zarr_artifacts
+
+            for path, name, verification in (
+                (PARQUET_INDEX_PATH, "parquet_dataset_index", verify_parquet_datasets),
+                (ZARR_INDEX_PATH, "zarr_artifact_index", verify_zarr_artifacts),
+            ):
+                if artifact_path(run_dir, path).is_file() and verification(run_dir).ok:
+                    recorder.register_artifact(
+                        name=name, kind=name, relative_path=path, media_type="application/json"
+                    )
             recorder.mark_stopped(
                 RunStopRecord(
                     "external_interruption",

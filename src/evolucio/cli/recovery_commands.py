@@ -19,7 +19,19 @@ def inspect(run_dir: Path) -> None:
     from evolucio.recovery.assessment import inspect_run
 
     report = inspect_run(run_dir)
-    typer.echo(text_fields(asdict(report) | {"recoverable": report.recoverable}))
+    typer.echo(
+        text_fields(
+            asdict(report)
+            | {
+                "recoverable": report.recoverable,
+                "blocking_errors": (
+                    (*report.incompatibilities, *report.integrity_errors)
+                    if not report.recoverable
+                    else ()
+                ),
+            }
+        )
+    )
 
 
 @recovery_app.command("resume")
@@ -102,4 +114,16 @@ def reconcile(run_dir: Path) -> None:
     from evolucio.recovery.runner import reconcile as reconcile_run
 
     report = reconcile_run(run_dir)
-    typer.echo(text_fields(asdict(report) | {"recoverable": report.recoverable}))
+    typer.echo(
+        text_fields(
+            asdict(report)
+            | {
+                "recoverable": report.recoverable,
+                "blocking_errors": (
+                    (*report.incompatibilities, *report.integrity_errors)
+                    if not report.recoverable
+                    else ()
+                ),
+            }
+        )
+    )

@@ -179,6 +179,7 @@ def _execute_recorded_simulation(
             tracking_preflight = True
             tracking.created(recorder)
             tracking_preflight = False
+        phase = "persistence"
         parquet = ParquetRunConsumer(recorder, parquet_policy)
         if capture_policy.enabled:
             from .capture_runner import RunCaptures
@@ -195,6 +196,7 @@ def _execute_recorded_simulation(
                     "source_checkpoint_hash": restored.checkpoint_sha256,
                 },
             )
+        phase = "initialization"
         if restored is None:
             state = initialize_simulation(config, seed=recorder.manifest.seed)
             accumulator = create_empty_metrics_accumulator()
@@ -207,10 +209,10 @@ def _execute_recorded_simulation(
                 raise ValueError("restored carry does not match the recorded continuation")
             state, accumulator = restored.state, restored.accumulator
         confirmed = int(state.step)
+        phase = "persistence"
         if import_prefix is not None:
             if restored is None or checkpoint_source_run is None:
                 raise ValueError("prefix import requires a restored checkpoint")
-            phase = "persistence"
             import_prefix(parquet)
             analysis = AnalysisCapture.import_founders(recorder, checkpoint_source_run)
             if captures is None:
@@ -247,9 +249,10 @@ def _execute_recorded_simulation(
             active_interval = (batch.start_step, batch.end_step_exclusive)
             phase = "persistence"
             parquet_sink(batch)
-            phase = "simulation"
             if mode is not RunMode.BENCHMARK and sink is not None:
+                phase = "unexpected"
                 sink(batch)
+            phase = "simulation"
             active_interval = None
 
         def dispatch(start: int, end: int) -> None:
