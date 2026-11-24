@@ -337,3 +337,38 @@ class GenomeHighlightModel(Base):
     genome_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     reason: Mapped[str] = mapped_column(Text, primary_key=True)
     selected_step: Mapped[int] = mapped_column(BigInteger)
+
+
+class MlflowExperimentBindingModel(Base):
+    __tablename__ = "mlflow_experiment_binding"
+
+    experiment_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("experiment.experiment_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    mlflow_experiment_id: Mapped[str] = mapped_column(Text, unique=True)
+    mlflow_experiment_name: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MlflowRunBindingModel(Base):
+    __tablename__ = "mlflow_run_binding"
+    __table_args__ = (
+        CheckConstraint(
+            "sync_status IN ('active', 'synced', 'degraded', 'failed')",
+            name="ck_mlflow_run_binding_sync_status",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("run.run_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    mlflow_run_id: Mapped[str] = mapped_column(Text, unique=True)
+    mlflow_experiment_id: Mapped[str] = mapped_column(Text)
+    sync_status: Mapped[str] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -36,6 +36,8 @@ from .models import (
     GenomeHighlightModel,
     GenomeRegistryModel,
     LineageSummaryModel,
+    MlflowExperimentBindingModel,
+    MlflowRunBindingModel,
     RunModel,
     RunSummaryModel,
     StateCaptureModel,
@@ -124,6 +126,33 @@ class PostgresRegistry:
         with self._session() as session:
             models = session.scalars(select(ExperimentModel).order_by(ExperimentModel.created_at))
             return tuple(self._experiment_record(model) for model in models)
+
+    def get_mlflow_experiment_binding(
+        self, experiment_id: UUID
+    ) -> MlflowExperimentBindingModel | None:
+        with self._session() as session:
+            return session.get(MlflowExperimentBindingModel, experiment_id)
+
+    def get_mlflow_run_binding(self, run_id: UUID) -> MlflowRunBindingModel | None:
+        with self._session() as session:
+            return session.get(MlflowRunBindingModel, run_id)
+
+    @contextmanager
+    def lock_mlflow_experiment(
+        self, experiment_id: UUID
+    ) -> Generator[tuple[Session, ExperimentModel]]:
+        with self._session(write=True) as session:
+            experiment = session.get(ExperimentModel, experiment_id, with_for_update=True)
+            if experiment is None:
+                raise RegistryIntegrityError("experiment does not exist")
+            yield session, experiment
+
+    @contextmanager
+    def lock_mlflow_run(self, run_id: UUID) -> Generator[Session]:
+        with self._session(write=True) as session:
+            if session.get(RunModel, run_id, with_for_update=True) is None:
+                raise RegistryIntegrityError("run does not exist")
+            yield session
 
     def create_run(
         self,

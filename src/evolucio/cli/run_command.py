@@ -17,6 +17,7 @@ from evolucio.runtime import RunMode, RunPlan, get_mode_policy
 
 from .config_commands import load_frozen
 from .formatting import text_fields
+from .mlflow_command import show_tracking_failures, tracking_for
 
 
 @dataclass(slots=True)
@@ -45,6 +46,9 @@ def run_config(
     output_root: Path | None = None,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
     experiment_id: UUID | None = None,
+    mlflow: bool = False,
+    mlflow_required: bool = True,
+    mlflow_metrics_interval: int = 1,
 ) -> str:
     """Prepare a plan or execute through PR-30 and the PR-31 DTO adapter."""
     policy = get_mode_policy(mode)
@@ -90,6 +94,8 @@ def run_config(
                     on_completion=capture_policy.snapshot_on_completion,
                 ),
                 "mode": mode.value,
+                "mlflow": "enabled" if mlflow else "disabled",
+                "tracking required": "yes" if mlflow and mlflow_required else "no",
                 "diagnostics_policy": {
                     "per_step": policy.per_step_diagnostics,
                     "initial": policy.initial_invariant_check,
@@ -116,6 +122,9 @@ def run_config(
         output_root=output_root,
         capture_policy=capture_policy,
         experiment_id=experiment_id,
+        mlflow=mlflow,
+        mlflow_required=mlflow_required,
+        mlflow_metrics_interval=mlflow_metrics_interval,
     )
 
 
@@ -128,10 +137,12 @@ def _execute(
     output_root: Path | None = None,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
     experiment_id: UUID | None = None,
+    mlflow: bool = False,
+    mlflow_required: bool = True,
+    mlflow_metrics_interval: int = 1,
 ) -> str:
     """Import device-facing APIs only after validation and dry-run planning."""
     from evolucio.config.compile import ConfigCompilationError, compile_config
-    from evolucio.runtime import DTOChunkConsumer
     from evolucio.runtime.recorded_run import run_recorded_simulation
 
     try:
@@ -152,8 +163,10 @@ def _execute(
         if not quiet:
             typer.echo(text_fields({"run_id": value.run_id, "run_dir": str(value.run_dir)}))
 
+    tracking = None
     try:
         with registration as observer:
+            tracking = tracking_for(observer, mlflow, mlflow_required, mlflow_metrics_interval)
             recorded = run_recorded_simulation(
                 config=frozen.config,
                 compiled=compiled,
@@ -161,7 +174,8 @@ def _execute(
                 plan=plan,
                 mode=mode,
                 output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
-                consumer=DTOChunkConsumer(consumer),
+                telemetry_consumer=consumer,
+                tracking=tracking,
                 on_created=created,
                 observer=observer,
             )
@@ -179,7 +193,9 @@ def _execute(
             )
         for note in getattr(exc, "__notes__", ()):
             typer.echo(note, err=True)
+        show_tracking_failures(tracking, fail_required=False)
         raise
+    show_tracking_failures(tracking)
     result = recorded.result
     location: dict[str, object] = {"manifest": str(recorded.run_dir / "manifest.json")}
     if result.benchmark is not None:

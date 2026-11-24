@@ -24,6 +24,14 @@ from evolucio.experiments import (
 from evolucio.persistence.local import DEFAULT_RUNS_ROOT
 from evolucio.runtime.modes import RunMode
 
+from .mlflow_command import (
+    MlflowFlag,
+    MlflowInterval,
+    MlflowRequired,
+    show_tracking_failures,
+    tracking_for,
+)
+
 batch_app = typer.Typer(help="Execute explicit configurations with paired master seeds.")
 
 
@@ -67,6 +75,9 @@ def batch_run(
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
     output_root: Annotated[Path | None, typer.Option("--output-root")] = None,
     experiment_id: Annotated[UUID | None, typer.Option("--experiment-id")] = None,
+    mlflow: MlflowFlag = False,
+    mlflow_required: MlflowRequired = True,
+    mlflow_metrics_interval: MlflowInterval = 1,
 ) -> None:
     """Run the case by seed matrix sequentially, or inspect it without simulation."""
     try:
@@ -82,6 +93,8 @@ def batch_run(
         raise BatchDefinitionError(str(exc)) from exc
     if dry_run:
         _show_matrix(preflight_batch(plan), expand_batch_plan(plan))
+        typer.echo(f"mlflow: {'enabled' if mlflow else 'disabled'}")
+        typer.echo(f"tracking required: {'yes' if mlflow and mlflow_required else 'no'}")
         return
 
     def progress(run: BatchRunResult) -> None:
@@ -95,18 +108,23 @@ def batch_run(
         from evolucio.persistence.postgres.recording import register_experiment_runs
 
         registration = register_experiment_runs(experiment_id)
+    tracking = None
     try:
         with registration as observer:
+            tracking = tracking_for(observer, mlflow, mlflow_required, mlflow_metrics_interval)
             result = run_batch(
                 plan=plan,
                 on_preflight=_show_matrix,
                 on_result=progress,
                 output_root=DEFAULT_RUNS_ROOT if output_root is None else output_root,
                 observer=observer,
+                tracking=tracking,
             )
     except BatchExecutionError as exc:
         _show_summary(exc.runs, exc.requested_run_count)
+        show_tracking_failures(tracking, fail_required=False)
         raise typer.Exit(1) from exc
     _show_summary(result.runs, result.requested_run_count)
+    show_tracking_failures(tracking)
     if result.failed_run_count:
         raise typer.Exit(1)

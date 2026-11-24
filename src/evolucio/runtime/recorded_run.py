@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from evolucio.config import ExperimentConfig
 from evolucio.config.versions import CONFIG_SCHEMA_VERSION
+from evolucio.host import ChunkTelemetryDTO
 from evolucio.host.schema import HOST_DTO_SCHEMA_DIGEST
 from evolucio.persistence.local import (
     DEFAULT_RUNS_ROOT,
@@ -53,6 +54,14 @@ class RecordedRunObserver(Protocol):
         self, recorder: LocalRunRecorder, manifest: RunManifest, summary: RunSummary
     ) -> None: ...
     def failed(self, recorder: LocalRunRecorder, error: Exception) -> None: ...
+
+
+class RecordedRunTracking(Protocol):
+    """Derived tracking receives the canonical DTOs and terminal manifest."""
+
+    def created(self, recorder: LocalRunRecorder) -> None: ...
+    def consume(self, recorder: LocalRunRecorder, telemetry: ChunkTelemetryDTO) -> None: ...
+    def finished(self, recorder: LocalRunRecorder) -> None: ...
 
 
 def summarize_run(result: ModeRunResult) -> RunSummary:
@@ -106,6 +115,8 @@ def execute_recorded_simulation(
     consumer_factory: Callable[[], ChunkConsumer | None] | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
     observer: RecordedRunObserver | None = None,
+    tracking: RecordedRunTracking | None = None,
+    telemetry_consumer: Callable[[ChunkTelemetryDTO], None] | None = None,
 ) -> RecordedRunResult:
     """Keep initialization and execution failures auditable, preserving exceptions."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -129,9 +140,16 @@ def execute_recorded_simulation(
     parquet: ParquetRunConsumer | None = None
     captures: RunCaptures | None = None
     analysis: AnalysisCapture | None = None
+    tracking_preflight = False
     try:
         if observer is not None:
             observer.created(recorder)
+        if tracking is not None:
+            if on_created is not None:
+                on_created(recorder)
+            tracking_preflight = True
+            tracking.created(recorder)
+            tracking_preflight = False
         parquet = ParquetRunConsumer(recorder, parquet_policy)
         if capture_policy.enabled:
             from .capture_runner import RunCaptures
@@ -148,7 +166,7 @@ def execute_recorded_simulation(
                     "source_checkpoint_hash": restored.checkpoint_sha256,
                 },
             )
-        if on_created is not None:
+        if tracking is None and on_created is not None:
             on_created(recorder)
         if restored is None:
             state = initialize_simulation(config, seed=recorder.manifest.seed)
@@ -173,13 +191,21 @@ def execute_recorded_simulation(
                 restored.state_step,
             )
         sink = consumer if consumer_factory is None else consumer_factory()
-        parquet_sink = DTOChunkConsumer(parquet)
-        original_sink = sink
+        parquet_consumer = parquet
+
+        def persist(telemetry: ChunkTelemetryDTO) -> None:
+            parquet_consumer(telemetry)
+            if tracking is not None:
+                tracking.consume(recorder, telemetry)
+            if mode is not RunMode.BENCHMARK and telemetry_consumer is not None:
+                telemetry_consumer(telemetry)
+
+        parquet_sink = DTOChunkConsumer(persist)
 
         def composed(batch: HostChunkBatch) -> None:
             parquet_sink(batch)
-            if original_sink is not None:
-                original_sink(batch)
+            if sink is not None:
+                sink(batch)
 
         recorder.mark_running()
         if observer is not None:
@@ -225,14 +251,24 @@ def execute_recorded_simulation(
             if observer is not None:
                 observer.completing(recorder, manifest, summary)
 
+        benchmark_summary: dict[str, object] = {}
+        if outcome.benchmark is not None:
+            benchmark_summary = {
+                "elapsed_seconds": outcome.benchmark.elapsed_seconds,
+                "steps_per_second": outcome.benchmark.steps_per_second,
+            }
         recorder.mark_completed(
-            summary=asdict(summary) | asdict(parquet_summary) | analysis_summary,
+            summary=asdict(summary)
+            | asdict(parquet_summary)
+            | analysis_summary
+            | benchmark_summary,
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
             before_publish=None if observer is None else publish_completion,
         )
-        return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
     except Exception as exc:
+        if tracking_preflight:
+            raise
         if captures is not None and not captures.writer.closed:
             try:
                 captures.writer.finalize(complete=False)
@@ -268,7 +304,15 @@ def execute_recorded_simulation(
                 observer.failed(recorder, exc)
             except Exception as registry_error:
                 exc.add_note(f"Could not record registry failure: {registry_error}")
+        if tracking is not None:
+            try:
+                tracking.finished(recorder)
+            except Exception:
+                exc.add_note("Could not finalize MLflow tracking for the failed run")
         raise
+    if tracking is not None:
+        tracking.finished(recorder)
+    return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
 
 
 def run_recorded_simulation(
@@ -284,6 +328,8 @@ def run_recorded_simulation(
     run_id: str | None = None,
     on_created: Callable[[LocalRunRecorder], None] | None = None,
     observer: RecordedRunObserver | None = None,
+    tracking: RecordedRunTracking | None = None,
+    telemetry_consumer: Callable[[ChunkTelemetryDTO], None] | None = None,
     compiled: CompiledConfig | None = None,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
@@ -344,4 +390,6 @@ def run_recorded_simulation(
         consumer=consumer,
         on_created=on_created,
         observer=observer,
+        tracking=tracking,
+        telemetry_consumer=telemetry_consumer,
     )
