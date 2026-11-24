@@ -169,6 +169,8 @@ def metric_history(client: MlflowClient, run_id: str) -> dict[tuple[str, int], f
 def expected_status(manifest: RunManifest) -> str:
     if manifest.status is RunStatus.COMPLETED:
         return "FINISHED"
+    if manifest.status is RunStatus.STOPPED:
+        return "KILLED"
     if manifest.status is RunStatus.FAILED:
         return "FAILED"
     raise MlflowInputError("MLflow synchronization requires a terminal run")
@@ -279,7 +281,7 @@ def sync_run_to_mlflow(
     try:
         remote_client = client or create_tracking_client(tracking_uri)
         experiment = get_or_create_mlflow_experiment(registry, remote_client, experiment_id)
-        tags = build_tags(manifest, experiment_id)
+        tags = build_tags(manifest, experiment_id, run_dir)
         binding = get_or_create_mlflow_run(
             registry, remote_client, manifest, experiment.mlflow_experiment_id, tags
         )

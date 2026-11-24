@@ -18,6 +18,7 @@ from .errors import MlflowTrackingIntegrityError
 _TRACKED_FILES = {
     "summary.json": "metadata/summary.json",
     "error.json": "metadata/error.json",
+    "artifacts/recovery/provenance.json": "metadata/recovery-provenance.json",
     "artifacts/parquet/datasets.json": "indexes/parquet-datasets.json",
     "artifacts/zarr/index.json": "indexes/zarr-index.json",
     "artifacts/genomes/index.json": "indexes/genomes-index.json",

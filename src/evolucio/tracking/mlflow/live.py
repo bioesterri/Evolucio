@@ -54,7 +54,7 @@ class MlflowRunTracker:
             _, config = load_canonical_config(recorder.run_dir, manifest, self.registry)
             client = self.client or create_tracking_client()
             experiment = get_or_create_mlflow_experiment(self.registry, client, self.experiment_id)
-            tags = build_tags(manifest, self.experiment_id)
+            tags = build_tags(manifest, self.experiment_id, recorder.run_dir)
             binding = get_or_create_mlflow_run(
                 self.registry, client, manifest, experiment.mlflow_experiment_id, tags
             )

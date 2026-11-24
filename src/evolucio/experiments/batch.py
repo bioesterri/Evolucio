@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from evolucio.runtime.modes import run_with_mode
+from evolucio.runtime.stop_control import StopController
 from evolucio.runtime.types import RunPlan
 
 from .preflight import BatchPreflight, prepare_batch
@@ -59,6 +60,7 @@ def _execute_spec(
     recorder: LocalRunRecorder | None = None,
     observer: RecordedRunObserver | None = None,
     tracking: RecordedRunTracking | None = None,
+    stop_controller: StopController | None = None,
 ) -> BatchRunResult:
     """Keep all device carries local to this run, including failure paths."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -75,6 +77,7 @@ def _execute_spec(
             config=compiled.core,
             plan=RunPlan(spec.total_steps, spec.chunk_steps),
             consumer=consumer,
+            stop_controller=stop_controller,
         )
     else:
         from evolucio.runtime.recorded_run import execute_recorded_simulation
@@ -87,6 +90,7 @@ def _execute_spec(
             consumer_factory=None if consumer_factory is None else lambda: consumer_factory(spec),
             observer=observer,
             tracking=tracking,
+            stop_controller=stop_controller,
         )
         outcome = recorded.result
     alive, births, deaths, lineages = _summarize(outcome)
@@ -95,7 +99,11 @@ def _execute_spec(
         case_id=spec.case_id,
         seed=spec.seed,
         mode=spec.mode,
-        status=BatchRunStatus.COMPLETED,
+        status=(
+            BatchRunStatus.COMPLETED
+            if outcome.runtime.steps_executed == spec.total_steps
+            else BatchRunStatus.STOPPED
+        ),
         steps_requested=spec.total_steps,
         steps_executed=outcome.runtime.steps_executed,
         final_step=outcome.runtime.final_step,
@@ -119,6 +127,7 @@ def run_batch(
     on_result: Callable[[BatchRunResult], None] | None = None,
     observer: RecordedRunObserver | None = None,
     tracking: RecordedRunTracking | None = None,
+    stop_controller: StopController | None = None,
 ) -> BatchResult:
     """Validate everything first, then execute fresh independent runs in order.
 
@@ -143,14 +152,38 @@ def run_batch(
         raise BatchDefinitionError(str(exc)) from exc
     if on_preflight is not None:
         on_preflight(prepared.preflight, prepared.specs)
+    stop_controller = stop_controller or StopController()
     runs: list[BatchRunResult] = []
     for spec, frozen, compiled in zip(
         prepared.specs, prepared.configs, compiled_configs, strict=True
     ):
         signature = compile_signature_digest(compiled.compile_signature)
         recorder = None
+        if stop_controller.stop_requested:
+            result = BatchRunResult(
+                spec.ordinal,
+                spec.case_id,
+                spec.seed,
+                spec.mode,
+                BatchRunStatus.NOT_STARTED,
+                spec.total_steps,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                frozen.config_hash,
+                signature,
+            )
+            runs.append(result)
+            if on_result is not None:
+                on_result(result)
+            continue
         try:
             if output_root is not None:
+                import jax
+
                 from evolucio.config.versions import CONFIG_SCHEMA_VERSION
                 from evolucio.host.schema import HOST_DTO_SCHEMA_DIGEST
                 from evolucio.persistence.local import RunSchemas, create_local_run
@@ -169,17 +202,29 @@ def run_batch(
                     ),
                     case_id=spec.case_id,
                     batch_ordinal=spec.ordinal,
+                    backend=jax.default_backend(),
                 )
             result = _execute_spec(
-                spec, frozen, compiled, signature, consumer_factory, recorder, observer, tracking
+                spec,
+                frozen,
+                compiled,
+                signature,
+                consumer_factory,
+                recorder,
+                observer,
+                tracking,
+                stop_controller,
             )
-        except Exception as exc:
+        except (Exception, KeyboardInterrupt) as exc:
+            interrupted = isinstance(exc, KeyboardInterrupt)
+            if interrupted:
+                stop_controller.request_stop()
             result = BatchRunResult(
                 ordinal=spec.ordinal,
                 case_id=spec.case_id,
                 seed=spec.seed,
                 mode=spec.mode,
-                status=BatchRunStatus.FAILED,
+                status=BatchRunStatus.STOPPED if interrupted else BatchRunStatus.FAILED,
                 steps_requested=spec.total_steps,
                 steps_executed=None,
                 final_step=None,
@@ -197,14 +242,15 @@ def run_batch(
             runs.append(result)
             if on_result is not None:
                 on_result(result)
-            if not plan.continue_on_error:
+            if not interrupted and not plan.continue_on_error:
                 raise BatchExecutionError(tuple(runs), plan.run_count) from exc
             continue
         runs.append(result)
         if on_result is not None:
             on_result(result)
     completed = sum(run.status == BatchRunStatus.COMPLETED for run in runs)
-    return BatchResult(tuple(runs), plan.run_count, completed, len(runs) - completed)
+    failed = sum(run.status == BatchRunStatus.FAILED for run in runs)
+    return BatchResult(tuple(runs), plan.run_count, completed, failed)
 
 
 def seeds_for_case(result: BatchResult, case_id: str) -> tuple[int, ...]:

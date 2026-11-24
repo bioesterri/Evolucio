@@ -13,6 +13,7 @@ from evolucio.persistence.parquet.index import load_index as load_parquet_index
 from evolucio.persistence.zarr.index import INDEX_PATH as ZARR_INDEX_PATH
 from evolucio.persistence.zarr.index import load_index as load_zarr_index
 from evolucio.persistence.zarr.schemas import CHECKPOINT_SCHEMA_NAME, SNAPSHOT_SCHEMA_NAME
+from evolucio.recovery.provenance import read_provenance
 
 from .errors import RegistryIntegrityError
 from .models import DatasetIndexModel, StateCaptureModel
@@ -35,7 +36,10 @@ def verified_run_indexes(run_dir: Path) -> tuple[RunManifest, RunIndexes]:
 def sync_run_artifacts(run_dir: Path, registry: PostgresRegistry) -> None:
     """Index verified local metadata atomically without changing local bytes."""
     manifest, indexes = verified_run_indexes(run_dir)
-    registry.sync_indexes(UUID(manifest.run_id), indexes)
+    if manifest.status.value == "stopped":
+        registry.mark_run_stopped(manifest, indexes=indexes)
+    else:
+        registry.sync_indexes(UUID(manifest.run_id), indexes)
 
 
 def _read_indexes(run_dir: Path) -> tuple[RunManifest, RunIndexes]:
@@ -177,6 +181,29 @@ def reconcile_run(run_dir: Path, registry: PostgresRegistry) -> ReconciliationRe
                 "sha256",
                 ("relative_path", "schema_name", "schema_version", "byte_size"),
             )
+        if verification.ok:
+            local_recovery = read_provenance(run_dir, manifest)
+            registered_recovery = registry.get_recovery(run_id)
+            if local_recovery is not None and registered_recovery is None:
+                missing_db.add("run_recovery")
+            elif registered_recovery is not None and local_recovery is None:
+                missing_local.add("run_recovery")
+            elif (
+                local_recovery is not None
+                and registered_recovery is not None
+                and (
+                    str(registered_recovery.source_run_id) != local_recovery.source_run_id
+                    or str(registered_recovery.root_run_id) != local_recovery.root_run_id
+                    or registered_recovery.source_checkpoint_hash
+                    != local_recovery.source_checkpoint_hash
+                    or registered_recovery.source_checkpoint_step
+                    != local_recovery.source_checkpoint_step
+                    or registered_recovery.recovery_depth != local_recovery.recovery_depth
+                    or registered_recovery.target_step != local_recovery.target_step
+                    or registered_recovery.inherited_steps != local_recovery.inherited_steps
+                )
+            ):
+                metadata.add("run_recovery")
         config = registry.get_config_snapshot(run_id)
         local_config = next(
             a for a in manifest.artifacts if a.relative_path == manifest.config_artifact

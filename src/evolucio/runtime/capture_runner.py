@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,7 @@ from evolucio.persistence.zarr.snapshot import write_snapshot
 
 from .modes import ModeRunResult, RunMode, SmokeReport, run_with_mode
 from .snapshot import simulation_state_to_snapshot
+from .stop_control import StopController
 from .types import ChunkConsumer, HostChunkBatch, RunPlan, RunRuntimeResult
 
 if TYPE_CHECKING:
@@ -33,6 +35,35 @@ class RunCaptures:
         self.config = config
         self.policy = policy
 
+    def checkpoint(self, state: SimulationState, accumulator: MetricsAccumulator) -> None:
+        step = int(state.step)
+        if any(record.state_step == step for record in self.writer.index.checkpoints):
+            return
+        record = write_checkpoint(
+            state=state,
+            accumulator=accumulator,
+            config=self.config,
+            run_dir=self.recorder.run_dir,
+            run_id=self.recorder.run_id,
+            config_hash=self.recorder.manifest.config_hash,
+            compile_signature=self.writer.index.compile_signature,
+        )
+        from evolucio.persistence.parquet.index import load_index, prefix_digest
+
+        index = load_index(self.recorder.run_dir)
+        if step == 0 or (
+            index.chunks
+            and index.chunks[0].start_step == 0
+            and index.chunks[-1].end_step_exclusive == step
+        ):
+            record = record.model_copy(
+                update={
+                    "committed_telemetry_end_step": step,
+                    "telemetry_prefix_digest": prefix_digest(index, step),
+                }
+            )
+        self.writer.add(record)
+
     def capture(
         self, state: SimulationState, accumulator: MetricsAccumulator, *, final: bool
     ) -> None:
@@ -41,16 +72,7 @@ class RunCaptures:
             self.policy.checkpoint_interval is not None
             and step % self.policy.checkpoint_interval == 0
         ) or (final and self.policy.checkpoint_on_completion):
-            record = write_checkpoint(
-                state=state,
-                accumulator=accumulator,
-                config=self.config,
-                run_dir=self.recorder.run_dir,
-                run_id=self.recorder.run_id,
-                config_hash=self.recorder.manifest.config_hash,
-                compile_signature=self.writer.index.compile_signature,
-            )
-            self.writer.add(record)
+            self.checkpoint(state, accumulator)
         if (
             self.policy.snapshot_interval is not None and step % self.policy.snapshot_interval == 0
         ) or (final and self.policy.snapshot_on_completion):
@@ -72,6 +94,8 @@ def run_with_captures(
     config: CoreConfig,
     plan: RunPlan,
     captures: RunCaptures,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
     consumer: ChunkConsumer | None = None,
 ) -> ModeRunResult:
     initial_step = int(state.step)
@@ -88,13 +112,16 @@ def run_with_captures(
             consumer(replace(batch, chunk_index=emitted))
         emitted += 1
 
-    while remaining:
+    while remaining and (stop_controller is None or not stop_controller.stop_requested):
         length = next_chunk_length(
             state_step=int(state.step),
             remaining_steps=remaining,
             chunk_steps=plan.chunk_steps,
             policy=captures.policy,
         )
+        if on_dispatch is not None:
+            start = int(state.step)
+            on_dispatch(start, start + length)
         last = run_with_mode(
             mode=mode,
             state=state,
@@ -113,9 +140,11 @@ def run_with_captures(
             elapsed += last.benchmark.elapsed_seconds
         captures.capture(state, accumulator, final=remaining == 0)
     if first is None or last is None:
-        raise ValueError("capture execution requires a nonempty plan")
+        return ModeRunResult(
+            mode, RunRuntimeResult(state, accumulator, initial_step, initial_step, 0, 0)
+        )
     runtime = RunRuntimeResult(
-        state, accumulator, initial_step, int(state.step), plan.total_steps, chunks
+        state, accumulator, initial_step, int(state.step), plan.total_steps - remaining, chunks
     )
     smoke = None
     if first.smoke_report is not None and last.smoke_report is not None:
@@ -124,11 +153,11 @@ def run_with_captures(
     if benchmark is not None:
         benchmark = replace(
             benchmark,
-            total_steps=plan.total_steps,
+            total_steps=plan.total_steps - remaining,
             chunks_executed=chunks,
             initial_step=initial_step,
             elapsed_seconds=elapsed,
-            steps_per_second=plan.total_steps / elapsed,
+            steps_per_second=(plan.total_steps - remaining) / elapsed,
         )
     return ModeRunResult(
         mode,

@@ -124,6 +124,28 @@ class AnalysisCapture:
         report = verify_parquet_datasets(source)
         if not report.ok:
             raise ValueError(f"checkpoint source telemetry integrity check failed: {report}")
+        capture = cls.import_founders(recorder, source)
+        for kind, scan, step in (
+            ("births", scan_births, "birth_step"),
+            ("deaths", scan_deaths, "death_step"),
+        ):
+            relative = f"artifacts/analysis/historical_{kind}.parquet"
+            frames = [scan(source)]
+            history = artifact_path(source, relative)
+            if relative in artifacts:
+                frames.insert(0, pl.scan_parquet(history))
+            historical = pl.concat(frames).filter(pl.col(step) < initial_step)
+            historical = historical.with_columns(pl.lit(recorder.run_id).alias("run_id"))
+            capture.write_frame(historical.collect(), relative, f"historical_{kind}_v1")
+            if kind == "births":
+                capture.historical_births = pl.scan_parquet(recorder.run_dir / relative)
+            else:
+                capture.historical_deaths = pl.scan_parquet(recorder.run_dir / relative)
+        return capture
+
+    @classmethod
+    def import_founders(cls, recorder: LocalRunRecorder, source: Path) -> AnalysisCapture:
+        index = read_genome_index(source)
         founders = pl.read_parquet(artifact_path(source, FOUNDERS_PATH))
         capture = cls(recorder, founders, {})
         capture.write_frame(founders, FOUNDERS_PATH, "founders_v1")
@@ -144,22 +166,6 @@ class AnalysisCapture:
                 }
             )
         capture.write_index()
-        for kind, scan, step in (
-            ("births", scan_births, "birth_step"),
-            ("deaths", scan_deaths, "death_step"),
-        ):
-            relative = f"artifacts/analysis/historical_{kind}.parquet"
-            frames = [scan(source)]
-            history = artifact_path(source, relative)
-            if relative in artifacts:
-                frames.insert(0, pl.scan_parquet(history))
-            historical = pl.concat(frames).filter(pl.col(step) < initial_step)
-            historical = historical.with_columns(pl.lit(recorder.run_id).alias("run_id"))
-            capture.write_frame(historical.collect(), relative, f"historical_{kind}_v1")
-            if kind == "births":
-                capture.historical_births = pl.scan_parquet(recorder.run_dir / relative)
-            else:
-                capture.historical_deaths = pl.scan_parquet(recorder.run_dir / relative)
         return capture
 
     def add_genome(

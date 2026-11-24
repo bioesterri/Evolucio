@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import isfinite
 from time import perf_counter
 from typing import TYPE_CHECKING
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from evolucio.core.metrics import MetricsAccumulator
     from evolucio.core.state import SimulationState
 
+    from .stop_control import StopController
+
 
 def run_benchmark(
     *,
@@ -27,11 +30,15 @@ def run_benchmark(
     config: CoreConfig,
     plan: RunPlan,
     telemetry_consumer: ChunkConsumer | None = None,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
 ) -> ModeRunResult:
     """Measure host + kernel + required host boundary, without DTO consumers."""
     full_chunks, remainder = divmod(plan.total_steps, plan.chunk_steps)
     lengths = ((plan.chunk_steps,) if full_chunks else ()) + ((remainder,) if remainder else ())
     for length in lengths:
+        if stop_controller is not None and stop_controller.stop_requested:
+            break
         warmup = run_chunk(state=state, accumulator=accumulator, config=config, chunk_steps=length)
         jax.block_until_ready(warmup)  # pyright: ignore[reportUnknownMemberType]
         del warmup
@@ -53,8 +60,16 @@ def run_benchmark(
         config=config,
         plan=plan,
         consumer=record if telemetry_consumer is not None else None,
+        stop_controller=stop_controller,
+        on_dispatch=on_dispatch,
     )
     jax.block_until_ready((runtime.state, runtime.accumulator))  # pyright: ignore[reportUnknownMemberType]
+    if (
+        stop_controller is not None
+        and stop_controller.stop_requested
+        and runtime.steps_executed != plan.total_steps
+    ):
+        return ModeRunResult(RunMode.BENCHMARK, runtime)
     elapsed = perf_counter() - start - recording_seconds
     if not isfinite(elapsed) or elapsed <= 0:
         raise RuntimeError("benchmark elapsed_seconds must be finite and strictly positive")

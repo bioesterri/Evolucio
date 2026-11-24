@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
     from evolucio.config.compile import CoreConfig
     from evolucio.core.metrics import MetricsAccumulator
     from evolucio.core.state import SimulationState
+
+    from .stop_control import StopController
 
 
 class RunMode(StrEnum):
@@ -158,6 +161,8 @@ def run_with_mode(
     plan: RunPlan,
     consumer: ChunkConsumer | None = None,
     benchmark_consumer: ChunkConsumer | None = None,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
 ) -> ModeRunResult:
     """Dispatch instrumentation centrally without changing config or horizon."""
     policy = get_mode_policy(mode)
@@ -165,7 +170,13 @@ def run_with_mode(
         from .diagnostics import run_debug
 
         return run_debug(
-            state=state, accumulator=accumulator, config=config, plan=plan, consumer=consumer
+            state=state,
+            accumulator=accumulator,
+            config=config,
+            plan=plan,
+            consumer=consumer,
+            stop_controller=stop_controller,
+            on_dispatch=on_dispatch,
         )
     if policy.measure_runtime:
         from .benchmark import run_benchmark
@@ -176,18 +187,32 @@ def run_with_mode(
             config=config,
             plan=plan,
             telemetry_consumer=benchmark_consumer,
+            stop_controller=stop_controller,
+            on_dispatch=on_dispatch,
         )
     if policy.initial_invariant_check or policy.final_invariant_check:
         from .diagnostics import run_smoke
 
         return run_smoke(
-            state=state, accumulator=accumulator, config=config, plan=plan, consumer=consumer
+            state=state,
+            accumulator=accumulator,
+            config=config,
+            plan=plan,
+            consumer=consumer,
+            stop_controller=stop_controller,
+            on_dispatch=on_dispatch,
         )
     from . import run_simulation
 
     return ModeRunResult(
         mode=mode,
         runtime=run_simulation(
-            state=state, accumulator=accumulator, config=config, plan=plan, consumer=consumer
+            state=state,
+            accumulator=accumulator,
+            config=config,
+            plan=plan,
+            consumer=consumer,
+            stop_controller=stop_controller,
+            on_dispatch=on_dispatch,
         ),
     )

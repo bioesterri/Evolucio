@@ -1,9 +1,12 @@
 """Minimal PostgreSQL schema and experiment administration commands."""
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 import typer
+
+from .formatting import text_fields
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -80,5 +83,34 @@ def list_experiments() -> None:
     try:
         for record in registry.list_experiments():
             typer.echo(f"{record.experiment_id}\t{record.status}\t{record.name}")
+    finally:
+        engine.dispose()
+
+
+@database_app.command("verify-run")
+def verify_run(run_dir: Path) -> None:
+    """Compare local artifact and lifecycle identities with PostgreSQL."""
+    from dataclasses import asdict
+
+    from evolucio.persistence.postgres.reconcile import reconcile_run
+
+    registry, engine = _registry()
+    try:
+        report = reconcile_run(run_dir, registry)
+        typer.echo(text_fields(asdict(report)))
+        if not report.ok:
+            raise typer.Exit(1)
+    finally:
+        engine.dispose()
+
+
+@database_app.command("sync-run")
+def sync_run(run_dir: Path) -> None:
+    """Publish verified artifact indexes and a recorded stop to PostgreSQL."""
+    from evolucio.persistence.postgres.reconcile import sync_run_artifacts
+
+    registry, engine = _registry()
+    try:
+        sync_run_artifacts(run_dir, registry)
     finally:
         engine.dispose()

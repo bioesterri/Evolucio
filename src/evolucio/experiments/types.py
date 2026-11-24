@@ -90,6 +90,8 @@ class BatchRunSpec:
 class BatchRunStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
+    STOPPED = "stopped"
+    NOT_STARTED = "not_started"
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +127,14 @@ class BatchResult:
     completed_run_count: int
     failed_run_count: int
 
+    @property
+    def stopped_run_count(self) -> int:
+        return sum(run.status == BatchRunStatus.STOPPED for run in self.runs)
+
+    @property
+    def not_started_run_count(self) -> int:
+        return sum(run.status == BatchRunStatus.NOT_STARTED for run in self.runs)
+
     def __post_init__(self) -> None:
         if not isinstance(self.runs, tuple):
             raise TypeError("runs must be an immutable tuple")
@@ -134,7 +144,6 @@ class BatchResult:
             self.requested_run_count != len(self.runs)
             or self.completed_run_count != completed
             or self.failed_run_count != failed
-            or completed + failed != self.requested_run_count
         ):
             raise ValueError("batch counts must match all requested individual results")
 

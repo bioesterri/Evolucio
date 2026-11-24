@@ -76,6 +76,7 @@ class ZarrCapturePolicy:
     checkpoint_on_completion: bool = False
     snapshot_on_completion: bool = False
     keep_last_checkpoints: int | None = None
+    checkpoint_on_stop: bool = True
 
     def __post_init__(self) -> None:
         for value in (self.checkpoint_interval, self.snapshot_interval, self.keep_last_checkpoints):
@@ -86,8 +87,9 @@ class ZarrCapturePolicy:
         if (
             type(self.checkpoint_on_completion) is not bool
             or type(self.snapshot_on_completion) is not bool
+            or type(self.checkpoint_on_stop) is not bool
         ):
-            raise ValueError("completion capture flags must be bool")
+            raise ValueError("capture flags must be bool")
 
     @property
     def enabled(self) -> bool:

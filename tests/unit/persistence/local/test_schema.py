@@ -12,8 +12,8 @@ from evolucio.persistence.local import (
 
 
 def test_version_and_device_independence():
-    assert RUN_MANIFEST_SCHEMA_NAME == "local_run_manifest_v1"
-    assert RUN_MANIFEST_SCHEMA_VERSION == 1
+    assert RUN_MANIFEST_SCHEMA_NAME == "local_run_manifest_v2"
+    assert RUN_MANIFEST_SCHEMA_VERSION == 2
     script = """
 import sys
 from evolucio.persistence.local import LocalArtifactRegistry, load_run_manifest

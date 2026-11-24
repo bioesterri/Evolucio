@@ -29,6 +29,7 @@ class RunStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    STOPPED = "stopped"
 
 
 def validate_run_id(value: str) -> str:
@@ -52,12 +53,30 @@ class RunErrorRecord:
     error_type: str
     message: str
     step: int | None = None
+    error_category: str | None = None
+    phase: str | None = None
+    last_confirmed_state_step: int | None = None
+    last_committed_telemetry_step: int | None = None
+    last_valid_checkpoint_step: int | None = None
+    occurred_at_utc: str | None = None
+    affected_interval: tuple[int, int] | None = None
 
     def __post_init__(self) -> None:
         if not self.error_type or len(self.message) > 4096:
             raise ValueError("error requires a type and a bounded message")
         if self.step is not None and (isinstance(self.step, bool) or self.step < 0):
             raise ValueError("error step must be nonnegative or unknown")
+
+
+@dataclass(frozen=True, slots=True)
+class RunStopRecord:
+    reason: str
+    requested_at_utc: str | None
+    stopped_at_utc: str
+    ordered: bool
+    last_confirmed_state_step: int | None
+    last_committed_telemetry_step: int | None
+    last_valid_checkpoint_step: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,16 +123,21 @@ class RunManifest:
     compile_signature: str | None
     artifacts: tuple[ArtifactRecord, ...]
     error: RunErrorRecord | None = None
+    stop: RunStopRecord | None = None
     case_id: str | None = None
     batch_ordinal: int | None = None
 
     def __post_init__(self) -> None:
-        if (
-            self.manifest_schema_name != RUN_MANIFEST_SCHEMA_NAME
-            or type(self.manifest_schema_version) is not int
-            or self.manifest_schema_version != RUN_MANIFEST_SCHEMA_VERSION
+        if type(self.manifest_schema_version) is not int or (
+            self.manifest_schema_name,
+            self.manifest_schema_version,
+        ) not in (
+            ("local_run_manifest_v1", 1),
+            (RUN_MANIFEST_SCHEMA_NAME, RUN_MANIFEST_SCHEMA_VERSION),
         ):
             raise ValueError("unsupported local run manifest schema")
+        if self.manifest_schema_version == 1 and self.status is RunStatus.STOPPED:
+            raise ValueError("stopped requires manifest version 2")
         validate_run_id(self.run_id)
         if not isinstance(self.status, RunStatus) or not isinstance(self.mode, RunMode):
             raise ValueError("invalid run status or mode")
@@ -156,8 +180,13 @@ class RunManifest:
                 or self.final_step != self.initial_step + self.total_steps
             ):
                 raise ValueError("inconsistent completed manifest")
+        elif self.status == RunStatus.STOPPED:
+            if finished is None or self.stop is None or self.error is not None:
+                raise ValueError("stopped run requires a stop record and finish timestamp")
         elif finished is None or self.error is None:
             raise ValueError("failed run requires error and finish timestamp")
+        if (self.stop is not None) != (self.status == RunStatus.STOPPED):
+            raise ValueError("stop record does not match lifecycle status")
         if self.config_artifact != "config.json":
             raise ValueError("config_artifact must be config.json")
         paths = [validate_relative_path(a.relative_path) for a in self.artifacts]

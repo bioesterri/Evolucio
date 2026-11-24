@@ -17,7 +17,7 @@ def test_reject_invalid_index(recorder, change):
     path = recorder.run_dir / INDEX_PATH
     payload = json.loads(path.read_text())
     if change == "version":
-        payload["schema_version"] = 2
+        payload["schema_version"] = 999
     elif change == "directory":
         payload["datasets"]["metrics"]["relative_directory"] = "../escape"
     elif change == "names":
@@ -56,3 +56,18 @@ def test_symlink_rejected(recorder, tmp_path):
     with pytest.raises(ValueError, match="symlink"):
         load_index(recorder.run_dir)
     assert not verify_parquet_datasets(recorder.run_dir).ok
+
+
+def test_empty_chunk_has_durable_commitment(recorder):
+    from evolucio.persistence.parquet.index import prefix_digest
+    from evolucio.persistence.parquet.schemas import ParquetPersistencePolicy
+
+    sink = ParquetRunConsumer(recorder, ParquetPersistencePolicy(metrics_interval=10))
+    sink(chunk(start=0, end=1))
+    sink(chunk(index=1, start=1, end=4))
+    index = load_index(recorder.run_dir)
+    assert index.chunks[-1].counts == dict.fromkeys(index.datasets, 0)
+    assert index.chunks[-1].end_step_exclusive == 4
+    digest = prefix_digest(index, 4)
+    sink(chunk(index=2, start=4, end=11))
+    assert prefix_digest(load_index(recorder.run_dir), 4) == digest

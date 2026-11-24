@@ -24,7 +24,9 @@ RUN_TAG = "evolucio.run_id"
 IDENTITY_TAGS = (RUN_TAG, "evolucio.experiment_id", "evolucio.config_hash")
 
 
-def build_tags(manifest: RunManifest, experiment_id: UUID) -> dict[str, str]:
+def build_tags(
+    manifest: RunManifest, experiment_id: UUID, run_dir: Path | None = None
+) -> dict[str, str]:
     values = {
         RUN_TAG: manifest.run_id,
         "evolucio.experiment_id": str(experiment_id),
@@ -38,6 +40,20 @@ def build_tags(manifest: RunManifest, experiment_id: UUID) -> dict[str, str]:
     if manifest.error is not None:
         values["error.type"] = manifest.error.error_type
         values["error.step"] = manifest.error.step
+    if run_dir is not None:
+        from evolucio.recovery.provenance import read_provenance
+
+        recovery = read_provenance(run_dir, manifest)
+        if recovery is not None:
+            values.update(
+                {
+                    "evolucio.recovered": "true",
+                    "evolucio.source_run_id": recovery.source_run_id,
+                    "evolucio.root_run_id": recovery.root_run_id,
+                    "evolucio.source_checkpoint_step": recovery.source_checkpoint_step,
+                    "evolucio.recovery_depth": recovery.recovery_depth,
+                }
+            )
     return {key: str(value) for key, value in values.items() if value is not None}
 
 
@@ -49,7 +65,16 @@ def get_bound_run(
         remote.info.experiment_id != binding.mlflow_experiment_id
         or remote.info.lifecycle_stage != "active"
         or any(
-            cast(dict[str, str], remote.data.tags).get(key) != tags[key] for key in IDENTITY_TAGS
+            cast(dict[str, str], remote.data.tags).get(key) != tags[key]
+            for key in (
+                *IDENTITY_TAGS,
+                "evolucio.recovered",
+                "evolucio.source_run_id",
+                "evolucio.root_run_id",
+                "evolucio.source_checkpoint_step",
+                "evolucio.recovery_depth",
+            )
+            if key in tags
         )
     ):
         raise MlflowTrackingIntegrityError("bound MLflow run identity differs")

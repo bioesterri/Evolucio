@@ -1,6 +1,7 @@
 """Validated portable dataset indexes; only indexed parts are analytical inputs."""
 
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 
@@ -37,9 +38,17 @@ class Dataset(IndexModel):
     parts: list[Part] = Field(default_factory=lambda: list[Part]())
 
 
+class CommittedChunk(IndexModel):
+    chunk_index: int = Field(ge=0)
+    start_step: int = Field(ge=0)
+    end_step_exclusive: int = Field(gt=0)
+    counts: dict[str, int]
+
+
 class DatasetIndex(IndexModel):
     schema_name: Literal["run_telemetry_parquet_v1"] = PARQUET_DATASET_SCHEMA_NAME
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
+    chunks: list[CommittedChunk] = Field(default_factory=lambda: list[CommittedChunk]())
     run_id: str
     policy: ParquetPersistencePolicy
     complete: bool = False
@@ -48,6 +57,8 @@ class DatasetIndex(IndexModel):
 
 def load_index(run_dir: Path) -> DatasetIndex:
     index = DatasetIndex.model_validate_json(artifact_path(run_dir, INDEX_PATH).read_text())
+    if index.schema_version == 1 and index.chunks:
+        raise ValueError("chunk commitments require index version 2")
     if set(index.datasets) != set(SCHEMAS):
         raise ValueError("incompatible dataset names")
     for name, dataset in index.datasets.items():
@@ -69,3 +80,14 @@ def save_index(run_dir: Path, index: DatasetIndex) -> None:
     payload = index.model_dump()
     payload["policy"] = asdict(index.policy)
     atomic_write_text(artifact_path(run_dir, INDEX_PATH), json_text(payload))
+
+
+def prefix_digest(index: DatasetIndex, step: int) -> str:
+    """Hash canonical JSON for committed intervals and immutable part metadata."""
+    chunks = [chunk.model_dump() for chunk in index.chunks if chunk.end_step_exclusive <= step]
+    parts = {
+        name: [part.model_dump() for part in dataset.parts if part.chunk_index < len(chunks)]
+        for name, dataset in index.datasets.items()
+    }
+    payload = {"chunks": chunks, "parts": parts, "metrics_interval": index.policy.metrics_interval}
+    return sha256(json_text(payload).encode("utf-8")).hexdigest()
