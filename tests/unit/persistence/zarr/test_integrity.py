@@ -16,7 +16,9 @@ from evolucio.persistence.zarr.storage import (
 @pytest.mark.parametrize("change", ["edit", "delete", "add", "metadata", "symlink"])
 def test_corruption_is_detected_and_not_repaired(checkpoint, change, tmp_path):
     chunk = next(
-        p for p in checkpoint.rglob("*") if p.is_file() and "c" in p.relative_to(checkpoint).parts
+        p
+        for p in sorted(checkpoint.rglob("*"))
+        if p.is_file() and "c" in p.relative_to(checkpoint).parts[:-1]
     )
     if change == "edit":
         chunk.write_bytes(b"bad chunk")
