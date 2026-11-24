@@ -65,3 +65,19 @@ def test_recovery_registry(migrated_engine: Engine, tmp_path: Path) -> None:
     )
     assert registry.list_stopped_runs()[0].run_id == UUID(original.run_id)
     assert registry.list_failed_runs() == ()
+
+    from evolucio.persistence.local.exclusion import discard_from_analysis
+    from evolucio.persistence.postgres.reconcile import reconcile_run, sync_run_artifacts
+
+    manifest_path = original.run_dir / "manifest.json"
+    original_manifest = manifest_path.read_bytes()
+    exclusion = discard_from_analysis(original.run_dir, "Excluded from comparison")
+    assert discard_from_analysis(original.run_dir, "Excluded from comparison") == exclusion
+    assert manifest_path.read_bytes() == original_manifest
+    assert "run_analysis_exclusion" in reconcile_run(original.run_dir, registry).missing_in_database
+    sync_run_artifacts(original.run_dir, registry)
+    assert reconcile_run(original.run_dir, registry).ok
+    assert registry.list_stopped_runs()[0].run_id == UUID(original.run_id)
+    assert {row.run_id for row in registry.list_runs_for_comparison(experiment.experiment_id)} == {
+        UUID(recovered.run_id)
+    }

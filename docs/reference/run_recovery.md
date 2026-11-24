@@ -6,7 +6,11 @@ científiques obligatòries. L’extinció és un resultat ecològic i l’execu
 igualment a l’horitzó. `FAILED` registra una fallada tècnica, amb la fase i
 l’interval afectat quan es coneixen. `STOPPED` registra el motiu, les marques
 temporals disponibles i si la interrupció ha estat ordenada. Els estats
-terminals conserven el seu resultat històric.
+terminals conserven el seu resultat històric. Una exclusió explícita amb
+`evolucio artifacts discard <run-dir> --reason "<motiu>"` desa l’atribut analític
+`discarded` en un registre separat, amb el motiu i la data. Es publica a
+PostgreSQL amb `evolucio db sync-run <run-dir>` i exclou el run de les consultes
+comparatives.
 
 ## Interrupció i fronteres
 
@@ -84,7 +88,7 @@ els pendents com a `not_started`. La recuperació opera sobre un run individual.
 
 ## PostgreSQL i MLflow
 
-Aplica la migració Alembic `0004_run_recovery` per registrar les continuacions
+Aplica les migracions Alembic fins a `0005_analysis_exclusion` per registrar les continuacions
 de runs vinculats. Configura la mateixa connexió PostgreSQL de l’origen amb
 `EVOLUCIO_DATABASE_URL`. La taula `run_recovery` vincula cada execució amb
 l’origen i l’arrel, valida la identitat i permet consultar els intents.

@@ -401,3 +401,13 @@ class RunRecoveryModel(Base):
     target_step: Mapped[int] = mapped_column(BigInteger)
     recovery_depth: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class RunAnalysisExclusionModel(Base):
+    __tablename__ = "run_analysis_exclusion"
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id"), primary_key=True
+    )
+    reason: Mapped[str] = mapped_column(Text)
+    discarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

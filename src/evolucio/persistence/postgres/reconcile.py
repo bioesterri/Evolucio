@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID, uuid5
 
 from evolucio.persistence.local.artifacts import artifact_path
+from evolucio.persistence.local.exclusion import read_exclusion
 from evolucio.persistence.local.manifest import RunManifest, load_run_manifest
 from evolucio.persistence.local.verification import verify_local_run
 from evolucio.persistence.parquet.index import INDEX_PATH as PARQUET_INDEX_PATH
@@ -44,6 +45,9 @@ def sync_run_artifacts(run_dir: Path, registry: PostgresRegistry) -> None:
         registry.mark_run_stopped(manifest, indexes=indexes)
     else:
         registry.sync_indexes(UUID(manifest.run_id), indexes)
+    exclusion = read_exclusion(run_dir, manifest.run_id)
+    if exclusion is not None:
+        registry.index_analysis_exclusion(exclusion)
 
 
 def _read_indexes(run_dir: Path) -> tuple[RunManifest, RunIndexes]:
@@ -208,6 +212,22 @@ def reconcile_run(run_dir: Path, registry: PostgresRegistry) -> ReconciliationRe
                 )
             ):
                 metadata.add("run_recovery")
+        exclusion = read_exclusion(run_dir, manifest.run_id)
+        registered_exclusion = registry.get_analysis_exclusion(run_id)
+        if exclusion is None and registered_exclusion is not None:
+            missing_local.add("run_analysis_exclusion")
+        elif exclusion is not None and registered_exclusion is None:
+            missing_db.add("run_analysis_exclusion")
+        elif (
+            exclusion is not None
+            and registered_exclusion is not None
+            and (
+                exclusion.reason != registered_exclusion.reason
+                or datetime.fromisoformat(exclusion.discarded_at_utc)
+                != registered_exclusion.discarded_at
+            )
+        ):
+            metadata.add("run_analysis_exclusion")
         config = registry.get_config_snapshot(run_id)
         local_config = next(
             a for a in manifest.artifacts if a.relative_path == manifest.config_artifact

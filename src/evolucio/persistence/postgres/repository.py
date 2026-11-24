@@ -17,6 +17,7 @@ from evolucio.persistence.local.artifacts import (
     validate_relative_path,
     validate_sha256,
 )
+from evolucio.persistence.local.exclusion import AnalysisExclusion
 from evolucio.persistence.local.manifest import RunManifest, RunStatus
 from evolucio.persistence.parquet.index import INDEX_PATH as PARQUET_INDEX_PATH
 from evolucio.recovery.provenance import RecoveryProvenance
@@ -39,6 +40,7 @@ from .models import (
     LineageSummaryModel,
     MlflowExperimentBindingModel,
     MlflowRunBindingModel,
+    RunAnalysisExclusionModel,
     RunModel,
     RunRecoveryModel,
     RunSummaryModel,
@@ -308,6 +310,29 @@ class PostgresRegistry:
             run.finished_at = _timestamp(manifest.finished_at_utc)
             run.final_step = manifest.final_step
             run.steps_executed = manifest.steps_executed or 0
+
+    def get_analysis_exclusion(self, run_id: UUID) -> RunAnalysisExclusionModel | None:
+        with self._session() as session:
+            return session.get(RunAnalysisExclusionModel, run_id)
+
+    def index_analysis_exclusion(self, exclusion: AnalysisExclusion) -> None:
+        run_id = UUID(exclusion.run_id)
+        timestamp = datetime.fromisoformat(exclusion.discarded_at_utc)
+        with self._session(write=True) as session:
+            run = session.get(RunModel, run_id, with_for_update=True)
+            if run is None or run.status not in {"completed", "failed", "stopped"}:
+                raise RegistryIntegrityError(
+                    "analytical exclusion requires a registered terminal run"
+                )
+            previous = session.get(RunAnalysisExclusionModel, run_id)
+            if previous is None:
+                session.add(
+                    RunAnalysisExclusionModel(
+                        run_id=run_id, reason=exclusion.reason, discarded_at=timestamp
+                    )
+                )
+            elif (previous.reason, previous.discarded_at) != (exclusion.reason, timestamp):
+                raise RegistryIntegrityError("analytical exclusion differs from PostgreSQL")
 
     def list_failed_runs(self) -> tuple[RunModel, ...]:
         return self.list_runs(status="failed")
@@ -592,7 +617,13 @@ class PostgresRegistry:
                 select(RunModel, RunSummaryModel, RunRecoveryModel)
                 .outerjoin(RunSummaryModel, RunSummaryModel.run_id == RunModel.run_id)
                 .outerjoin(RunRecoveryModel, RunRecoveryModel.run_id == RunModel.run_id)
-                .where(RunModel.experiment_id == experiment_id)
+                .outerjoin(
+                    RunAnalysisExclusionModel, RunAnalysisExclusionModel.run_id == RunModel.run_id
+                )
+                .where(
+                    RunModel.experiment_id == experiment_id,
+                    RunAnalysisExclusionModel.run_id.is_(None),
+                )
                 .order_by(RunModel.case_id, RunModel.seed)
             )
             result: list[ComparisonRun] = []
