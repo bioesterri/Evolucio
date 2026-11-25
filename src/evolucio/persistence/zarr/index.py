@@ -1,12 +1,12 @@
 """Indexed immutable captures, atomic metadata and checkpoint-only retention."""
 
-import json
 import shutil
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import Field
 
+from evolucio.persistence.loaders.registry import CHECKPOINT, SNAPSHOT, ZARR, identify, read_object
 from evolucio.persistence.local.artifacts import artifact_path, atomic_write_text, json_text
 from evolucio.persistence.local.recorder import LocalRunRecorder
 
@@ -53,16 +53,16 @@ def capture_path(kind: str, step: int) -> str:
 
 
 def load_index(run_dir: Path) -> ZarrIndex:
-    text = artifact_path(run_dir, INDEX_PATH).read_text()
-    index = ZarrIndex.model_validate_json(text)
-    raw = json.loads(text)
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in (1, 2):
-        raise ValueError("unsupported or missing Zarr index schema_version")
-    if any(
-        type(record.get("schema_version")) is not int
-        for record in (*raw.get("checkpoints", []), *raw.get("snapshots", []))
-    ):
-        raise ValueError("capture record requires an explicit schema_version")
+    path = artifact_path(run_dir, INDEX_PATH)
+    raw = read_object(path)
+    identify(raw, ZARR)
+    for key, name in (("checkpoints", CHECKPOINT), ("snapshots", SNAPSHOT)):
+        records = raw.get(key)
+        if isinstance(records, list):
+            for record in cast(list[object], records):
+                if isinstance(record, dict):
+                    identify(cast(dict[str, object], record), name)
+    index = ZarrIndex.model_validate_json(path.read_bytes())
     for checkpoint in index.checkpoints:
         end = checkpoint.committed_telemetry_end_step
         digest = checkpoint.telemetry_prefix_digest

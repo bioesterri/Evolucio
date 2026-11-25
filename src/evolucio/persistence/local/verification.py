@@ -23,7 +23,9 @@ class LocalRunVerification:
     genome_errors: tuple[str, ...] = ()
 
 
-def verify_local_run(run_dir: Path) -> LocalRunVerification:
+def verify_local_run(
+    run_dir: Path, *, nested: bool = True, artifact_paths: frozenset[str] | None = None
+) -> LocalRunVerification:
     """Raise for invalid input/manifest; report artifact integrity without writing."""
     if (run_dir / "manifest.json").is_symlink():
         raise InvalidArtifactPath("manifest.json cannot be a symlink")
@@ -35,6 +37,8 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
         invalid.append("run_id")
     for record in manifest.artifacts:
         relative = record.relative_path
+        if artifact_paths is not None and relative not in artifact_paths:
+            continue
         try:
             path = artifact_path(run_dir, relative)
         except InvalidArtifactPath:
@@ -57,7 +61,7 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
             except (ConfigError, ValidationError):
                 mismatches.append(relative)
     parquet_errors: list[str] = []
-    if any(record.kind == "parquet_dataset_index" for record in manifest.artifacts):
+    if nested and any(record.kind == "parquet_dataset_index" for record in manifest.artifacts):
         from evolucio.persistence.parquet.verify import verify_parquet_datasets
 
         report = verify_parquet_datasets(run_dir)
@@ -72,7 +76,7 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
                 )
             )
     zarr_errors: list[str] = []
-    if any(record.kind == "zarr_artifact_index" for record in manifest.artifacts):
+    if nested and any(record.kind == "zarr_artifact_index" for record in manifest.artifacts):
         from evolucio.persistence.zarr.integrity import verify_zarr_artifacts
 
         report_zarr = verify_zarr_artifacts(run_dir)
@@ -86,7 +90,7 @@ def verify_local_run(run_dir: Path) -> LocalRunVerification:
             )
         )
     genome_errors: tuple[str, ...] = ()
-    if any(record.kind == "highlighted_genome_index" for record in manifest.artifacts):
+    if nested and any(record.kind == "highlighted_genome_index" for record in manifest.artifacts):
         from evolucio.persistence.genomes import read_genome_index, verify_genome_store
 
         genome_errors = verify_genome_store(run_dir).errors

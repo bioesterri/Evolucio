@@ -14,6 +14,7 @@ from evolucio.host import (
 )
 from evolucio.host.dto import HostArray
 from evolucio.host.schema import HOST_DTO_SCHEMA_DIGEST
+from evolucio.persistence.loaders.errors import UnsupportedSchemaVersionError
 from evolucio.persistence.local.artifacts import artifact_path
 from evolucio.persistence.local.manifest import utc_now
 from evolucio.persistence.local.version_info import code_version_info
@@ -30,6 +31,7 @@ from .schemas import (
 from .storage import (
     CheckpointCompatibilityError,
     CheckpointIntegrityError,
+    UnsupportedCaptureVersionError,
     read_arrays,
     read_metadata,
     verify_store_tree,
@@ -120,6 +122,10 @@ def read_snapshot(path: Path) -> SimulationSnapshotDTO:
             completion_field="snapshot_complete",
         )
         metadata = SnapshotMetadata.model_validate_json(json.dumps(raw))
+    except UnsupportedSchemaVersionError as exc:
+        raise UnsupportedCaptureVersionError(
+            exc.schema_name, exc.found_version, exc.supported_versions
+        ) from exc
     except ValueError as exc:
         raise CheckpointCompatibilityError(f"unsupported snapshot metadata: {exc}") from exc
     _, arrays = read_arrays(path, _specs(metadata))

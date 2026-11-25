@@ -10,6 +10,8 @@ from evolucio.persistence.genomes import read_genome_index
 from evolucio.persistence.local import LocalRunRecorder, RunStatus, load_run_manifest
 from evolucio.persistence.local.version_info import CodeVersionInfo
 from evolucio.persistence.parquet.reader import scan_dataset
+from evolucio.persistence.validation.runner import validate_run
+from evolucio.persistence.validation.types import CheckStatus, ValidationLevel
 from evolucio.persistence.zarr.index import load_index
 from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
 from evolucio.recovery.assessment import inspect_run
@@ -38,6 +40,11 @@ def test_complete_trajectory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         "evolucio.runtime.initialization.initialize_simulation", lambda *args, **kwargs: state
     )
     config = checkpoint_host_config()
+    config = config.model_copy(
+        update={
+            "population": config.population.model_copy(update={"initial_agents": 5}),
+        }
+    )
     expected = run_recorded_simulation(config=config, plan=RunPlan(100, 10), output_root=tmp_path)
     controller = StopController()
 
@@ -74,6 +81,13 @@ def test_complete_trajectory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     provenance = read_provenance(result.run_dir, result.manifest)
     assert provenance and provenance.root_run_id == interrupted.manifest.run_id
     assert provenance.inherited_steps == 40
+    for run in (expected, interrupted, result):
+        validation = validate_run(
+            run.run_dir, validation_level=ValidationLevel.SCIENTIFIC, allow_partial=True
+        )
+        assert validation.validation_passed, validation.issues
+        if run is result:
+            assert validation.components["recovery_source"] is CheckStatus.PASSED
     assert_pytree_equivalent(result.result.runtime.state, expected.result.runtime.state)
     assert_pytree_equivalent(result.result.runtime.accumulator, expected.result.runtime.accumulator)
     for dataset in ("metrics", "births", "deaths", "genealogy"):

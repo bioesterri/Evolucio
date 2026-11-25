@@ -8,7 +8,10 @@ from polars.testing import assert_frame_equal
 
 from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
 from evolucio.persistence.genomes import GenomeHighlightReason, read_genome_index
+from evolucio.persistence.loaders.run_data import open_run
 from evolucio.persistence.local import verify_local_run
+from evolucio.persistence.validation.runner import validate_run
+from evolucio.persistence.validation.types import ValidationLevel
 from evolucio.runtime import RunMode, RunPlan, initialization
 from evolucio.runtime.recorded_run import run_recorded_simulation
 from tests.zarr_helpers import checkpoint_host_config, checkpoint_scenario
@@ -73,14 +76,17 @@ def test_total_extinction_keeps_founders(
     import jax
     import numpy as np
 
-    state, compiled = checkpoint_scenario()
+    state, _ = checkpoint_scenario()
     energy = np.asarray(state.population.energy).copy()
     energy[np.asarray(state.population.alive)] = 0.01
     state = eqx.tree_at(lambda value: value.population.energy, state, jax.device_put(energy))
     monkeypatch.setattr(initialization, "initialize_simulation", lambda *_a, **_kw: state)
+    config = checkpoint_host_config()
+    config = config.model_copy(
+        update={"population": config.population.model_copy(update={"initial_agents": 5})}
+    )
     run = run_recorded_simulation(
-        config=checkpoint_host_config(),
-        compiled=compiled,
+        config=config,
         output_root=tmp_path,
         plan=RunPlan(1, 1),
     )
@@ -92,3 +98,6 @@ def test_total_extinction_keeps_founders(
     index = read_genome_index(run.run_dir)
     assert len(index.genomes) == 5
     assert all(record.reasons == {GenomeHighlightReason.FOUNDER: 0} for record in index.genomes)
+    report = validate_run(run.run_dir, validation_level=ValidationLevel.SCIENTIFIC)
+    assert report.validation_passed, report.issues
+    assert open_run(run.run_dir).scan_births().collect().height == 0

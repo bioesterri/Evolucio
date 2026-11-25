@@ -22,6 +22,7 @@ from evolucio.core.rng import PRNG_IMPLEMENTATION, RngState
 from evolucio.core.simulation import SIMULATION_STEP_SCHEMA_DIGEST
 from evolucio.core.state import PopulationState, SimulationState, WorldState
 from evolucio.host.dto import HostArray
+from evolucio.persistence.loaders.errors import UnsupportedSchemaVersionError
 from evolucio.persistence.local.artifacts import artifact_path
 from evolucio.persistence.local.manifest import utc_now
 from evolucio.persistence.local.version_info import code_version_info
@@ -41,6 +42,7 @@ from .schemas import (
 from .storage import (
     CheckpointCompatibilityError,
     CheckpointIntegrityError,
+    UnsupportedCaptureVersionError,
     read_arrays,
     read_metadata,
     verify_store_tree,
@@ -106,6 +108,10 @@ def read_checkpoint_arrays(path: Path) -> tuple[CheckpointMetadata, dict[str, Ho
             completion_field="checkpoint_complete",
         )
         metadata = CheckpointMetadata.model_validate_json(json.dumps(raw))
+    except UnsupportedSchemaVersionError as exc:
+        raise UnsupportedCaptureVersionError(
+            exc.schema_name, exc.found_version, exc.supported_versions
+        ) from exc
     except ValueError as exc:
         raise CheckpointCompatibilityError(f"unsupported checkpoint metadata: {exc}") from exc
     _check_contract()

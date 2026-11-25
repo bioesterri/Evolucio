@@ -19,7 +19,9 @@ class ZarrArtifactVerification:
     compatibility_errors: tuple[str, ...]
 
 
-def verify_zarr_artifacts(run_dir: Path) -> ZarrArtifactVerification:
+def verify_zarr_artifacts(
+    run_dir: Path, *, structural: bool = True, kind: str | None = None
+) -> ZarrArtifactVerification:
     run_dir = run_dir.resolve()
     missing: list[str] = []
     hashes: list[str] = []
@@ -32,6 +34,8 @@ def verify_zarr_artifacts(run_dir: Path) -> ZarrArtifactVerification:
         for record in (*index.checkpoints, *index.snapshots):
             relative = record.relative_path
             indexed.add(relative)
+            if kind is not None and kind != record.kind:
+                continue
             path = artifact_path(run_dir, relative)
             if not path.is_dir():
                 missing.append(relative)
@@ -43,6 +47,8 @@ def verify_zarr_artifacts(run_dir: Path) -> ZarrArtifactVerification:
                 continue
             if size != record.byte_size or digest != record.sha256:
                 hashes.append(relative)
+                continue
+            if not structural:
                 continue
             try:
                 metadata = read_metadata(path)
@@ -74,6 +80,8 @@ def verify_zarr_artifacts(run_dir: Path) -> ZarrArtifactVerification:
     try:
         root = artifact_path(run_dir, "artifacts/zarr")
         for directory in (root / "checkpoints", root / "snapshots"):
+            if kind is not None and directory.name != f"{kind}s":
+                continue
             if directory.is_symlink():
                 raise ValueError("symlink in Zarr capture directory")
             if directory.exists():

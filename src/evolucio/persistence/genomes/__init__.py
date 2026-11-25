@@ -152,11 +152,15 @@ def store_genome(run_dir: Path, leaves: GenomeLeaves) -> tuple[str, str, str, in
     return digest, relative, sha256_file(path), path.stat().st_size
 
 
-def read_genome_leaves(run_dir: Path, record: HighlightedGenomeRecord) -> GenomeLeaves:
+def _verify_genome_file(run_dir: Path, record: HighlightedGenomeRecord) -> Path:
     path = artifact_path(run_dir, record.relative_path)
     if sha256_file(path) != record.artifact_sha256 or path.stat().st_size != record.byte_size:
         raise ValueError(f"file SHA or size mismatch for {record.relative_path}")
-    leaves = _read_leaves(path)
+    return path
+
+
+def read_genome_leaves(run_dir: Path, record: HighlightedGenomeRecord) -> GenomeLeaves:
+    leaves = _read_leaves(_verify_genome_file(run_dir, record))
     if genome_content_hash(leaves) != record.genome_hash:
         raise ValueError(f"semantic genome hash mismatch for {record.relative_path}")
     return leaves
@@ -171,7 +175,7 @@ class GenomeStoreVerification:
         return not self.errors
 
 
-def verify_genome_store(run_dir: Path) -> GenomeStoreVerification:
+def verify_genome_store(run_dir: Path, *, structural: bool = True) -> GenomeStoreVerification:
     errors: list[str] = []
     try:
         index = read_genome_index(run_dir)
@@ -184,7 +188,10 @@ def verify_genome_store(run_dir: Path) -> GenomeStoreVerification:
                 continue
             referenced[record.relative_path] = identity
             try:
-                read_genome_leaves(run_dir, record)
+                if structural:
+                    read_genome_leaves(run_dir, record)
+                else:
+                    _verify_genome_file(run_dir, record)
             except (OSError, ValueError, BadZipFile, EOFError) as exc:
                 errors.append(str(exc))
         for path in sorted(artifact_path(run_dir, _ROOT).glob("*.npz")):

@@ -190,9 +190,12 @@ def validate_capture_header(
     metadata: dict[str, object], *, name: str, version: int, completion_field: str
 ) -> None:
     """Require an explicit version and completion marker; never infer a legacy schema."""
+    from evolucio.persistence.loaders.registry import identify
+
+    if metadata.get("schema_name") == name:
+        identify(metadata, name)
     if (
         metadata.get("schema_name") != name
-        or type(metadata.get("schema_version")) is not int
         or metadata.get("schema_version") != version
         or metadata.get(completion_field) is not True
     ):

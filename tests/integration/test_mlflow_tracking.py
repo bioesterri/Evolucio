@@ -12,6 +12,8 @@ from typer.testing import CliRunner
 from evolucio.cli.main import app
 from evolucio.persistence.local import RunStatus, load_run_manifest
 from evolucio.persistence.postgres import PostgresRegistry
+from evolucio.persistence.validation.runner import validate_run
+from evolucio.persistence.validation.types import CheckStatus, ValidationLevel
 from evolucio.runtime import initialization
 from evolucio.tracking.mlflow import get_or_create_mlflow_experiment, reconcile_mlflow_run
 from evolucio.tracking.mlflow.runs import load_tracking_state
@@ -68,6 +70,28 @@ def test_live_tracking_and_artifacts(
     result = runner.invoke(app, args)
     assert result.exit_code == 0, (result.output, result.exception)
     run_dir = next((tmp_path / "runs").iterdir())
+    from evolucio.persistence.local.artifacts import sha256_file
+
+    def hashes() -> dict[Path, str]:
+        return {file: sha256_file(file) for file in run_dir.rglob("*") if file.is_file()}
+
+    before = hashes()
+    remote_before = [entry.info.run_id for entry in client.search_runs([remote_exp])]
+    local_id = UUID(run_dir.name)
+    sql_before = [entry.sha256 for entry in registry.list_artifacts(local_id)]
+    report = validate_run(
+        run_dir,
+        validation_level=ValidationLevel.INTEGRITY,
+        registry=registry,
+        tracking_uri=tracking_uri,
+    )
+    assert report.validation_passed, report.issues
+    assert report.components["postgresql"] is CheckStatus.PASSED
+    assert report.components["mlflow"] is CheckStatus.PASSED
+    assert before == hashes()
+    assert sql_before == [entry.sha256 for entry in registry.list_artifacts(local_id)]
+    assert remote_before == [entry.info.run_id for entry in client.search_runs([remote_exp])]
+
     binding = registry.get_mlflow_run_binding(UUID(run_dir.name))
     assert binding is not None and binding.mlflow_run_id != run_dir.name
     remote = client.get_run(binding.mlflow_run_id)
