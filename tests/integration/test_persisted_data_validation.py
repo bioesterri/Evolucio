@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
+from evolucio.analysis.summary import analyze_run
 from evolucio.cli.main import app
 from evolucio.persistence.loaders.compatibility import (
     check_read_compatibility,
@@ -87,6 +88,8 @@ def test_consistent_hashes_do_not_prove_genealogy(copied_run: Path) -> None:
     scientific = validate_run(copied_run, validation_level=ValidationLevel.SCIENTIFIC)
     assert not scientific.validation_passed
     assert any(issue.code == "genealogy_projection" for issue in scientific.issues)
+    with pytest.raises(ValueError, match="Scientific validation failed"):
+        analyze_run(open_run(copied_run))
 
 
 @pytest.mark.parametrize("version", [None, 999])
