@@ -53,9 +53,12 @@ def _show_matrix(view: BatchPreflight, specs: tuple[BatchRunSpec, ...]) -> None:
 
 def _show_summary(runs: tuple[BatchRunResult, ...], requested: int) -> None:
     completed = sum(run.status == BatchRunStatus.COMPLETED for run in runs)
+    failed = sum(run.status == BatchRunStatus.FAILED for run in runs)
+    stopped = sum(run.status == BatchRunStatus.STOPPED for run in runs)
+    pending = sum(run.status == BatchRunStatus.NOT_STARTED for run in runs)
     typer.echo(
         f"runs requested: {requested}\nruns executed: {len(runs)}\n"
-        f"completed: {completed}\nfailed: {len(runs) - completed}"
+        f"completed: {completed}\nfailed: {failed}\nstopped: {stopped}\nnot_started: {pending}"
     )
     for run in runs:
         if run.status == BatchRunStatus.FAILED:
@@ -126,5 +129,7 @@ def batch_run(
         raise typer.Exit(1) from exc
     _show_summary(result.runs, result.requested_run_count)
     show_tracking_failures(tracking)
+    if result.stopped_run_count or result.not_started_run_count:
+        raise typer.Exit(130)
     if result.failed_run_count:
         raise typer.Exit(1)

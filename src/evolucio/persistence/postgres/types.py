@@ -54,6 +54,8 @@ class ComparisonRun:
     status: str
     mode: str
     summary: RunSummaryRecord | None
+    root_run_id: UUID | None = None
+    recovery_depth: int = 0
 
 
 @dataclass(frozen=True, slots=True)

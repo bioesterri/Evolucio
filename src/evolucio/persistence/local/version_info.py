@@ -22,10 +22,14 @@ class EnvironmentInfo:
     jax_version: str | None
     equinox_version: str | None
     platform: str
+    jaxlib_version: str | None = None
+    backend: str | None = None
 
 
 def code_version_info(repo_path: Path | None = None) -> CodeVersionInfo:
     """Keep unavailable Git information explicitly unknown, with bounded calls."""
+    if repo_path is None:
+        repo_path = Path(__file__).resolve().parents[4]
     try:
         commit = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -58,7 +62,12 @@ def _version(distribution: str) -> str | None:
         return None
 
 
-def environment_info() -> EnvironmentInfo:
+def environment_info(*, backend: str | None = None) -> EnvironmentInfo:
     return EnvironmentInfo(
-        platform.python_version(), _version("jax"), _version("equinox"), platform.platform()
+        platform.python_version(),
+        _version("jax"),
+        _version("equinox"),
+        platform.platform(),
+        _version("jaxlib"),
+        backend,
     )

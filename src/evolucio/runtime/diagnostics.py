@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
     from evolucio.config.compile import CoreConfig
     from evolucio.core.metrics import MetricsAccumulator
     from evolucio.core.state import SimulationState
+
+    from .stop_control import StopController
 
 simulation_step_checked = eqx.filter_jit(_simulation_step_checked)
 
@@ -89,11 +92,19 @@ def run_smoke(
     config: CoreConfig,
     plan: RunPlan,
     consumer: ChunkConsumer | None = None,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
 ) -> ModeRunResult:
     """Check only run boundaries around the unchanged fast runtime."""
     initial = _initial(state, config, RunMode.SMOKE)
     runtime = run_simulation(
-        state=state, accumulator=accumulator, config=config, plan=plan, consumer=consumer
+        state=state,
+        accumulator=accumulator,
+        config=config,
+        plan=plan,
+        consumer=consumer,
+        stop_controller=stop_controller,
+        on_dispatch=on_dispatch,
     )
     final = _inspect(
         check_final_state_invariants(
@@ -121,6 +132,8 @@ def run_debug(
     config: CoreConfig,
     plan: RunPlan,
     consumer: ChunkConsumer | None = None,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
 ) -> ModeRunResult:
     """Inspect every checked transition and fail before dispatching another step."""
     _initial(state, config, RunMode.DEBUG)
@@ -128,7 +141,11 @@ def run_debug(
     current_state, current_accumulator = state, accumulator
     latest = None
     for offset in range(plan.total_steps):
+        if stop_controller is not None and stop_controller.stop_requested:
+            break
         step = initial_step + offset
+        if on_dispatch is not None:
+            on_dispatch(step, step + 1)
         checked = simulation_step_checked(
             state=current_state, accumulator=current_accumulator, config=config
         )
@@ -179,7 +196,9 @@ def run_debug(
             )
         current_state, current_accumulator = result.state, result.accumulator
     final_step = int(current_state.step)
-    if final_step != initial_step + plan.total_steps:
+    if final_step != initial_step + plan.total_steps and (
+        stop_controller is None or not stop_controller.stop_requested
+    ):
         raise ValueError("final state.step does not match the requested horizon")
     return ModeRunResult(
         RunMode.DEBUG,
@@ -188,8 +207,8 @@ def run_debug(
             current_accumulator,
             initial_step,
             final_step,
-            plan.total_steps,
-            plan.total_steps,
+            final_step - initial_step,
+            final_step - initial_step,
         ),
         latest_diagnostic=latest,
     )

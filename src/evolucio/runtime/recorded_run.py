@@ -20,14 +20,18 @@ from evolucio.persistence.local import (
     RunStatus,
     create_local_run,
 )
+from evolucio.persistence.local.manifest import RunStopRecord, utc_now
+from evolucio.persistence.local.ownership import run_ownership
 from evolucio.persistence.parquet.schemas import DEFAULT_PARQUET_POLICY, ParquetPersistencePolicy
 from evolucio.persistence.zarr.schemas import DEFAULT_ZARR_POLICY, ZarrCapturePolicy
 
 from .modes import ModeRunResult, RunDiagnosticError, RunMode
+from .stop_control import StopController
 from .types import ChunkConsumer, HostChunkBatch, RunPlan
 
 if TYPE_CHECKING:
     from evolucio.config.compile import CompiledConfig, CoreConfig
+    from evolucio.persistence.parquet import ParquetRunConsumer
     from evolucio.persistence.zarr.checkpoint import CheckpointRestore
 
     from .capture_runner import RunCaptures
@@ -54,6 +58,7 @@ class RecordedRunObserver(Protocol):
         self, recorder: LocalRunRecorder, manifest: RunManifest, summary: RunSummary
     ) -> None: ...
     def failed(self, recorder: LocalRunRecorder, error: Exception) -> None: ...
+    def stopped(self, recorder: LocalRunRecorder) -> None: ...
 
 
 class RecordedRunTracking(Protocol):
@@ -101,7 +106,7 @@ class RecordedRunResult:
     run_dir: Path
 
 
-def execute_recorded_simulation(
+def _execute_recorded_simulation(
     *,
     recorder: LocalRunRecorder,
     capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
@@ -117,6 +122,8 @@ def execute_recorded_simulation(
     observer: RecordedRunObserver | None = None,
     tracking: RecordedRunTracking | None = None,
     telemetry_consumer: Callable[[ChunkTelemetryDTO], None] | None = None,
+    stop_controller: StopController,
+    import_prefix: Callable[[ParquetRunConsumer], None] | None = None,
 ) -> RecordedRunResult:
     """Keep initialization and execution failures auditable, preserving exceptions."""
     from evolucio.core.metrics import create_empty_metrics_accumulator
@@ -141,15 +148,38 @@ def execute_recorded_simulation(
     captures: RunCaptures | None = None
     analysis: AnalysisCapture | None = None
     tracking_preflight = False
+    stopped = False
+    phase = "initialization"
+    confirmed: int | None = None
+    active_interval: tuple[int, int] | None = None
+
+    def stop(reason: str, requested_at: str | None, *, ordered: bool) -> None:
+        recorder.mark_stopped(
+            RunStopRecord(
+                reason,
+                requested_at,
+                utc_now(),
+                ordered,
+                confirmed,
+                None if parquet is None else parquet.last_end,
+                None
+                if captures is None or not captures.writer.index.checkpoints
+                else captures.writer.index.checkpoints[-1].state_step,
+            )
+        )
+
     try:
+        if on_created is not None:
+            on_created(recorder)
         if observer is not None:
+            phase = "database"
             observer.created(recorder)
+        phase = "initialization"
         if tracking is not None:
-            if on_created is not None:
-                on_created(recorder)
             tracking_preflight = True
             tracking.created(recorder)
             tracking_preflight = False
+        phase = "persistence"
         parquet = ParquetRunConsumer(recorder, parquet_policy)
         if capture_policy.enabled:
             from .capture_runner import RunCaptures
@@ -166,8 +196,7 @@ def execute_recorded_simulation(
                     "source_checkpoint_hash": restored.checkpoint_sha256,
                 },
             )
-        if tracking is None and on_created is not None:
-            on_created(recorder)
+        phase = "initialization"
         if restored is None:
             state = initialize_simulation(config, seed=recorder.manifest.seed)
             accumulator = create_empty_metrics_accumulator()
@@ -179,7 +208,19 @@ def execute_recorded_simulation(
             ):
                 raise ValueError("restored carry does not match the recorded continuation")
             state, accumulator = restored.state, restored.accumulator
-        if restored is None or restored.state_step == 0:
+        confirmed = int(state.step)
+        phase = "persistence"
+        if import_prefix is not None:
+            if restored is None or checkpoint_source_run is None:
+                raise ValueError("prefix import requires a restored checkpoint")
+            import_prefix(parquet)
+            analysis = AnalysisCapture.import_founders(recorder, checkpoint_source_run)
+            if captures is None:
+                from .capture_runner import RunCaptures
+
+                captures = RunCaptures(recorder, config, capture_policy)
+            captures.checkpoint(state, accumulator)
+        elif restored is None or restored.state_step == 0:
             analysis = AnalysisCapture.start(recorder, state)
         elif (
             checkpoint_source_run is not None and (checkpoint_source_run / FOUNDERS_PATH).is_file()
@@ -203,13 +244,27 @@ def execute_recorded_simulation(
         parquet_sink = DTOChunkConsumer(persist)
 
         def composed(batch: HostChunkBatch) -> None:
+            nonlocal phase, confirmed, active_interval
+            confirmed = batch.end_step_exclusive
+            active_interval = (batch.start_step, batch.end_step_exclusive)
+            phase = "persistence"
             parquet_sink(batch)
-            if sink is not None:
+            if mode is not RunMode.BENCHMARK and sink is not None:
+                phase = "unexpected"
                 sink(batch)
+            phase = "simulation"
+            active_interval = None
+
+        def dispatch(start: int, end: int) -> None:
+            nonlocal phase, active_interval
+            active_interval = (start, end)
+            phase = "simulation"
 
         recorder.mark_running()
         if observer is not None:
+            phase = "database"
             observer.running(recorder)
+        phase = "simulation"
         if captures is None:
             outcome = run_with_mode(
                 mode=mode,
@@ -218,7 +273,9 @@ def execute_recorded_simulation(
                 config=config,
                 plan=plan,
                 consumer=composed,
-                benchmark_consumer=parquet_sink,
+                benchmark_consumer=composed,
+                stop_controller=stop_controller,
+                on_dispatch=dispatch,
             )
         else:
             from .capture_runner import run_with_captures
@@ -229,8 +286,36 @@ def execute_recorded_simulation(
                 accumulator=accumulator,
                 config=config,
                 plan=plan,
-                consumer=parquet_sink if mode is RunMode.BENCHMARK else composed,
+                consumer=composed,
                 captures=captures,
+                stop_controller=stop_controller,
+                on_dispatch=dispatch,
+            )
+        phase = "persistence"
+        if outcome.runtime.steps_executed < plan.total_steps:
+            request = stop_controller.request
+            assert request is not None
+            if capture_policy.checkpoint_on_stop and (
+                parquet.last_end == outcome.runtime.final_step or outcome.runtime.final_step == 0
+            ):
+                if captures is None:
+                    from .capture_runner import RunCaptures
+
+                    captures = RunCaptures(recorder, config, capture_policy)
+                captures.checkpoint(outcome.runtime.state, outcome.runtime.accumulator)
+            if captures is not None:
+                captures.writer.finalize(complete=False)
+            parquet.finalize_partial()
+            if analysis is not None:
+                analysis.register_index()
+            stop(*request, ordered=True)
+            stopped = True
+            if observer is not None and hasattr(observer, "stopped"):
+                observer.stopped(recorder)
+            if tracking is not None:
+                tracking.finished(recorder)
+            return RecordedRunResult(
+                outcome, summarize_run(outcome), recorder.manifest, recorder.run_dir
             )
         if captures is not None:
             captures.writer.finalize()
@@ -248,8 +333,11 @@ def execute_recorded_simulation(
         )
 
         def publish_completion(manifest: RunManifest) -> None:
+            nonlocal phase
             if observer is not None:
+                phase = "database"
                 observer.completing(recorder, manifest, summary)
+                phase = "persistence"
 
         benchmark_summary: dict[str, object] = {}
         if outcome.benchmark is not None:
@@ -257,17 +345,28 @@ def execute_recorded_simulation(
                 "elapsed_seconds": outcome.benchmark.elapsed_seconds,
                 "steps_per_second": outcome.benchmark.steps_per_second,
             }
+        trajectory_summary: dict[str, object] = {}
+        if import_prefix is not None:
+            trajectory_summary = {
+                "trajectory_initial_step": 0,
+                "execution_initial_step": recorder.manifest.initial_step,
+                "target_step": recorder.manifest.initial_step + plan.total_steps,
+                "inherited_steps": recorder.manifest.initial_step,
+                "new_steps_executed": summary.steps_executed,
+                "trajectory_steps_completed": summary.final_step,
+            }
         recorder.mark_completed(
             summary=asdict(summary)
             | asdict(parquet_summary)
             | analysis_summary
-            | benchmark_summary,
+            | benchmark_summary
+            | trajectory_summary,
             steps_executed=summary.steps_executed,
             final_step=summary.final_step,
             before_publish=None if observer is None else publish_completion,
         )
-    except Exception as exc:
-        if tracking_preflight:
+    except (Exception, KeyboardInterrupt) as exc:
+        if (tracking_preflight and isinstance(exc, Exception)) or stopped:
             raise
         if captures is not None and not captures.writer.closed:
             try:
@@ -287,13 +386,27 @@ def execute_recorded_simulation(
             except Exception as index_error:
                 exc.add_note(f"Could not register the genome index: {index_error}")
         try:
-            recorder.mark_failed(
-                RunErrorRecord(
-                    type(exc).__name__,
-                    str(exc)[:4096],
-                    exc.failure.step if isinstance(exc, RunDiagnosticError) else None,
+            if isinstance(exc, KeyboardInterrupt):
+                stop("user_interruption", None, ordered=False)
+            else:
+                recorder.mark_failed(
+                    RunErrorRecord(
+                        type(exc).__name__,
+                        str(exc)[:4096],
+                        exc.failure.step if isinstance(exc, RunDiagnosticError) else None,
+                        "invariant_violation"
+                        if isinstance(exc, RunDiagnosticError)
+                        else f"{phase}_error",
+                        phase,
+                        confirmed,
+                        None if parquet is None else parquet.last_end,
+                        None
+                        if captures is None or not captures.writer.index.checkpoints
+                        else captures.writer.index.checkpoints[-1].state_step,
+                        utc_now(),
+                        active_interval,
+                    )
                 )
-            )
         except Exception as recording_error:
             exc.add_note(
                 f"Could not record failure at {recorder.run_dir / 'manifest.json'}: "
@@ -301,7 +414,10 @@ def execute_recorded_simulation(
             )
         if observer is not None:
             try:
-                observer.failed(recorder, exc)
+                if isinstance(exc, Exception):
+                    observer.failed(recorder, exc)
+                elif hasattr(observer, "stopped"):
+                    observer.stopped(recorder)
             except Exception as registry_error:
                 exc.add_note(f"Could not record registry failure: {registry_error}")
         if tracking is not None:
@@ -313,6 +429,49 @@ def execute_recorded_simulation(
     if tracking is not None:
         tracking.finished(recorder)
     return RecordedRunResult(outcome, summary, recorder.manifest, recorder.run_dir)
+
+
+def execute_recorded_simulation(
+    *,
+    recorder: LocalRunRecorder,
+    capture_policy: ZarrCapturePolicy = DEFAULT_ZARR_POLICY,
+    restored: CheckpointRestore | None = None,
+    checkpoint_source_run: Path | None = None,
+    parquet_policy: ParquetPersistencePolicy = DEFAULT_PARQUET_POLICY,
+    config: CoreConfig,
+    plan: RunPlan,
+    mode: RunMode,
+    consumer: ChunkConsumer | None = None,
+    consumer_factory: Callable[[], ChunkConsumer | None] | None = None,
+    on_created: Callable[[LocalRunRecorder], None] | None = None,
+    observer: RecordedRunObserver | None = None,
+    tracking: RecordedRunTracking | None = None,
+    telemetry_consumer: Callable[[ChunkTelemetryDTO], None] | None = None,
+    stop_controller: StopController | None = None,
+    import_prefix: Callable[[ParquetRunConsumer], None] | None = None,
+) -> RecordedRunResult:
+    stop_controller = stop_controller or StopController()
+    with run_ownership(recorder.run_dir, create=True) as ownership, stop_controller.handle_sigint():
+        if ownership != "inactive":
+            raise ValueError(f"run ownership unavailable: {ownership}")
+        return _execute_recorded_simulation(
+            recorder=recorder,
+            capture_policy=capture_policy,
+            restored=restored,
+            checkpoint_source_run=checkpoint_source_run,
+            parquet_policy=parquet_policy,
+            config=config,
+            plan=plan,
+            mode=mode,
+            consumer=consumer,
+            consumer_factory=consumer_factory,
+            on_created=on_created,
+            observer=observer,
+            tracking=tracking,
+            telemetry_consumer=telemetry_consumer,
+            import_prefix=import_prefix,
+            stop_controller=stop_controller,
+        )
 
 
 def run_recorded_simulation(
@@ -333,8 +492,11 @@ def run_recorded_simulation(
     compiled: CompiledConfig | None = None,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
+    stop_controller: StopController | None = None,
 ) -> RecordedRunResult:
     """Require the canonical host model so the frozen config is exactly executable."""
+    import jax
+
     from evolucio.config.compile import compile_config, compile_signature_digest
     from evolucio.config.freeze import freeze_config
 
@@ -366,6 +528,7 @@ def run_recorded_simulation(
         initial_step=0 if restored is None else restored.state_step,
         case_id=case_id,
         batch_ordinal=batch_ordinal,
+        backend=jax.default_backend(),
     )
     return execute_recorded_simulation(
         recorder=recorder,
@@ -392,4 +555,5 @@ def run_recorded_simulation(
         observer=observer,
         tracking=tracking,
         telemetry_consumer=telemetry_consumer,
+        stop_controller=stop_controller,
     )

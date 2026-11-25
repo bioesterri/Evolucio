@@ -21,6 +21,8 @@ def test_relational_tables_and_jsonb_are_declared():
         "genome_highlight",
         "mlflow_experiment_binding",
         "mlflow_run_binding",
+        "run_recovery",
+        "run_analysis_exclusion",
     }
     assert isinstance(ConfigSnapshotModel.__table__.c.config_json.type, JSONB)
 
@@ -33,3 +35,13 @@ def test_foreign_key_delete_policies_and_indexes():
         assert next(iter(table.c.run_id.foreign_keys)).ondelete == "CASCADE"
     names = {index.name for index in run.indexes}
     assert {"ix_run_experiment_config", "ix_run_config_seed"} <= names
+
+    recovery = Base.metadata.tables["run_recovery"]
+    assert {key.parent.name for key in recovery.foreign_keys} == {
+        "run_id",
+        "source_run_id",
+        "root_run_id",
+    }
+    assert {key.target_fullname for key in recovery.foreign_keys} == {"run.run_id"}
+    exclusion = Base.metadata.tables["run_analysis_exclusion"]
+    assert {key.target_fullname for key in exclusion.foreign_keys} == {"run.run_id"}

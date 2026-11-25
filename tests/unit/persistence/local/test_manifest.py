@@ -25,7 +25,7 @@ def test_roundtrip_and_utc(recorder):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("manifest_schema_version", 2),
+        ("manifest_schema_version", 999),
         ("manifest_schema_version", True),
         ("manifest_schema_name", "future"),
         ("run_id", "../escape"),

@@ -25,6 +25,8 @@ class CaptureRecord(StrictModel):
 
 class CheckpointRecord(CaptureRecord):
     kind: Literal["checkpoint"] = "checkpoint"
+    committed_telemetry_end_step: int | None = None
+    telemetry_prefix_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     schema_version: Literal[1] = 1
 
 
@@ -34,7 +36,7 @@ class SnapshotRecord(CaptureRecord):
 
 
 class ZarrIndex(StrictModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     run_id: str
     config_hash: str
     compile_signature: str
@@ -54,13 +56,20 @@ def load_index(run_dir: Path) -> ZarrIndex:
     text = artifact_path(run_dir, INDEX_PATH).read_text()
     index = ZarrIndex.model_validate_json(text)
     raw = json.loads(text)
-    if type(raw.get("schema_version")) is not int or raw["schema_version"] != 1:
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] not in (1, 2):
         raise ValueError("unsupported or missing Zarr index schema_version")
     if any(
         type(record.get("schema_version")) is not int
         for record in (*raw.get("checkpoints", []), *raw.get("snapshots", []))
     ):
         raise ValueError("capture record requires an explicit schema_version")
+    for checkpoint in index.checkpoints:
+        end = checkpoint.committed_telemetry_end_step
+        digest = checkpoint.telemetry_prefix_digest
+        if (end is None) != (digest is None) or (
+            end is not None and (index.schema_version == 1 or end != checkpoint.state_step)
+        ):
+            raise ValueError("invalid checkpoint telemetry commitment")
     for kind, records in (("checkpoint", index.checkpoints), ("snapshot", index.snapshots)):
         steps: list[int] = []
         for record in records:
@@ -101,6 +110,7 @@ class ZarrRunIndex:
         self.recorder = recorder
         self.closed = False
         self.index = ZarrIndex(
+            schema_version=2,
             run_id=recorder.run_id,
             config_hash=recorder.manifest.config_hash,
             compile_signature=recorder.manifest.compile_signature,

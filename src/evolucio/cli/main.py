@@ -21,6 +21,7 @@ from .config_commands import inspect_config, validate_config
 from .database_commands import database_app, experiment_app
 from .genome_commands import genome_app
 from .mlflow_command import MlflowFlag, MlflowInterval, MlflowRequired, mlflow_app
+from .recovery_commands import recovery_app
 from .run_command import run_config
 
 app = typer.Typer(
@@ -29,6 +30,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(mlflow_app, name="mlflow")
+app.add_typer(recovery_app, name="recovery")
 app.add_typer(checkpoint_app, name="checkpoint")
 app.add_typer(snapshot_app, name="snapshot")
 config_app = typer.Typer(help="Validate and inspect normalized configurations.")
@@ -82,6 +84,9 @@ def run(
     snapshot_every: Annotated[int | None, typer.Option("--snapshot-every", min=1)] = None,
     checkpoint_on_completion: Annotated[bool, typer.Option("--checkpoint-on-completion")] = False,
     snapshot_on_completion: Annotated[bool, typer.Option("--snapshot-on-completion")] = False,
+    checkpoint_on_stop: Annotated[
+        bool, typer.Option("--checkpoint-on-stop/--no-checkpoint-on-stop")
+    ] = True,
     keep_last_checkpoints: Annotated[
         int | None, typer.Option("--keep-last-checkpoints", min=1)
     ] = None,
@@ -102,6 +107,7 @@ def run(
         checkpoint_on_completion,
         snapshot_on_completion,
         keep_last_checkpoints,
+        checkpoint_on_stop,
     )
     output = run_config(
         path,
@@ -129,6 +135,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             arguments[0] = "artifacts"
         app(args=arguments, prog_name="evolucio")
         return 0
+    except KeyboardInterrupt:
+        return 130
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
     except (ConfigError, ValidationError) as exc:

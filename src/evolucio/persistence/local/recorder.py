@@ -12,12 +12,19 @@ from evolucio.runtime.modes import RunMode
 from evolucio.runtime.types import RunPlan
 
 from . import version_info
-from .artifacts import ArtifactRecord, LocalArtifactRegistry, atomic_write_text, json_text
+from .artifacts import (
+    ArtifactRecord,
+    LocalArtifactRegistry,
+    atomic_write_text,
+    json_text,
+    sync_directory,
+)
 from .manifest import (
     RunErrorRecord,
     RunManifest,
     RunSchemas,
     RunStatus,
+    RunStopRecord,
     manifest_to_payload,
     utc_now,
     validate_run_id,
@@ -53,8 +60,15 @@ class LocalRunRecorder:
         self._manifest = manifest
 
     def _require_open(self) -> None:
-        if self.manifest.status in (RunStatus.COMPLETED, RunStatus.FAILED):
+        if self.manifest.status in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.STOPPED):
             raise ValueError("terminal runs cannot be changed or reopened")
+
+    @classmethod
+    def open_existing(cls, run_dir: Path) -> "LocalRunRecorder":
+        from .manifest import load_run_manifest
+
+        manifest = load_run_manifest(run_dir / "manifest.json")
+        return cls(run_dir, manifest, LocalArtifactRegistry(run_dir, manifest.artifacts))
 
     def mark_running(self) -> None:
         if self.manifest.status != RunStatus.CREATED:
@@ -100,6 +114,21 @@ class LocalRunRecorder:
             self._save(replace(self.manifest, artifacts=completed.artifacts))
             before_publish(completed)
         self._save(completed)
+
+    def mark_stopped(self, stop: RunStopRecord) -> None:
+        self._require_open()
+        self._save(
+            replace(
+                self.manifest,
+                status=RunStatus.STOPPED,
+                stop=stop,
+                finished_at_utc=stop.stopped_at_utc,
+                final_step=stop.last_confirmed_state_step,
+                steps_executed=None
+                if stop.last_confirmed_state_step is None
+                else stop.last_confirmed_state_step - self.manifest.initial_step,
+            )
+        )
 
     def mark_failed(self, error: RunErrorRecord) -> None:
         self._require_open()
@@ -168,6 +197,7 @@ def create_local_run(
     initial_step: int = 0,
     case_id: str | None = None,
     batch_ordinal: int | None = None,
+    backend: str | None = None,
 ) -> LocalRunRecorder:
     """Freeze the normalized host config and record identity before initialization."""
     identity = str(uuid4()) if run_id is None else validate_run_id(run_id)
@@ -176,6 +206,8 @@ def create_local_run(
     run_dir = output_root / identity
     run_dir.mkdir(exist_ok=False)
     (run_dir / "artifacts").mkdir()
+    (run_dir / ".writer.lock").touch(exist_ok=False)
+    sync_directory(output_root)
     registry = LocalArtifactRegistry(run_dir)
     atomic_write_text(run_dir / "config.json", serialize_config(config, format="json"))
     registry.register_existing_artifact(
@@ -202,7 +234,7 @@ def create_local_run(
         final_step=None,
         steps_executed=0,
         code_version=version_info.code_version_info(),
-        environment=version_info.environment_info(),
+        environment=version_info.environment_info(backend=backend),
         compile_signature=compile_signature,
         schemas=schemas or RunSchemas(CONFIG_SCHEMA_VERSION, HOST_DTO_SCHEMA_DIGEST),
         artifacts=registry.records,

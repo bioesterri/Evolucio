@@ -62,6 +62,16 @@ def json_text(payload: object) -> str:
     return json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
 
+def sync_directory(path: Path) -> None:
+    """Flush directory entries on platforms that support directory descriptors."""
+    if os.name != "nt":
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
 def atomic_write_text(path: Path, text: str) -> None:
     """Flush a same-directory temporary file before replacing the target."""
     temporary: Path | None = None
@@ -80,6 +90,7 @@ def atomic_write_text(path: Path, text: str) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        sync_directory(path.parent)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
@@ -108,9 +119,9 @@ class ArtifactRecord:
 class LocalArtifactRegistry:
     """One run's append-only artifact index; no device-library dependency."""
 
-    def __init__(self, run_dir: Path) -> None:
+    def __init__(self, run_dir: Path, records: tuple[ArtifactRecord, ...] = ()) -> None:
         self.run_dir = run_dir
-        self._records: tuple[ArtifactRecord, ...] = ()
+        self._records = records
 
     @property
     def records(self) -> tuple[ArtifactRecord, ...]:

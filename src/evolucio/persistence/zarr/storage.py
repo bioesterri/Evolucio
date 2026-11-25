@@ -18,6 +18,7 @@ from evolucio.persistence.local.artifacts import (
     atomic_write_text,
     json_text,
     sha256_file,
+    sync_directory,
     validate_relative_path,
 )
 
@@ -163,11 +164,18 @@ def write_store(
             group.create_array(name, data=array, chunks=chunks)
         group.attrs.update(cast(Any, metadata))
         seal_store(temporary)
+        for file in _files(temporary).values():
+            with file.open("rb") as stream:
+                os.fsync(stream.fileno())
+        for directory, _, _ in os.walk(temporary, topdown=False):
+            sync_directory(Path(directory))
         result = verify_store_tree(temporary)
         validate(temporary)
         if path.exists():
             raise FileExistsError(path)
         os.rename(temporary, path)
+        sync_directory(path.parent)
+        sync_directory(path.parent.parent)
         return result
     finally:
         if temporary.exists():

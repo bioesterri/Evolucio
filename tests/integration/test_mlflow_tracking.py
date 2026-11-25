@@ -199,3 +199,103 @@ def test_concurrent_experiment_creation_is_stable(
     )
     assert len(matches) == 1
     assert matches[0].name.startswith("Evolucio/First-name")
+
+
+def test_recovery_tracking_replays_canonical_prefix(
+    tmp_path: Path,
+    registry: PostgresRegistry,
+    client: MlflowClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from evolucio.persistence.local.version_info import CodeVersionInfo
+    from evolucio.persistence.postgres.recording import PostgresRunObserver
+    from evolucio.recovery.runner import resume
+    from evolucio.runtime.recorded_run import RecordedRunResult, run_recorded_simulation
+    from evolucio.runtime.stop_control import StopController
+    from evolucio.runtime.types import HostChunkBatch, RunPlan
+    from evolucio.tracking.mlflow.live import MlflowRunTracker
+    from evolucio.tracking.mlflow.types import MlflowTrackingPolicy
+
+    identity = CodeVersionInfo("0.1.0.dev0", "b" * 40, False)
+    monkeypatch.setattr(
+        "evolucio.persistence.local.version_info.code_version_info", lambda: identity
+    )
+    monkeypatch.setattr("evolucio.recovery.assessment.code_version_info", lambda: identity)
+    experiment, remote_experiment = create_experiment(registry, client, tmp_path)
+    experiment_id = UUID(experiment)
+    controller = StopController()
+
+    def request_stop(_batch: HostChunkBatch) -> None:
+        controller.request_stop()
+
+    original = run_recorded_simulation(
+        config=checkpoint_host_config(),
+        plan=RunPlan(5, 2),
+        output_root=tmp_path / "runs",
+        observer=PostgresRunObserver(registry, experiment_id),
+        stop_controller=controller,
+        consumer=request_stop,
+        tracking=MlflowRunTracker(
+            registry,
+            experiment_id,
+            MlflowTrackingPolicy(),
+            client=client,
+        ),
+    )
+    source = registry.get_mlflow_run_binding(UUID(original.manifest.run_id))
+    assert source is not None
+    assert client.get_run(source.mlflow_run_id).info.status == "KILLED"
+    recovered = resume(
+        original.run_dir,
+        observer=PostgresRunObserver(registry, experiment_id),
+        tracking=MlflowRunTracker(
+            registry,
+            experiment_id,
+            MlflowTrackingPolicy(required=False),
+            client=client,
+        ),
+    )
+    assert isinstance(recovered, RecordedRunResult)
+    assert recovered.manifest.status is RunStatus.COMPLETED
+    target = registry.get_mlflow_run_binding(UUID(recovered.manifest.run_id))
+    assert target is not None and target.mlflow_run_id != source.mlflow_run_id
+    remote = client.get_run(target.mlflow_run_id)
+    assert remote.info.status == "FINISHED"
+    assert remote.info.experiment_id == remote_experiment
+    assert remote.data.tags["evolucio.root_run_id"] == original.manifest.run_id
+    assert remote.data.tags["evolucio.recovered"] == "true"
+    assert sorted(
+        point.step for point in client.get_metric_history(target.mlflow_run_id, "population.alive")
+    ) == [0, 1, 2, 3, 4]
+    assert client.get_run(source.mlflow_run_id).info.status == "KILLED"
+    assert reconcile_mlflow_run(recovered.run_dir, registry, client=client).ok
+
+    from evolucio.persistence.postgres.errors import RegistryIntegrityError
+    from evolucio.tracking.mlflow.sync import sync_run_to_mlflow
+
+    def unavailable(*_args: object, **_kwargs: object) -> MlflowClient:
+        raise RuntimeError("MLflow temporarily unavailable")
+
+    with monkeypatch.context() as outage:
+        outage.setattr("evolucio.tracking.mlflow.live.create_tracking_client", unavailable)
+        outage.setattr("evolucio.tracking.mlflow.sync.create_tracking_client", unavailable)
+        tracker = MlflowRunTracker(registry, experiment_id, MlflowTrackingPolicy(required=False))
+        second = resume(
+            original.run_dir,
+            observer=PostgresRunObserver(registry, experiment_id),
+            tracking=tracker,
+        )
+    assert isinstance(second, RecordedRunResult) and second.manifest.status is RunStatus.COMPLETED
+    assert tracker.state and tracker.state.sync_status is SyncStatus.FAILED
+    assert (
+        sync_run_to_mlflow(second.run_dir, registry, client=client).sync_status is SyncStatus.SYNCED
+    )
+    with pytest.raises(RegistryIntegrityError, match="select one completed continuation"):
+        registry.list_runs_for_comparison(experiment_id)
+    assert {
+        row.run_id
+        for row in registry.list_runs_for_comparison(
+            experiment_id, selected_runs=frozenset({UUID(second.manifest.run_id)})
+        )
+        if row.status == "completed"
+    } == {UUID(second.manifest.run_id)}

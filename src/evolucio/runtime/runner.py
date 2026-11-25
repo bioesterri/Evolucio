@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import jax
@@ -15,6 +16,8 @@ from .types import ChunkConsumer, HostChunkBatch, RunPlan, RunRuntimeResult
 if TYPE_CHECKING:
     from evolucio.config.compile import CoreConfig
 
+    from .stop_control import StopController
+
 
 def run_simulation(
     *,
@@ -23,6 +26,8 @@ def run_simulation(
     config: CoreConfig,
     plan: RunPlan,
     consumer: ChunkConsumer | None = None,
+    stop_controller: StopController | None = None,
+    on_dispatch: Callable[[int, int], None] | None = None,
 ) -> RunRuntimeResult:
     """Execute exactly the horizon, streaming all metrics and events per chunk.
 
@@ -34,11 +39,17 @@ def run_simulation(
     current_state = state
     current_accumulator = accumulator
     full_chunks, remainder = divmod(plan.total_steps, plan.chunk_steps)
-    chunks_executed = full_chunks + int(remainder > 0)
+    planned_chunks = full_chunks + int(remainder > 0)
+    chunks_executed = 0
     start_step = initial_step
 
-    for chunk_index in range(chunks_executed):
+    for chunk_index in range(planned_chunks):
+        if stop_controller is not None and stop_controller.stop_requested:
+            break
         length = plan.chunk_steps if chunk_index < full_chunks else remainder
+        end_step = start_step + length
+        if on_dispatch is not None:
+            on_dispatch(start_step, end_step)
         chunk = run_chunk(
             state=current_state,
             accumulator=current_accumulator,
@@ -48,7 +59,6 @@ def run_simulation(
         current_state = chunk.state
         current_accumulator = chunk.accumulator
         host_metrics, host_events = jax.device_get((chunk.metrics, chunk.events))
-        end_step = start_step + length
         if host_metrics.step.shape != (length,) or any(
             int(step) != start_step + offset for offset, step in enumerate(host_metrics.step)
         ):
@@ -64,17 +74,18 @@ def run_simulation(
                 )
             )
         start_step = end_step
+        chunks_executed += 1
         # Release outputs before dispatching the next chunk, even without a sink.
         del chunk, host_metrics, host_events
 
     final_step = int(current_state.step)
-    if final_step != initial_step + plan.total_steps:
+    if final_step != start_step:
         raise ValueError("final state.step does not match the requested horizon")
     return RunRuntimeResult(
         state=current_state,
         accumulator=current_accumulator,
         initial_step=initial_step,
         final_step=final_step,
-        steps_executed=plan.total_steps,
+        steps_executed=final_step - initial_step,
         chunks_executed=chunks_executed,
     )

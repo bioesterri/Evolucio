@@ -95,7 +95,7 @@ def _reconcile(
     ):
         differences.add("run identity")
     status_mismatch |= cast(str, remote.info.status) != status
-    tags = build_tags(manifest, run.experiment_id)
+    tags = build_tags(manifest, run.experiment_id, run_dir)
     for key, value in tags.items():
         if cast(dict[str, str], remote.data.tags).get(key) != value:
             prefix = "identity tag" if key in IDENTITY_TAGS else "tag"

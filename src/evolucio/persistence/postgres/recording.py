@@ -8,6 +8,7 @@ from uuid import UUID
 
 from evolucio.analysis.summaries import AGENTS_PATH
 from evolucio.persistence.local import LocalRunRecorder, RunManifest
+from evolucio.recovery.provenance import read_provenance
 from evolucio.runtime.recorded_run import RunSummary
 
 from .errors import RegistryIntegrityError
@@ -24,6 +25,12 @@ class PostgresRunObserver:
         self.registered_run_id: UUID | None = None
 
     def created(self, recorder: LocalRunRecorder) -> None:
+        recorder.write_json_artifact(
+            relative_path="artifacts/postgres/experiment.json",
+            name="postgres_experiment",
+            kind="postgres_experiment",
+            payload={"experiment_id": str(self.experiment_id)},
+        )
         manifest = recorder.manifest
         artifact = next(
             a for a in manifest.artifacts if a.relative_path == manifest.config_artifact
@@ -37,6 +44,7 @@ class PostgresRunObserver:
             config_artifact_sha256=artifact.sha256,
             experiment_id=self.experiment_id,
             local_run_path=str(recorder.run_dir),
+            recovery=read_provenance(recorder.run_dir, manifest),
         )
         self.registered_run_id = UUID(recorder.run_id)
 
@@ -72,6 +80,13 @@ class PostgresRunObserver:
                 else None
             ),
         )
+
+    def stopped(self, recorder: LocalRunRecorder) -> None:
+        if self.registered_run_id != UUID(recorder.run_id):
+            return
+        self.registry.mark_run_stopped(recorder.manifest)
+        _, indexes = verified_run_indexes(recorder.run_dir)
+        self.registry.mark_run_stopped(recorder.manifest, indexes=indexes)
 
     def failed(self, recorder: LocalRunRecorder, error: Exception) -> None:
         run_id = UUID(recorder.run_id)

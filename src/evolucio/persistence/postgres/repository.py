@@ -17,8 +17,10 @@ from evolucio.persistence.local.artifacts import (
     validate_relative_path,
     validate_sha256,
 )
+from evolucio.persistence.local.exclusion import AnalysisExclusion
 from evolucio.persistence.local.manifest import RunManifest, RunStatus
 from evolucio.persistence.parquet.index import INDEX_PATH as PARQUET_INDEX_PATH
+from evolucio.recovery.provenance import RecoveryProvenance
 
 from .errors import (
     ArtifactIndexConflictError,
@@ -38,7 +40,9 @@ from .models import (
     LineageSummaryModel,
     MlflowExperimentBindingModel,
     MlflowRunBindingModel,
+    RunAnalysisExclusionModel,
     RunModel,
+    RunRecoveryModel,
     RunSummaryModel,
     StateCaptureModel,
 )
@@ -163,6 +167,7 @@ class PostgresRegistry:
         config_artifact_sha256: str,
         experiment_id: UUID | None = None,
         local_run_path: str | None = None,
+        recovery: RecoveryProvenance | None = None,
     ) -> RunModel:
         """Atomically create the PR-35 run identity and immutable config snapshot."""
         if manifest.status is not RunStatus.CREATED:
@@ -201,6 +206,39 @@ class PostgresRegistry:
                 session.add(run)
                 session.flush()
                 session.add(snapshot)
+                if recovery is not None:
+                    source_id = UUID(recovery.source_run_id)
+                    source = self._required_run(session, source_id)
+                    parent = session.get(RunRecoveryModel, source_id)
+                    root = source_id if parent is None else parent.root_run_id
+                    depth = 1 if parent is None else parent.recovery_depth + 1
+                    validate_sha256(recovery.source_checkpoint_hash)
+                    if (
+                        source_id == run.run_id
+                        or source.status not in {"failed", "stopped"}
+                        or (source.experiment_id, source.case_id, source.seed, source.config_hash)
+                        != (run.experiment_id, run.case_id, run.seed, run.config_hash)
+                        or source.config_hash != recovery.source_config_hash
+                        or root != UUID(recovery.root_run_id)
+                        or depth != recovery.recovery_depth
+                        or recovery.target_step != source.initial_step + source.total_steps
+                        or recovery.source_checkpoint_step != run.initial_step
+                        or run.initial_step + run.total_steps != recovery.target_step
+                    ):
+                        raise RegistryIntegrityError("inconsistent recovery lineage")
+                    session.add(
+                        RunRecoveryModel(
+                            run_id=run.run_id,
+                            source_run_id=source_id,
+                            root_run_id=root,
+                            source_checkpoint_step=recovery.source_checkpoint_step,
+                            source_checkpoint_hash=recovery.source_checkpoint_hash,
+                            inherited_steps=recovery.inherited_steps,
+                            target_step=recovery.target_step,
+                            recovery_depth=depth,
+                            created_at=run.created_at,
+                        )
+                    )
         except RegistryIntegrityError as exc:
             if isinstance(exc.__cause__, IntegrityError):
                 with self._session() as session:
@@ -250,6 +288,83 @@ class PostgresRegistry:
             "running",
             started_at=_as_utc(started_at) if started_at is not None else _now(),
         )
+
+    def mark_run_stopped(self, manifest: RunManifest, *, indexes: RunIndexes | None = None) -> None:
+        if manifest.status is not RunStatus.STOPPED:
+            raise ValueError("a stopped manifest is required")
+        with self._session(write=True) as session:
+            run = self._required_run(session, UUID(manifest.run_id))
+            if run.status not in {"created", "running", "stopped"}:
+                raise InvalidRunTransitionError(f"cannot stop run in status {run.status}")
+            if (run.config_hash, run.seed) != (manifest.config_hash, manifest.seed):
+                raise RegistryIntegrityError("manifest and registry identity differ")
+            if run.status == "stopped" and (
+                run.finished_at != _timestamp(manifest.finished_at_utc)
+                or run.final_step != manifest.final_step
+                or run.steps_executed != (manifest.steps_executed or 0)
+            ):
+                raise RegistryIntegrityError("conflicting terminal stop details")
+            if indexes is not None:
+                self._sync_indexes(session, run, indexes)
+            run.status = "stopped"
+            run.finished_at = _timestamp(manifest.finished_at_utc)
+            run.final_step = manifest.final_step
+            run.steps_executed = manifest.steps_executed or 0
+
+    def get_analysis_exclusion(self, run_id: UUID) -> RunAnalysisExclusionModel | None:
+        with self._session() as session:
+            return session.get(RunAnalysisExclusionModel, run_id)
+
+    def index_analysis_exclusion(self, exclusion: AnalysisExclusion) -> None:
+        run_id = UUID(exclusion.run_id)
+        timestamp = datetime.fromisoformat(exclusion.discarded_at_utc)
+        with self._session(write=True) as session:
+            run = session.get(RunModel, run_id, with_for_update=True)
+            if run is None or run.status not in {"completed", "failed", "stopped"}:
+                raise RegistryIntegrityError(
+                    "analytical exclusion requires a registered terminal run"
+                )
+            previous = session.get(RunAnalysisExclusionModel, run_id)
+            if previous is None:
+                session.add(
+                    RunAnalysisExclusionModel(
+                        run_id=run_id, reason=exclusion.reason, discarded_at=timestamp
+                    )
+                )
+            elif (previous.reason, previous.discarded_at) != (exclusion.reason, timestamp):
+                raise RegistryIntegrityError("analytical exclusion differs from PostgreSQL")
+
+    def list_failed_runs(self) -> tuple[RunModel, ...]:
+        return self.list_runs(status="failed")
+
+    def list_stopped_runs(self) -> tuple[RunModel, ...]:
+        return self.list_runs(status="stopped")
+
+    def list_recovery_attempts(self, root_run_id: UUID) -> tuple[RunRecoveryModel, ...]:
+        with self._session() as session:
+            return tuple(
+                session.scalars(
+                    select(RunRecoveryModel)
+                    .where(RunRecoveryModel.root_run_id == root_run_id)
+                    .order_by(RunRecoveryModel.created_at, RunRecoveryModel.run_id)
+                )
+            )
+
+    def get_recovery(self, run_id: UUID) -> RunRecoveryModel | None:
+        with self._session() as session:
+            return session.get(RunRecoveryModel, run_id)
+
+    def get_recovery_chain(self, run_id: UUID) -> tuple[RunRecoveryModel, ...]:
+        chain: list[RunRecoveryModel] = []
+        seen: set[UUID] = set()
+        with self._session() as session:
+            while edge := session.get(RunRecoveryModel, run_id):
+                if run_id in seen:
+                    raise RegistryIntegrityError("cyclic recovery lineage")
+                seen.add(run_id)
+                chain.append(edge)
+                run_id = edge.source_run_id
+        return tuple(reversed(chain))
 
     def mark_run_failed(
         self,
@@ -494,16 +609,25 @@ class PostgresRegistry:
                 raise RegistryIntegrityError("state capture belongs to a different run")
             self._index_state_capture(session, capture)
 
-    def list_runs_for_comparison(self, experiment_id: UUID) -> tuple[ComparisonRun, ...]:
+    def list_runs_for_comparison(
+        self, experiment_id: UUID, *, selected_runs: frozenset[UUID] = frozenset()
+    ) -> tuple[ComparisonRun, ...]:
         with self._session() as session:
             rows = session.execute(
-                select(RunModel, RunSummaryModel)
-                .outerjoin(RunSummaryModel)
-                .where(RunModel.experiment_id == experiment_id)
+                select(RunModel, RunSummaryModel, RunRecoveryModel)
+                .outerjoin(RunSummaryModel, RunSummaryModel.run_id == RunModel.run_id)
+                .outerjoin(RunRecoveryModel, RunRecoveryModel.run_id == RunModel.run_id)
+                .outerjoin(
+                    RunAnalysisExclusionModel, RunAnalysisExclusionModel.run_id == RunModel.run_id
+                )
+                .where(
+                    RunModel.experiment_id == experiment_id,
+                    RunAnalysisExclusionModel.run_id.is_(None),
+                )
                 .order_by(RunModel.case_id, RunModel.seed)
             )
             result: list[ComparisonRun] = []
-            for run, summary in rows:
+            for run, summary, recovery in rows:
                 summary_record = (
                     None
                     if summary is None
@@ -525,9 +649,26 @@ class PostgresRegistry:
                         run.status,
                         run.mode,
                         summary_record,
+                        run.run_id if recovery is None else recovery.root_run_id,
+                        0 if recovery is None else recovery.recovery_depth,
                     )
                 )
-            return tuple(result)
+            completed_by_root: dict[UUID, list[UUID]] = {}
+            for entry in result:
+                if entry.status == "completed":
+                    completed_by_root.setdefault(entry.root_run_id or entry.run_id, []).append(
+                        entry.run_id
+                    )
+            exclusions: set[UUID] = set()
+            for root, ids in completed_by_root.items():
+                if len(ids) > 1:
+                    choices = selected_runs.intersection(ids)
+                    if len(choices) != 1:
+                        raise RegistryIntegrityError(
+                            f"select one completed continuation for trajectory {root}: {ids}"
+                        )
+                    exclusions.update(set(ids) - choices)
+            return tuple(entry for entry in result if entry.run_id not in exclusions)
 
     def get_agent_summary(self, run_id: UUID, agent_id: int) -> AgentSummaryModel | None:
         with self._sessions() as session:
@@ -617,7 +758,14 @@ class PostgresRegistry:
     def lineage_outcomes_for_experiment(
         self,
         experiment_id: UUID,
+        *,
+        selected_runs: frozenset[UUID] = frozenset(),
     ) -> tuple[tuple[UUID, str | None, int, int, int | None, int | None], ...]:
+        completed_ids = [
+            run.run_id
+            for run in self.list_runs_for_comparison(experiment_id, selected_runs=selected_runs)
+            if run.status == "completed"
+        ]
         with self._sessions() as session:
             rows = session.execute(
                 select(
@@ -630,8 +778,7 @@ class PostgresRegistry:
                 )
                 .outerjoin(LineageSummaryModel)
                 .where(
-                    RunModel.experiment_id == experiment_id,
-                    RunModel.status == "completed",
+                    RunModel.run_id.in_(completed_ids),
                 )
                 .group_by(RunModel.run_id)
                 .order_by(RunModel.case_id, RunModel.seed, RunModel.run_id)

@@ -372,3 +372,42 @@ class MlflowRunBindingModel(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class RunRecoveryModel(Base):
+    __tablename__ = "run_recovery"
+    __table_args__ = (
+        CheckConstraint(
+            "run_id <> source_run_id AND run_id <> root_run_id", name="ck_run_recovery_identity"
+        ),
+        CheckConstraint(
+            "recovery_depth > 0 AND target_step > source_checkpoint_step",
+            name="ck_run_recovery_horizon",
+        ),
+    )
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id"), primary_key=True
+    )
+    source_run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id"), index=True
+    )
+    root_run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id"), index=True
+    )
+    source_checkpoint_step: Mapped[int] = mapped_column(BigInteger)
+    source_checkpoint_hash: Mapped[str] = mapped_column(String(64))
+    inherited_steps: Mapped[int] = mapped_column(BigInteger)
+    target_step: Mapped[int] = mapped_column(BigInteger)
+    recovery_depth: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class RunAnalysisExclusionModel(Base):
+    __tablename__ = "run_analysis_exclusion"
+
+    run_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("run.run_id"), primary_key=True
+    )
+    reason: Mapped[str] = mapped_column(Text)
+    discarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

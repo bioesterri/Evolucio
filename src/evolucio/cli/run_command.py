@@ -196,6 +196,17 @@ def _execute(
         show_tracking_failures(tracking, fail_required=False)
         raise
     show_tracking_failures(tracking)
+    if recorded.manifest.status.value == "stopped":
+        typer.echo(
+            text_fields(
+                {
+                    "status": "stopped",
+                    "manifest": str(recorded.run_dir / "manifest.json"),
+                    "final_step": recorded.summary.final_step,
+                }
+            )
+        )
+        raise typer.Exit(130)
     result = recorded.result
     location: dict[str, object] = {"manifest": str(recorded.run_dir / "manifest.json")}
     if result.benchmark is not None:

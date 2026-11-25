@@ -8,12 +8,12 @@ from pathlib import Path
 import polars as pl
 
 from evolucio.host import HOST_DTO_SCHEMA_VERSION, ChunkTelemetryDTO
-from evolucio.persistence.local.artifacts import artifact_path, sha256_file
+from evolucio.persistence.local.artifacts import artifact_path, sha256_file, sync_directory
 from evolucio.persistence.local.recorder import LocalRunRecorder
 from evolucio.persistence.parquet.schemas import DEFAULT_PARQUET_POLICY
 
 from .frames import births_frame, deaths_frame, genealogy_frame, metrics_frame
-from .index import INDEX_PATH, Dataset, DatasetIndex, Part, save_index
+from .index import INDEX_PATH, CommittedChunk, Dataset, DatasetIndex, Part, save_index
 from .schemas import SCHEMAS, STEP_COLUMNS, ParquetCompression, ParquetPersistencePolicy
 from .verify import verify_parquet_datasets
 
@@ -41,6 +41,7 @@ def write_part(path: Path, frame: pl.DataFrame, compression: ParquetCompression)
         with temporary.open("rb") as stream:
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        sync_directory(path.parent)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
@@ -58,7 +59,8 @@ class ParquetRunConsumer:
         self.policy = policy
         self.closed = False
         self.failed = False
-        self.last_chunk = -1
+        self.last_chunk: int = -1
+        self.imported_chunks: int = 0
         self.last_end: int | None = None
         root = artifact_path(recorder.run_dir, "artifacts/parquet")
         root.mkdir(exist_ok=False)
@@ -67,7 +69,9 @@ class ParquetRunConsumer:
             directory = f"artifacts/parquet/{name}"
             artifact_path(recorder.run_dir, directory).mkdir()
             datasets[name] = Dataset(relative_directory=directory)
-        self.index = DatasetIndex(run_id=recorder.run_id, policy=policy, datasets=datasets)
+        self.index = DatasetIndex(
+            schema_version=2, run_id=recorder.run_id, policy=policy, datasets=datasets
+        )
         save_index(recorder.run_dir, self.index)
 
     def __call__(self, batch: ChunkTelemetryDTO) -> None:
@@ -75,7 +79,7 @@ class ParquetRunConsumer:
             raise ValueError("consumer is closed or failed")
         if (
             batch.schema_version != HOST_DTO_SCHEMA_VERSION
-            or batch.chunk_index <= self.last_chunk
+            or batch.chunk_index + self.imported_chunks <= self.last_chunk
             or batch.start_step >= batch.end_step_exclusive
             or (self.last_end is not None and batch.start_step != self.last_end)
         ):
@@ -96,13 +100,40 @@ class ParquetRunConsumer:
             "deaths": deaths_frame(self.recorder.run_id, batch.events.deaths),
             "genealogy": genealogy_frame(self.recorder.run_id, batch.events.births),
         }
+        self.commit_frames(
+            batch.chunk_index + self.imported_chunks,
+            batch.start_step,
+            batch.end_step_exclusive,
+            frames,
+        )
+
+    def commit_frames(
+        self, chunk_index: int, start_step: int, end_step: int, frames: dict[str, pl.DataFrame]
+    ) -> None:
+        if (
+            self.closed
+            or self.failed
+            or chunk_index != self.last_chunk + 1
+            or start_step >= end_step
+            or (self.last_end is not None and start_step != self.last_end)
+            or set(frames) != set(SCHEMAS)
+        ):
+            raise ValueError("invalid committed chunk sequence")
         candidate = self.index.model_copy(deep=True)
+        candidate.chunks.append(
+            CommittedChunk(
+                chunk_index=chunk_index,
+                start_step=start_step,
+                end_step_exclusive=end_step,
+                counts={name: frame.height for name, frame in frames.items()},
+            )
+        )
         try:
             for name, frame in frames.items():
                 if not frame.height:
                     continue
                 dataset = candidate.datasets[name]
-                relative = f"{dataset.relative_directory}/part-{batch.chunk_index:08d}.parquet"
+                relative = f"{dataset.relative_directory}/part-{chunk_index:08d}.parquet"
                 path = artifact_path(self.recorder.run_dir, relative)
                 write_part(path, frame, self.policy.compression)
                 steps = frame[STEP_COLUMNS[name]]
@@ -110,7 +141,7 @@ class ParquetRunConsumer:
                 dataset.parts.append(
                     Part(
                         relative_path=relative,
-                        chunk_index=batch.chunk_index,
+                        chunk_index=chunk_index,
                         row_count=frame.height,
                         byte_size=path.stat().st_size,
                         sha256=sha256_file(path),
@@ -127,8 +158,8 @@ class ParquetRunConsumer:
             self.failed = True
             raise
         self.index = candidate
-        self.last_chunk = batch.chunk_index
-        self.last_end = batch.end_step_exclusive
+        self.last_chunk = chunk_index
+        self.last_end = end_step
 
     def _finish(self, complete: bool) -> ParquetDatasetSummary:
         if self.closed:

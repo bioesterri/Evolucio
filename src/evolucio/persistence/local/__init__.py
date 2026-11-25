@@ -7,6 +7,7 @@ from .manifest import (
     RunManifest,
     RunSchemas,
     RunStatus,
+    RunStopRecord,
     load_run_manifest,
     manifest_to_payload,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "RunManifest",
     "RunSchemas",
     "RunStatus",
+    "RunStopRecord",
     "create_local_run",
     "load_run_manifest",
     "manifest_to_payload",

@@ -3,6 +3,7 @@
 import json
 from dataclasses import asdict
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -21,7 +22,11 @@ def _inspect_or_verify(run_dir: Path, *, inspect: bool) -> None:
         typer.echo(f"Local run invalid: {exc}", err=True)
         raise typer.Exit(2) from exc
     if inspect:
+        from evolucio.persistence.local.exclusion import read_exclusion
+
         typer.echo(json_text(manifest_to_payload(manifest)))
+        if (exclusion := read_exclusion(run_dir, manifest.run_id)) is not None:
+            typer.echo(json_text({"analysis_status": "discarded", **asdict(exclusion)}))
         if verification.ok and any(record.kind == "summary" for record in manifest.artifacts):
             summary = json.loads((run_dir / "summary.json").read_text())
             counts = {
@@ -69,3 +74,12 @@ def inspect(run_dir: Path) -> None:
 def verify(run_dir: Path) -> None:
     """Return 0 for integrity, 1 for damage, and 2 for invalid input."""
     _inspect_or_verify(run_dir, inspect=False)
+
+
+@artifacts_app.command("discard")
+def discard(run_dir: Path, reason: Annotated[str, typer.Option("--reason")]) -> None:
+    """Exclude a terminal run from comparison without changing its lifecycle record."""
+    from evolucio.persistence.local.exclusion import discard_from_analysis
+
+    exclusion = discard_from_analysis(run_dir, reason)
+    typer.echo(json_text({"analysis_status": "discarded", **asdict(exclusion)}))

@@ -49,7 +49,13 @@ def test_experiment_delegates(monkeypatch):
         consumer=consumer,
     )
     runtime.assert_called_once_with(
-        state=state, accumulator=accumulator, config=config, plan=plan, consumer=consumer
+        state=state,
+        accumulator=accumulator,
+        config=config,
+        plan=plan,
+        consumer=consumer,
+        stop_controller=None,
+        on_dispatch=None,
     )
     assert result.runtime is runtime.return_value
     assert result.benchmark is result.smoke_report is result.latest_diagnostic is None
