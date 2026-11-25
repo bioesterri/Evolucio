@@ -1,12 +1,16 @@
 """Recovery preserves complete scientific trajectories and independent lifecycle records."""
 
+from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
+from evolucio.analysis.population import population_series
 from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
+from evolucio.analysis.summary import analyze_run
 from evolucio.host import ChunkTelemetryDTO
 from evolucio.persistence.genomes import read_genome_index
+from evolucio.persistence.loaders.run_data import open_run
 from evolucio.persistence.local import LocalRunRecorder, RunStatus, load_run_manifest
 from evolucio.persistence.local.version_info import CodeVersionInfo
 from evolucio.persistence.parquet.reader import scan_dataset
@@ -88,6 +92,30 @@ def test_complete_trajectory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         assert validation.validation_passed, validation.issues
         if run is result:
             assert validation.components["recovery_source"] is CheckStatus.PASSED
+    partial = analyze_run(open_run(interrupted.run_dir))
+    assert partial.run_status == "stopped"
+    assert partial.coverage.end_step_exclusive == 40
+    assert partial.survival_summary is not None
+    assert partial.survival_summary.right_censored_count == interrupted.summary.alive_count
+    assert population_series(open_run(interrupted.run_dir)).collect()["step"].max() == 39
+    continuous = analyze_run(open_run(expected.run_dir))
+    recovered = analyze_run(open_run(result.run_dir))
+    assert recovered.root_run_id == recovered.source_run_id == interrupted.manifest.run_id
+    assert recovered.recovery_depth == 1
+    assert recovered.population_summary == continuous.population_summary
+    assert recovered.survival_summary == continuous.survival_summary
+    assert recovered.mortality_summary.deaths_total == continuous.mortality_summary.deaths_total
+    assert recovered.mortality_summary.by_cause == continuous.mortality_summary.by_cause
+    assert recovered.mortality_summary.by_phase == continuous.mortality_summary.by_phase
+    assert recovered.mortality_summary.observed_death_age == pytest.approx(
+        continuous.mortality_summary.observed_death_age
+    )
+    for field in fields(recovered.energy_summary):
+        actual = getattr(recovered.energy_summary, field.name)
+        expected_metric = getattr(continuous.energy_summary, field.name)
+        assert actual.value == pytest.approx(expected_metric.value, abs=3e-5), field.name
+        assert actual.coverage == expected_metric.coverage
+        assert actual.quality == expected_metric.quality
     assert_pytree_equivalent(result.result.runtime.state, expected.result.runtime.state)
     assert_pytree_equivalent(result.result.runtime.accumulator, expected.result.runtime.accumulator)
     for dataset in ("metrics", "births", "deaths", "genealogy"):

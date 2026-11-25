@@ -14,6 +14,7 @@ from evolucio import __version__
 from evolucio.config.errors import ConfigError
 from evolucio.runtime.modes import RunDiagnosticError, RunMode
 
+from .analysis_commands import analysis_app
 from .artifact_commands import artifacts_app
 from .batch_command import batch_app
 from .capture_commands import checkpoint_app, snapshot_app
@@ -40,6 +41,7 @@ app.add_typer(batch_app, name="batch")
 app.add_typer(artifacts_app, name="artifacts")
 app.add_typer(genome_app, name="genome")
 app.add_typer(data_app, name="data")
+app.add_typer(analysis_app, name="analysis")
 app.add_typer(database_app, name="db")
 app.add_typer(experiment_app, name="experiment")
 
