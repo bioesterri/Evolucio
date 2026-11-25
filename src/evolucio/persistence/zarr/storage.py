@@ -13,6 +13,7 @@ import numpy as np
 import zarr
 
 from evolucio.host.dto import HostArray
+from evolucio.persistence.loaders.errors import UnsupportedSchemaVersionError
 from evolucio.persistence.local.artifacts import (
     artifact_path,
     atomic_write_text,
@@ -33,6 +34,10 @@ class CheckpointIntegrityError(ValueError):
 
 class CheckpointCompatibilityError(ValueError):
     """The explicit schema, configuration or compilation contract is incompatible."""
+
+
+class UnsupportedCaptureVersionError(UnsupportedSchemaVersionError, CheckpointCompatibilityError):
+    """The capture declares a schema version without a reader."""
 
 
 class StoreFile(StrictModel):

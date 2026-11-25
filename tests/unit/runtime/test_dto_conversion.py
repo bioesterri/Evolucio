@@ -222,3 +222,17 @@ def test_slot_permutation_does_not_change_external_event_order(host_batch, add_b
     events = jax.tree.map(lambda array: array[:, ::-1] if array.ndim >= 2 else array, batch.events)
     permuted = replace(batch, events=events)
     assert host_chunk_batch_to_dto(batch) == host_chunk_batch_to_dto(permuted)
+
+
+def test_invalid_state_death_preserves_diagnostic_payload(host_batch, add_death):
+    from evolucio.core.codes import DeathCauseCode
+
+    batch = host_batch()
+    add_death(batch)
+    records = batch.events.deaths.records
+    records.cause[0, 0] = int(DeathCauseCode.INVALID_STATE)
+    records.energy[0, 0] = np.nan
+    records.position[0, 0, 0] = -5
+    (death,) = death_events_to_dtos(batch.events.deaths)
+    assert np.isnan(death.energy)
+    assert death.position_x == -5

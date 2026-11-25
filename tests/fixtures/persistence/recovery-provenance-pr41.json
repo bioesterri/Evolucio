@@ -1,0 +1,17 @@
+{
+  "inherited_birth_rows": 4,
+  "inherited_death_rows": 1,
+  "inherited_genealogy_rows": 4,
+  "inherited_metrics_rows": 40,
+  "inherited_steps": 40,
+  "new_steps_requested": 60,
+  "recovery_depth": 1,
+  "root_run_id": "58037c30-b178-40d4-96ce-992b8cd1be27",
+  "schema_version": 1,
+  "source_checkpoint_hash": "68485189195073e138a18eb25a0c8fddd068ea037096ff44860d87293943edec",
+  "source_checkpoint_step": 40,
+  "source_config_hash": "3999ad69d62aea55f5c5318fff6d3087cba2f5d89dfd4bbdca8c08d2c05f3996",
+  "source_prefix_digest": "a1a8801a0131f165ce85a1fbd8ff4c38c4ed86e0939c18739dbbda911de32c9f",
+  "source_run_id": "58037c30-b178-40d4-96ce-992b8cd1be27",
+  "target_step": 100
+}

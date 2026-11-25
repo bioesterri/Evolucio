@@ -18,6 +18,7 @@ from .artifact_commands import artifacts_app
 from .batch_command import batch_app
 from .capture_commands import checkpoint_app, snapshot_app
 from .config_commands import inspect_config, validate_config
+from .data_commands import data_app
 from .database_commands import database_app, experiment_app
 from .genome_commands import genome_app
 from .mlflow_command import MlflowFlag, MlflowInterval, MlflowRequired, mlflow_app
@@ -38,6 +39,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(batch_app, name="batch")
 app.add_typer(artifacts_app, name="artifacts")
 app.add_typer(genome_app, name="genome")
+app.add_typer(data_app, name="data")
 app.add_typer(database_app, name="db")
 app.add_typer(experiment_app, name="experiment")
 

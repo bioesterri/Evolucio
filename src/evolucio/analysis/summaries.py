@@ -4,6 +4,8 @@ from dataclasses import dataclass, fields
 
 import polars as pl
 
+from evolucio.core.codes import DeathCauseCode
+
 ANALYSIS_SUMMARY_SCHEMA_VERSION = 1
 AGENT_SUMMARY_SCHEMA_VERSION = 1
 LINEAGE_SUMMARY_SCHEMA_VERSION = 1
@@ -218,7 +220,10 @@ def build_agent_summaries(
                 ).is_null(),
             )
             | pl.any_horizontal(pl.col("agent_id", "lineage_id", "genome_id") < 0)
-            | ~pl.col("final_energy").is_finite()
+            | (
+                ~pl.col("final_energy").is_finite()
+                & (pl.col("death_cause_code").fill_null(0) != int(DeathCauseCode.INVALID_STATE))
+            )
             | (pl.col("birth_step") < 0)
             | (pl.col("birth_step") > final_step)
             | (pl.col("generation") < 0)

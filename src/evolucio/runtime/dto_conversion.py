@@ -21,6 +21,10 @@ from ._host_validation import finite, host_array, host_ndim, nonnegative
 from .types import HostChunkBatch
 
 
+class EventBufferIntegrityError(ValueError):
+    """A buffer cannot account for all emitted events."""
+
+
 def _temporal_steps(value: object) -> HostArray:
     steps = host_ndim(value, "metrics.step", "iu", 1)
     nonnegative(steps, "metrics.step")
@@ -143,16 +147,18 @@ def _selected(
     *,
     position: bool = False,
     nullable: bool = False,
+    diagnostic: HostArray | None = None,
 ) -> HostArray:
     shape = (*mask.shape, 2) if position else mask.shape
     column = host_array(getattr(source, name), name, kind, shape)[mask]
-    finite(column, name)
+    validated = column if diagnostic is None else column[~diagnostic]
+    finite(validated, name)
     if kind == "iu":
         if nullable:
             if bool(np.any(column < -1)):
                 raise ValueError(f"{name} contains invalid parent identifiers")
         else:
-            nonnegative(column, name)
+            nonnegative(validated, name)
     return column
 
 
@@ -216,7 +222,7 @@ def death_events_to_dtos(events: DeathEventBuffer) -> tuple[DeathEventDTO, ...]:
     counts = host_array(events.count, "death count", "iu", (mask.shape[0],))
     overflow = host_array(events.overflow, "death overflow", "b", (mask.shape[0],))
     if bool(np.any(overflow)) or not np.array_equal(counts, np.count_nonzero(mask, axis=1)):
-        raise ValueError("death event count or overflow is inconsistent")
+        raise EventBufferIntegrityError("death event count or overflow is inconsistent")
     columns: dict[str, HostArray] = {}
     columns["death_step"] = _selected(events.records, "death_step", mask, "iu")
     columns["agent_id"] = _selected(events.records, "agent_id", mask, "iu")
@@ -225,10 +231,13 @@ def death_events_to_dtos(events: DeathEventBuffer) -> tuple[DeathEventDTO, ...]:
     columns["genome_id"] = _selected(events.records, "genome_id", mask, "iu")
     columns["generation"] = _selected(events.records, "generation", mask, "iu")
     columns["age"] = _selected(events.records, "age", mask, "iu")
-    columns["energy"] = _selected(events.records, "energy", mask, "f")
     columns["cause_code"] = _selected(events.records, "cause", mask, "iu")
+    diagnostic = columns["cause_code"] == int(DeathCauseCode.INVALID_STATE)
+    columns["energy"] = _selected(events.records, "energy", mask, "f", diagnostic=diagnostic)
     phase = _selected(events, "phase", mask, "iu")
-    position = _selected(events.records, "position", mask, "iu", position=True)
+    position = _selected(
+        events.records, "position", mask, "iu", position=True, diagnostic=diagnostic
+    )
     if bool(
         np.any(
             (columns["cause_code"] <= int(DeathCauseCode.NONE))

@@ -3,12 +3,14 @@
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from evolucio.persistence.local.artifacts import artifact_path, atomic_write_text, json_text
 
+from ..loaders.errors import DataSchemaError
+from ..loaders.registry import identify, read_object
 from .schemas import PARQUET_DATASET_SCHEMA_NAME, SCHEMAS, ParquetPersistencePolicy
 
 INDEX_PATH = "artifacts/parquet/datasets.json"
@@ -56,7 +58,17 @@ class DatasetIndex(IndexModel):
 
 
 def load_index(run_dir: Path) -> DatasetIndex:
-    index = DatasetIndex.model_validate_json(artifact_path(run_dir, INDEX_PATH).read_text())
+    path = artifact_path(run_dir, INDEX_PATH)
+    payload = read_object(path)
+    if payload.get("schema_name") != PARQUET_DATASET_SCHEMA_NAME:
+        raise DataSchemaError("missing or incompatible Parquet index schema_name")
+    identify(payload, PARQUET_DATASET_SCHEMA_NAME)
+    datasets = payload.get("datasets")
+    if isinstance(datasets, dict):
+        for name, value in cast(dict[str, object], datasets).items():
+            if name in SCHEMAS and isinstance(value, dict):
+                identify(cast(dict[str, object], value), name)
+    index = DatasetIndex.model_validate_json(path.read_bytes())
     if index.schema_version == 1 and index.chunks:
         raise ValueError("chunk commitments require index version 2")
     if set(index.datasets) != set(SCHEMAS):

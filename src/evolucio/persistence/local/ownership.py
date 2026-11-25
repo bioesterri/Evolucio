@@ -17,7 +17,7 @@ def run_ownership(run_dir: Path, *, create: bool = False) -> Generator[WriterSta
         yield "indeterminate"
         return
     try:
-        stream = path.open("a+b" if create else "r+b")
+        stream = path.open("a+b" if create else "r+b" if os.name == "nt" else "rb")
     except OSError:
         yield "indeterminate"
         return

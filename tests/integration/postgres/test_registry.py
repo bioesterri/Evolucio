@@ -122,6 +122,9 @@ def test_pr35_identity_and_atomic_run_config_creation(migrated_engine, tmp_path)
 
 def test_completed_recorded_run_is_registered_end_to_end(migrated_engine, tmp_path):
     from evolucio.cli.run_command import run_config
+    from evolucio.persistence.loaders.run_data import open_registered_run
+    from evolucio.persistence.validation.runner import validate_experiment
+    from evolucio.persistence.validation.types import ValidationLevel
 
     registry = PostgresRegistry(create_session_factory(migrated_engine))
     experiment = registry.create_experiment(name="end-to-end")
@@ -144,6 +147,14 @@ def test_completed_recorded_run_is_registered_end_to_end(migrated_engine, tmp_pa
         "deaths",
         "genealogy",
     }
+
+    run = open_registered_run(runs[0].run_id, registry, tmp_path)
+    assert run.manifest.run_id == str(runs[0].run_id)
+    reports = validate_experiment(
+        experiment.experiment_id, registry, ValidationLevel.INTEGRITY, storage_root=tmp_path
+    )
+    assert reports.totals["passed"] == reports.totals["independent"] == 1
+    assert reports.runs[0].validation_passed
 
 
 def test_upgrade_downgrade_upgrade(database_url):

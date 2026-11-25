@@ -11,6 +11,8 @@ from uuid import UUID
 from mlflow import MlflowClient
 from mlflow.entities import Param, Run, RunTag, ViewType
 
+from evolucio.persistence.loaders.registry import TRACKING_PATH as TRACKING_PATH
+from evolucio.persistence.loaders.tracking import load_tracking_state as read_tracking_state
 from evolucio.persistence.local import RunManifest, load_run_manifest
 from evolucio.persistence.local.artifacts import artifact_path, atomic_write_text, json_text
 from evolucio.persistence.postgres.models import MlflowRunBindingModel
@@ -19,7 +21,6 @@ from evolucio.persistence.postgres.repository import PostgresRegistry
 from .errors import MlflowRunBindingError, MlflowTrackingIntegrityError
 from .types import SyncStatus, TrackingState
 
-TRACKING_PATH = "artifacts/mlflow/tracking.json"
 RUN_TAG = "evolucio.run_id"
 IDENTITY_TAGS = (RUN_TAG, "evolucio.experiment_id", "evolucio.config_hash")
 
@@ -151,11 +152,8 @@ def load_tracking_manifest(run_dir: Path) -> RunManifest:
 
 
 def load_tracking_state(run_dir: Path) -> TrackingState | None:
-    path = artifact_path(run_dir, TRACKING_PATH)
-    if not path.is_file():
-        return None
     try:
-        return TrackingState.model_validate_json(path.read_bytes())
+        return read_tracking_state(run_dir)
     except ValueError as exc:
         raise MlflowTrackingIntegrityError("invalid local MLflow tracking state") from exc
 

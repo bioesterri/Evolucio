@@ -70,7 +70,9 @@ def consistency_errors(run_dir: Path) -> list[str]:
     return errors
 
 
-def verify_parquet_datasets(run_dir: Path) -> ParquetDatasetVerification:
+def verify_parquet_datasets(
+    run_dir: Path, *, structural: bool = True, scientific: bool = True
+) -> ParquetDatasetVerification:
     run_dir = run_dir.resolve()
     missing: list[str] = []
     hashes: list[str] = []
@@ -92,6 +94,11 @@ def verify_parquet_datasets(run_dir: Path) -> ParquetDatasetVerification:
                     continue
                 if path.stat().st_size != part.byte_size or sha256_file(path) != part.sha256:
                     hashes.append(relative)
+                    continue
+                if not structural:
+                    rows += part.row_count
+                    minima.append(part.min_step)
+                    maxima.append(part.max_step)
                     continue
                 try:
                     frame = pl.scan_parquet(path)
@@ -121,7 +128,7 @@ def verify_parquet_datasets(run_dir: Path) -> ParquetDatasetVerification:
                 or dataset.max_step != (max(maxima) if maxima else None)
             ):
                 errors.append(f"{name}: dataset statistics mismatch")
-        if not (missing or hashes or schemas):
+        if scientific and structural and not (missing or hashes or schemas):
             errors.extend(consistency_errors(run_dir))
     except (OSError, ValueError, pl.exceptions.PolarsError) as exc:
         errors.append(str(exc))
