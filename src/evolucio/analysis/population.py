@@ -15,7 +15,7 @@ def _counts(frame: pl.LazyFrame, step: str, name: str) -> pl.LazyFrame:
     return frame.group_by(pl.col(step).cast(pl.Int64).alias("step")).agg(count().alias(name))
 
 
-def _trajectory(run: AnalysisRun) -> tuple[pl.LazyFrame, int]:
+def population_changes(run: AnalysisRun) -> tuple[pl.LazyFrame, int]:
     if not run.population_available:
         raise AnalysisUnavailableError("founder census or validated trajectory origin unavailable")
     initial = int(run.run.scan_founders().select(count()).collect().item())
@@ -35,7 +35,7 @@ def population_series(
     """Return exact end-of-step populations and fractions per initial agent."""
     data = validated(run)
     coverage = data.bounds(window)
-    changes, initial = _trajectory(data)
+    changes, initial = population_changes(data)
     anchor = changes.filter(pl.col("step") < coverage.start_step).select(
         (pl.col("net_change").sum() + initial).alias("anchor")
     )
@@ -134,7 +134,7 @@ def population_summary(
 ) -> PopulationSummary:
     data = validated(run)
     coverage = data.bounds(window)
-    changes, initial = _trajectory(data)
+    changes, initial = population_changes(data)
     origin = data.coverage.start_step
     extinction = (
         origin
@@ -188,7 +188,7 @@ def bottlenecks(
 ) -> pl.LazyFrame:
     data = validated(run)
     coverage = data.bounds(window)
-    _, initial = _trajectory(data)
+    _, initial = population_changes(data)
     threshold = policy.bottleneck_fraction * initial
     after = pl.col("population_after")
     return (

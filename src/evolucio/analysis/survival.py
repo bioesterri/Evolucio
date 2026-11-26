@@ -20,6 +20,10 @@ class Cohort:
     is_founder: bool
 
 
+def entry_state_step(is_founder: pl.Expr) -> pl.Expr:
+    return pl.col("birth_step") + (~is_founder).cast(pl.Int64)
+
+
 def survival_observations(
     run: RunData | AnalysisRun, cohort_width_steps: int = 100
 ) -> pl.LazyFrame:
@@ -67,7 +71,7 @@ def survival_observations(
                 pl.col("death_age").is_not_null().alias("event_observed"),
                 pl.coalesce(
                     pl.col("death_age"),
-                    end - pl.col("birth_step") - (~pl.col("is_founder")).cast(pl.Int64),
+                    end - entry_state_step(pl.col("is_founder")),
                 ).alias("observed_age"),
             )
             .drop("death_age")
