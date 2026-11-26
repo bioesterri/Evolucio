@@ -5,9 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from evolucio.analysis.genetic_diversity import genetic_diversity_series
+from evolucio.analysis.lineage_analysis import analyze_lineages
+from evolucio.analysis.lineage_diversity import lineage_diversity_series
+from evolucio.analysis.offspring import reproductive_success_by_agent
 from evolucio.analysis.population import population_series
 from evolucio.analysis.summaries import AGENTS_PATH, LINEAGES_PATH
 from evolucio.analysis.summary import analyze_run
+from evolucio.analysis.windows import validated
 from evolucio.host import ChunkTelemetryDTO
 from evolucio.persistence.genomes import read_genome_index
 from evolucio.persistence.loaders.run_data import open_run
@@ -101,6 +106,24 @@ def test_complete_trajectory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     continuous = analyze_run(open_run(expected.run_dir))
     recovered = analyze_run(open_run(result.run_dir))
     assert recovered.root_run_id == recovered.source_run_id == interrupted.manifest.run_id
+    full_data = validated(open_run(expected.run_dir))
+    recovered_data = validated(open_run(result.run_dir))
+    prefix_data = validated(open_run(interrupted.run_dir))
+    assert analyze_lineages(recovered_data).source_run_id == interrupted.manifest.run_id
+    for query in (
+        lineage_diversity_series,
+        genetic_diversity_series,
+        reproductive_success_by_agent,
+    ):
+        assert (
+            query(full_data)
+            .collect()
+            .drop("run_id")
+            .equals(query(recovered_data).collect().drop("run_id"))
+        )
+    prefix_agents = reproductive_success_by_agent(prefix_data).collect()
+    assert prefix_agents["alive_at_end"].sum() == interrupted.summary.alive_count
+    assert prefix_agents["direct_offspring_count"].sum() == interrupted.summary.births_total
     assert recovered.recovery_depth == 1
     assert recovered.population_summary == continuous.population_summary
     assert recovered.survival_summary == continuous.survival_summary
