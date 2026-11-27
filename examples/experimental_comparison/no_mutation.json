@@ -1,0 +1,79 @@
+{
+  "energy": {
+    "basal_cost": 0.1,
+    "death_threshold": 0.0,
+    "failed_action_cost": 0.0,
+    "feeding_conversion": 1.0,
+    "feeding_cost": 0.0,
+    "feeding_max_resource_intake": 2.0,
+    "initial_energy": 30.0,
+    "max_energy": 100.0,
+    "movement_cost": 0.05,
+    "offspring_initial_energy": 10.0,
+    "reproduction_cost": 10.0,
+    "reproduction_threshold": 25.0
+  },
+  "evolution": {
+    "bias_abs_limit": 5.0,
+    "bias_mutation_rate": 0.0,
+    "bias_mutation_sigma": 0.02,
+    "max_age": 7,
+    "min_reproduction_age": 1,
+    "weight_abs_limit": 5.0,
+    "weight_mutation_rate": 0.0,
+    "weight_mutation_sigma": 0.02
+  },
+  "observations": {
+    "perception_radius": 2,
+    "schema_version": 1
+  },
+  "persistence": {
+    "batch_size": 1024,
+    "checkpoint_stride": null,
+    "destinations": [],
+    "level": "none",
+    "output_dir": "runs"
+  },
+  "policy": {
+    "action_schema_version": "1.0",
+    "activation": "tanh",
+    "hidden_size": 16
+  },
+  "population": {
+    "allow_multiple_agents_per_cell": true,
+    "initial_agents": 4,
+    "max_agents": 12,
+    "max_births_per_step": 4,
+    "placement": "random"
+  },
+  "runtime": {
+    "backend": "cpu",
+    "chunk_size": 3,
+    "record_stride": 1,
+    "snapshot_stride": null,
+    "steps": 6
+  },
+  "schema_version": "3.0",
+  "seed": 42,
+  "world": {
+    "boundary_mode": "closed",
+    "environment_initial_value": 0.0,
+    "environment_schedule": [
+      {
+        "start_step": 2,
+        "end_step": 4,
+        "regeneration_multiplier": 0.25,
+        "stress_level": 0.5
+      }
+    ],
+    "height": 4,
+    "initial_resource_mean": 5.0,
+    "regeneration_rate": 0.05,
+    "resource_capacity": 10.0,
+    "resource_distribution": "uniform",
+    "resource_patch_contrast": 0.8,
+    "resource_patch_count": 8,
+    "resource_patch_radius": 5.0,
+    "width": 4
+  }
+}

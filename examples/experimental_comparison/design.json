@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "design_version": 1,
+  "experiment_id": "ca1cf2db-592f-4e76-9ea2-d7d9756d00da",
+  "name": "Controls amb tres llavors compartides",
+  "objective": "Verificar el flux de comparació experimental.",
+  "hypothesis": {
+    "question": "Com canvien la persistència i la descendència respecte dels controls?",
+    "factor": "Mutació, pertorbació o recursos, un factor per contrast.",
+    "criteria": "Contrasts descriptius per llavor durant sis passos."
+  },
+  "baseline_case_id": "baseline",
+  "cases": [
+    {
+      "case_id": "baseline",
+      "role": "BASELINE",
+      "config_path": "baseline.json",
+      "description": "Mutació activa amb pertorbació ambiental programada."
+    },
+    {
+      "case_id": "no_mutation",
+      "role": "CONTROL",
+      "config_path": "no_mutation.json",
+      "description": "Taxes de mutació de pesos i biaixos a zero."
+    },
+    {
+      "case_id": "constant_environment",
+      "role": "CONTROL",
+      "config_path": "constant_environment.json",
+      "description": "Condició inicial compartida i calendari sense fases."
+    },
+    {
+      "case_id": "abundant_resources",
+      "role": "CONTROL",
+      "config_path": "abundant_resources.json",
+      "description": "Estoc inicial de 15 i capacitat de 20 unitats per cel·la."
+    }
+  ],
+  "seed_set": [
+    11,
+    22,
+    33
+  ],
+  "total_steps": 6,
+  "chunk_steps": 3,
+  "comparison_metrics": {
+    "primary": [
+      "final_population",
+      "births_total"
+    ],
+    "secondary": [
+      "mean_population",
+      "population_extinct",
+      "resource_consumed_total",
+      "final_resources",
+      "mutation_effective_total",
+      "dominant_lineage_fraction",
+      "genetic_parameter_variance",
+      "deaths_total"
+    ]
+  },
+  "allowed_config_differences": {
+    "no_mutation": [
+      "evolution.weight_mutation_rate",
+      "evolution.bias_mutation_rate"
+    ],
+    "constant_environment": [
+      "world.environment_schedule"
+    ],
+    "abundant_resources": [
+      "world.initial_resource_mean",
+      "world.resource_capacity"
+    ]
+  },
+  "environment_change_step": 2
+}
