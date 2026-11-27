@@ -143,6 +143,9 @@ def load_design(path: Path) -> ExperimentDesign:
 
 
 def resolve_design(design: ExperimentDesign) -> ResolvedDesign:
+    from evolucio.analysis.comparison.metrics import validate_metrics
+
+    validate_metrics(design)
     prepared = prepare_batch(design.batch_plan())
     configs = {
         spec.case_id: frozen.config

@@ -87,6 +87,12 @@ def compare_compatibility(
                 warnings.add("Source commit has unverified working-tree changes")
         if a.environment != b.environment or a.environment.backend is None:
             differences.add("execution environment or backend")
+        if any(
+            item.run.config.runtime.backend == "cpu"
+            and item.run.manifest.environment.backend != "cpu"
+            for item in (left, right)
+        ):
+            differences.add("backend differs from the declared CPU backend")
         if a.schemas != b.schemas or a.schemas.metrics is None or a.schemas.simulation_step is None:
             differences.add("manifest schemas")
         if (

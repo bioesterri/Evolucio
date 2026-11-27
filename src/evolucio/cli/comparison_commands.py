@@ -14,11 +14,9 @@ from .database_commands import experiment_app
 @experiment_app.command("validate-design")
 def validate_design(path: Path) -> None:
     """Show the validated experimental matrix without starting runs."""
-    from evolucio.analysis.comparison.compare import validate_metrics
     from evolucio.experiments.design import load_design, plan_payload, resolve_design
 
     design = load_design(path)
-    validate_metrics(design)
     resolved = resolve_design(design)
     typer.echo(
         json.dumps(
@@ -41,14 +39,12 @@ def execute(
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Freeze the plan and execute it via the existing batch runtime."""
-    from evolucio.analysis.comparison.compare import validate_metrics
     from evolucio.experiments.design import execute_design, load_design, resolve_design
 
     if dry_run:
         validate_design(path)
         return
     design = load_design(path)
-    validate_metrics(design)
     target = execution_dir or Path("experiments") / str(design.experiment_id) / str(
         design.design_version
     )
@@ -77,6 +73,8 @@ def compare(
     common_steps: Annotated[bool, typer.Option("--common-steps")] = False,
 ) -> None:
     """Verify persisted trajectories and compare matched seed blocks."""
+    import polars as pl
+
     from evolucio.analysis.comparison import (
         AlignmentPolicy,
         BootstrapPolicy,
@@ -169,12 +167,13 @@ def compare(
                 metric_name=temporal_metric,
                 window=asdict(window),
                 alignment=alignment.value,
-                observed_steps=series.select("step")
-                .unique()
-                .sort("step")
+                observed_steps=series.select(
+                    pl.col("step").n_unique().alias("count"),
+                    pl.col("step").min().alias("first"),
+                    pl.col("step").max().alias("last"),
+                )
                 .collect()
-                .get_column("step")
-                .to_list(),
+                .row(0, named=True),
             )
             if environment_control is not None:
                 contrast = next(

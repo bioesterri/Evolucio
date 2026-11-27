@@ -10,7 +10,7 @@ import polars as pl
 from evolucio.experiments.design import ExperimentDesign, PairPolicy, ResolvedDesign, resolve_design
 
 from .compatibility import ComparabilityReport, compare_compatibility
-from .metrics import METRICS, Observation, extract_metrics
+from .metrics import Observation, extract_metrics
 from .selection import Cell, LocalRunProvider, RunProvider, SelectionReport, select_comparison_runs
 from .statistics import (
     METRIC_KEYS,
@@ -86,14 +86,6 @@ class ExperimentComparisonResult:
     @property
     def extinction_summaries(self) -> pl.LazyFrame:
         return self.tables["extinction_summary"]
-
-
-def validate_metrics(design: ExperimentDesign) -> None:
-    metrics = design.comparison_metrics
-    if unknown := set(metrics.names) - METRICS.keys():
-        raise ValueError(f"unknown comparison metrics: {sorted(unknown)}")
-    if "survival_at_fixed_age" in metrics.names and metrics.survival_fixed_age is None:
-        raise ValueError("survival_at_fixed_age requires a declared survival_fixed_age")
 
 
 def _coverage_report(selection: SelectionReport) -> pl.LazyFrame:
@@ -206,7 +198,6 @@ def compare_experiment(
     bootstrap: BootstrapPolicy | None = None,
 ) -> ExperimentComparisonResult:
     """Return audit tables even when a strict contrast is blocked."""
-    validate_metrics(design)
     if not isfinite(tolerance) or tolerance < 0:
         raise ValueError("tolerance must be finite and nonnegative")
     resolved = resolve_design(design)
@@ -289,7 +280,7 @@ def compare_experiment(
             bootstrap_summaries(differences, bootstrap),
             on=["variant_case_id", *METRIC_KEYS],
             validate="1:1",
-        )
+        ).sort("variant_case_id", *METRIC_KEYS)
     unavailable = (
         metrics.filter(pl.col("metric_value").is_null()).group_by("metric_name").len().collect()
     )

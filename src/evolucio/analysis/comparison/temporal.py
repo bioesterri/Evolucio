@@ -40,7 +40,10 @@ def aligned_series(
             )
         else:
             frame = energy_series(run, window)
-            if metric_name in {"step", "run_id"} or metric_name not in frame.collect_schema():
+            if (
+                metric_name in {"step", "run_id", "metrics_interval"}
+                or metric_name not in frame.collect_schema()
+            ):
                 raise ValueError(f"unsupported temporal metric: {metric_name}")
         frames.append(
             frame.select(

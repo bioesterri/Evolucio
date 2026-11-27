@@ -35,6 +35,7 @@ class RunCandidate:
     status: str = "unknown"
     excluded_reason: str | None = None
     error: str | None = None
+    registered_root_id: str | None = None
 
 
 type RunProvider = Callable[[ExperimentDesign], Iterable[RunCandidate]]
@@ -97,6 +98,7 @@ class RegisteredRunProvider:
     def __call__(self, design: ExperimentDesign) -> Iterable[RunCandidate]:
         for record in self.registry.list_runs(experiment_id=design.experiment_id):
             exclusion = self.registry.get_analysis_exclusion(record.run_id)
+            recovery = self.registry.get_recovery(record.run_id)
             yield RunCandidate(
                 registered_run_path(record.run_id, record.local_run_path, self.storage_root),
                 record.case_id,
@@ -105,6 +107,7 @@ class RegisteredRunProvider:
                 record.config_hash,
                 record.status,
                 None if exclusion is None else exclusion.reason,
+                registered_root_id=str(record.run_id if recovery is None else recovery.root_run_id),
             )
 
 
@@ -165,6 +168,10 @@ def select_comparison_runs(
                 case_id, seed = manifest.case_id, manifest.seed
                 run_id, config_hash = manifest.run_id, manifest.config_hash
                 root_run_id = run.recovery.root_run_id if run.recovery else run_id
+                if candidate.registered_root_id is not None and (
+                    candidate.registered_root_id != root_run_id or status != manifest.status.value
+                ):
+                    raise ValueError("registry lifecycle or recovery root disagrees with manifest")
                 cell = (case_id, seed)
                 status = manifest.status.value
                 exclusion = read_exclusion(run.path, manifest.run_id)

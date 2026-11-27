@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from math import isfinite
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import polars as pl
 
@@ -19,6 +19,9 @@ from evolucio.analysis.survival import survival_curve
 from evolucio.analysis.types import AnalysisPolicy, AnalysisUnavailableError, Metric, Quality
 from evolucio.analysis.windows import AnalysisRun
 
+if TYPE_CHECKING:
+    from evolucio.experiments.design import ExperimentDesign
+
 
 @dataclass(frozen=True, slots=True)
 class MetricSpecification:
@@ -34,6 +37,14 @@ class MetricSpecification:
 
 
 METRICS: dict[str, MetricSpecification] = {}
+
+
+def validate_metrics(design: "ExperimentDesign") -> None:
+    metrics = design.comparison_metrics
+    if unknown := set(metrics.names) - METRICS.keys():
+        raise ValueError(f"unknown comparison metrics: {sorted(unknown)}")
+    if "survival_at_fixed_age" in metrics.names and metrics.survival_fixed_age is None:
+        raise ValueError("survival_at_fixed_age requires a declared survival_fixed_age")
 
 
 def _register(

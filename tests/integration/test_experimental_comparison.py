@@ -1,11 +1,12 @@
 """Exercise planned execution and paired analysis on persisted real runs."""
 
 from collections.abc import Iterable
-from dataclasses import replace
 from pathlib import Path
+from uuid import uuid4
 
 import polars as pl
 import pytest
+from polars.testing import assert_frame_equal
 from typer.testing import CliRunner
 
 from evolucio.analysis.comparison import LocalRunProvider, compare_experiment, export_comparison
@@ -14,7 +15,6 @@ from evolucio.analysis.comparison.temporal import compare_time_series
 from evolucio.analysis.genome_distance import parent_child_genome_divergence
 from evolucio.analysis.types import AnalysisWindow
 from evolucio.cli.main import app
-from evolucio.experiments import SeedSet, run_batch
 from evolucio.experiments.design import (
     ExperimentDesign,
     PairPolicy,
@@ -23,10 +23,13 @@ from evolucio.experiments.design import (
     resolve_design,
 )
 from evolucio.persistence.local.artifacts import sha256_file
+from evolucio.persistence.local.manifest import RunStatus, load_run_manifest
 from evolucio.persistence.local.version_info import CodeVersionInfo
+from evolucio.persistence.zarr.schemas import ZarrCapturePolicy
 from evolucio.recovery.runner import resume
-from evolucio.runtime.recorded_run import RecordedRunResult
-from evolucio.runtime.stop_control import StopController
+from evolucio.runtime.recorded_run import RecordedRunResult, run_recorded_simulation
+from evolucio.runtime.types import HostChunkBatch, RunPlan
+from tests.regression.helpers import FLOAT32_ATOL, FLOAT32_RTOL
 from tests.unit.test_experimental_comparison import EXAMPLE
 
 
@@ -122,43 +125,64 @@ def test_planned_comparison_end_to_end(tmp_path: Path, clean_provenance: None) -
     assert available.comparability_reports[0].missing_seeds == (22,)
     assert available.interpretation == "EXPLORATORY"
 
-    # Stop a separate attempt at a committed boundary and resume it via PR-41.
-    controller = StopController()
+    # Fail after a committed checkpoint, then recover the same root trajectory.
+    failed_run_id = str(uuid4())
+    failed_path = root / "runs" / failed_run_id
 
-    def stop_on_chunk(_chunk: object) -> None:
-        controller.request_stop()
+    def fail_after_checkpoint(chunk: HostChunkBatch) -> None:
+        if chunk.start_step >= design.chunk_steps:
+            raise RuntimeError("synthetic technical failure")
 
-    one_case = resolved.design.batch_plan()
-    attempt = run_batch(
-        plan=replace(one_case, cases=one_case.cases[:1], seed_set=SeedSet((11,))),
-        output_root=root / "runs",
-        stop_controller=controller,
-        consumer_factory=lambda _: stop_on_chunk,
-    ).runs[0]
-    assert attempt.run_dir is not None
-    recovered = resume(Path(attempt.run_dir))
+    config = resolved.batch.configs[0].config
+    with pytest.raises(RuntimeError, match="synthetic technical failure"):
+        run_recorded_simulation(
+            config=config,
+            case_id="baseline",
+            output_root=root / "runs",
+            run_id=failed_run_id,
+            plan=RunPlan(design.total_steps, design.chunk_steps),
+            capture_policy=ZarrCapturePolicy(checkpoint_interval=design.chunk_steps),
+            consumer=fail_after_checkpoint,
+        )
+    assert load_run_manifest(failed_path / "manifest.json").status is RunStatus.FAILED
+    recovered = resume(failed_path)
     assert isinstance(recovered, RecordedRunResult)
     ambiguous = select_comparison_runs(resolved, provider)
     assert ambiguous.cells[("baseline", 11)] == "ambiguous"
+    failed = next(item for item in ambiguous.attempts if item.run_id == failed_run_id)
+    assert failed.status == "failed" and failed.reason == "synthetic technical failure"
     chosen = compare_experiment(
         design, run_provider=provider, choices={("baseline", 11): recovered.manifest.run_id}
     )
     selected = chosen.run_selection_report.selected[("baseline", 11)].run.recovery
-    assert selected is not None and selected.root_run_id == attempt.run_id
-    assert (
-        chosen.tables["paired_differences"]
-        .collect()
-        .drop("baseline_run_id")
-        .equals(result.tables["paired_differences"].collect().drop("baseline_run_id"))
+    assert selected is not None and selected.root_run_id == failed_run_id
+    original_pairs = result.tables["paired_differences"].collect().drop("baseline_run_id")
+    recovered_pairs = chosen.tables["paired_differences"].collect().drop("baseline_run_id")
+    assert_frame_equal(
+        original_pairs.drop("absolute_difference"),
+        recovered_pairs.drop("absolute_difference"),
+        abs_tol=FLOAT32_ATOL,
+        rel_tol=FLOAT32_RTOL,
     )
+    # Subtraction can expose the numerical error of either operand near delta=0.
+    for original, recovered_row in zip(
+        original_pairs.iter_rows(named=True), recovered_pairs.iter_rows(named=True), strict=True
+    ):
+        delta = original["absolute_difference"]
+        restored_delta = recovered_row["absolute_difference"]
+        if delta is None:
+            assert restored_delta is None
+        else:
+            bound = 2 * FLOAT32_ATOL + FLOAT32_RTOL * (
+                abs(original["baseline_value"]) + abs(original["variant_value"])
+            )
+            assert restored_delta == pytest.approx(delta, abs=bound, rel=0)
 
 
 def test_sampled_energy_and_extinct_population(tmp_path: Path, clean_provenance: None) -> None:
     from evolucio.analysis.comparison.temporal import AlignmentPolicy
     from evolucio.config import load_config
     from evolucio.persistence.parquet.schemas import ParquetPersistencePolicy
-    from evolucio.runtime.recorded_run import run_recorded_simulation
-    from evolucio.runtime.types import RunPlan
 
     original = load_design(EXAMPLE)
     config = load_config(original.cases[0].config_path)

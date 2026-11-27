@@ -29,6 +29,17 @@ def test_design_matrix_and_controls() -> None:
     resolved = resolve_design(design)
     assert resolved.batch.preflight.run_count == 12
     assert all(not issues for issues in resolved.blocking_errors.values())
+    three_cases = design.model_copy(
+        update={
+            "cases": design.cases[:3],
+            "allowed_config_differences": {
+                key: value
+                for key, value in design.allowed_config_differences.items()
+                if key != "abundant_resources"
+            },
+        }
+    )
+    assert resolve_design(three_cases).batch.preflight.run_count == 9
     for case in design.cases:
         assert {spec.seed for spec in resolved.batch.specs if spec.case_id == case.case_id} == {
             11,
@@ -48,6 +59,35 @@ def test_design_matrix_and_controls() -> None:
         }
     )
     assert len(resolve_design(invalid).blocking_errors["no_mutation"]) == 2
+
+
+def test_unplanned_metabolism_change_is_reported(tmp_path: Path) -> None:
+    design = load_design(EXAMPLE)
+    case = design.cases[1]
+    config = load_config(case.config_path)
+    changed = config.model_copy(
+        update={
+            "energy": config.energy.model_copy(update={"basal_cost": config.energy.basal_cost * 2}),
+        }
+    )
+    path = tmp_path / "changed.json"
+    path.write_text(changed.model_dump_json(), encoding="utf-8")
+    altered = design.model_copy(
+        update={
+            "cases": (
+                design.cases[0],
+                case.model_copy(update={"config_path": path}),
+                *design.cases[2:],
+            ),
+        }
+    )
+    resolved = resolve_design(altered)
+    assert resolved.blocking_errors[case.case_id] == ("Uncontrolled parameter: energy.basal_cost",)
+    assert {diff.parameter_path for diff in resolved.differences[case.case_id]} == {
+        "energy.basal_cost",
+        "evolution.weight_mutation_rate",
+        "evolution.bias_mutation_rate",
+    }
 
 
 def test_projection_retains_scientific_and_capture_fields() -> None:
