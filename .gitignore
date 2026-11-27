@@ -21,3 +21,7 @@ build/
 
 # Local run records (operational artifacts)
 runs/
+
+# Local experimental plans and derived comparisons
+/experiments/
+/comparisons/

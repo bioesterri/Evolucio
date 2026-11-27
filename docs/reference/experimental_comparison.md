@@ -19,7 +19,9 @@ aleatoris diferents.
 L'execució congela el document i els hashes base i per llavor abans
 d'inicialitzar el batch. Desa el pla a `experiment_design.json` i els intents
 a `attempts.jsonl`. El directori d'execució és exclusiu de l'experiment i
-revisió. Per canviar una hipòtesi o un protocol, incrementa `design_version`
+revisió. Els directoris per defecte `experiments/` i `comparisons/` són
+artefactes locals ignorats per Git. Per fer servir directoris propis en
+mode estricte, situa'ls fora de l'arbre de treball o en un camí ignorat. Per canviar una hipòtesi o un protocol, incrementa `design_version`
 i executa en un directori nou. El pla exportat remet als fitxers de
 configuració originals. Conserva aquests fitxers i el directori d'execució
 per reproduir l'informe.
