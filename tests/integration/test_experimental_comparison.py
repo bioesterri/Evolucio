@@ -1,5 +1,6 @@
 """Exercise planned execution and paired analysis on persisted real runs."""
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from uuid import uuid4
@@ -353,9 +354,10 @@ def test_sampled_energy_and_extinct_population(tmp_path: Path, clean_provenance:
     ],
 )
 def test_comparison_cli_rejects_invalid_options(options: list[str], message: str) -> None:
-    result = CliRunner().invoke(app, ["analysis", "compare", str(EXAMPLE), *options])
-    assert result.exit_code == 2, result.output
-    assert message in result.output
+    result = CliRunner().invoke(app, ["analysis", "compare", str(EXAMPLE), *options], color=True)
+    output = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert result.exit_code == 2, output
+    assert message in output
 
 
 def test_comparison_cli_exports_missing_seed_audit(tmp_path: Path) -> None:
