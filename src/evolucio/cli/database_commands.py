@@ -53,7 +53,7 @@ def upgrade() -> None:
     typer.echo("Database upgraded to Alembic head.")
 
 
-def _registry() -> tuple["PostgresRegistry", "Engine"]:
+def open_registry() -> tuple["PostgresRegistry", "Engine"]:
     from evolucio.persistence.postgres import (
         PostgresRegistry,
         create_registry_engine,
@@ -69,7 +69,7 @@ def create_experiment(
     name: Annotated[str, typer.Option("--name")],
     objective: Annotated[str | None, typer.Option("--objective")] = None,
 ) -> None:
-    registry, engine = _registry()
+    registry, engine = open_registry()
     try:
         record = registry.create_experiment(name=name, objective=objective)
         typer.echo(str(record.experiment_id))
@@ -79,7 +79,7 @@ def create_experiment(
 
 @experiment_app.command("list")
 def list_experiments() -> None:
-    registry, engine = _registry()
+    registry, engine = open_registry()
     try:
         for record in registry.list_experiments():
             typer.echo(f"{record.experiment_id}\t{record.status}\t{record.name}")
@@ -94,7 +94,7 @@ def verify_run(run_dir: Path) -> None:
 
     from evolucio.persistence.postgres.reconcile import reconcile_run
 
-    registry, engine = _registry()
+    registry, engine = open_registry()
     try:
         report = reconcile_run(run_dir, registry)
         typer.echo(text_fields(asdict(report)))
@@ -109,7 +109,7 @@ def sync_run(run_dir: Path) -> None:
     """Publish verified artifact indexes and a recorded stop to PostgreSQL."""
     from evolucio.persistence.postgres.reconcile import sync_run_artifacts
 
-    registry, engine = _registry()
+    registry, engine = open_registry()
     try:
         sync_run_artifacts(run_dir, registry)
     finally:
